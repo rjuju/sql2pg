@@ -23,11 +23,11 @@ stmtmulti ::=
     | stmt action => ::first
 
 stmt ::=
-    SelectStmt action => ::first
+    SelectStmt action => print_node
 
 SelectStmt ::=
-    SELECT target_list FROM from_list action => selectfromwhere
-    | SELECT target_list FROM from_list WHERE where_list action => selectfromwhere
+    SELECT target_list FROM from_list action => make_select
+    | SELECT target_list FROM from_list WHERE where_list action => make_select
 
 target_list ::=
     target_list ',' target_el action => append_ident
@@ -38,22 +38,22 @@ target_el ::=
     | a_expr action => ::first
 
 a_expr ::=
-    '*' action => new_ident
-    | IDENT action => new_ident
-    | number action => new_ident
+    '*' action => make_ident
+    | IDENT action => make_ident
+    | number action => make_ident
 
 
 from_list ::=
     from_list ',' IDENT action => append_ident
-    | IDENT AS IDENT action => new_ident
-    | IDENT action => new_ident
+    | IDENT AS IDENT action => make_ident
+    | IDENT action => make_ident
 
 where_list ::=
     where_list QUAL_OP qual action => append_qual
     | qual action => ::first
 
 qual ::=
-    a_expr OPERATOR a_expr action => new_qual
+    a_expr OPERATOR a_expr action => make_qual
 
 # keywords
 AND     ~ 'AND':ic
@@ -98,11 +98,16 @@ $input .= " SELECT 1, * from dual WHERE 1 > 2 OR b > 2;";
 
 my $value_ref = $grammar->parse( \$input, 'plsql2pg' );
 
-sub plsql2pg::new_ident {
-    my (undef, $ident, undef, $alias) = @_;
+sub plsql2pg::make_ident {
+    my (undef, $name, undef, $alias) = @_;
     my $idents = [];
+    my $ident = make_node('ident');
 
-    push (@{$idents}, make_ident($ident, $alias));
+    $ident->{name} = quote_ident($name);
+    $ident->{alias} = quote_ident($alias);
+
+    push (@{$idents}, $ident);
+
     return $idents;
 }
 
@@ -111,20 +116,19 @@ sub plsql2pg::append_ident {
 
     push (@{$idents}, @{$ident});
 
-    #if (ref($ident) eq 'ARRAY') {
-    #    push (@{$idents}, @{$ident});
-    #} else {
-    #    push (@{$idents}, make_ident($ident, undef));
-    #}
-
     return $idents;
 }
 
-sub plsql2pg::new_qual {
+sub plsql2pg::make_qual {
     my (undef, $left, $op, $right) = @_;
     my $quals = [];
+    my $qual = make_node('qual');
 
-    push(@{$quals}, make_qual($left, $op, $right));
+    $qual->{left} = pop(@{$left});
+    $qual->{op} = $op;
+    $qual->{right} = pop(@{$right});
+
+    push(@{$quals}, $qual);
 
     return $quals;
 }
@@ -135,45 +139,60 @@ sub plsql2pg::append_qual {
     push(@{$quals}, $qualop);
     push (@{$quals}, @{$qual});
 
-    #if (ref($qual) eq 'ARRAY') {
-    #    push (@{$quals}, @{$qual});
-    #} else {
-    #    push (@{$quals}, $qual);
-    #}
-
     return $quals;
 }
 
-sub plsql2pg::selectfromwhere {
+sub plsql2pg::make_select {
     my (undef, undef, $targetlist, undef, $fromlist, undef, $wherelist) = @_;
+    my $stmts = [];
+    my $stmt = make_node('select');
+
+    $stmt->{targetlist} = $targetlist;
+    $stmt->{fromlist} = $fromlist;
+    $stmt->{wherelist} = $wherelist;
+
+    push(@{$stmts}, $stmt);
+
+    return $stmts;
+}
+
+sub format_select {
+    my ($stmt) = @_;
     my $select = undef;
     my $from = undef;
     my $where = undef;
+    my $out;
 
-    foreach my $elem (@{$targetlist}) {
+    foreach my $node (@{$stmt->{targetlist}}) {
         $select .= ', ' if defined($select);
-        $select .= format_ident($elem);
+        $select .= format_node($node);
     }
 
-    foreach my $elem (@{$fromlist}) {
+    foreach my $node (@{$stmt->{fromlist}}) {
         $from .= ', ' if defined($from);
-        $from .= format_ident($elem);
+        $from .= format_node($node);
     }
 
-    foreach my $elem (@{$wherelist}) {
+    foreach my $node (@{$stmt->{wherelist}}) {
         $where .= "WHERE " unless defined($where);
-        if (ref($elem)) {
-            $where .= format_qual($elem);
+        if (ref($node)) {
+            $where .= format_node($node);
         } else {
-            $where .= ' ' . $elem . ' ';
+            $where .= ' ' . $node . ' ';
         }
     }
 
 
-    print "SELECT $select";
-    print " FROM $from" if ($from ne 'dual'); # only if this is the only table
-    print " $where" if defined($where);
-    print ";\n";
+    $out  = "SELECT $select";
+    $out .= " FROM $from" if ($from ne 'dual'); # only if this is the only table
+    $out .= " $where" if defined($where);
+    $out .= ";";
+}
+
+sub plsql2pg::print_node {
+    my (undef, $node) = @_;
+
+    print format_node($node);
 }
 
 # Handle ident conversion from oracle to pg
@@ -193,43 +212,39 @@ sub quote_ident {
     }
 }
 
-sub make_ident {
-    my ($name, $alias) = @_;
-    my $elem = {};
+sub make_node {
+    my ($type) = @_;
+    my $node = {};
 
-    $elem->{type} = 'ident';
-    $elem->{name} = quote_ident($name);
-    $elem->{alias} = quote_ident($alias);
+    $node->{type} = $type;
 
-    return $elem;
+    return $node;
 }
 
-sub make_qual {
-    my ($left, $op, $right) = @_;
-    my $elem = {};
+sub format_node {
+    my ($node) = @_;
+    my $func;
 
-    $elem->{type} = 'qual';
-    $elem->{left} = pop(@{$left});
-    $elem->{op} = $op;
-    $elem->{right} = pop(@{$right});
+    if (ref($node) eq 'ARRAY') {
+        my $out;
+        foreach my $n (@{$node}) {
+            $out .= format_node($n) . "\n";
+        }
 
-    return $elem;
-}
+        return $out;
+    }
 
-sub format_elem {
-    my ($elem) = @_;
-
-    if (ref($elem) ne 'HASH') {
+    if (ref($node) ne 'HASH') {
         print "Error: wrong object type\n";
-        print Dumper($elem);
+        print Dumper($node);
         exit 1;
     }
 
-    return format_ident($elem) if ($elem->{type} eq 'ident');
-    return format_qual($elem) if ($elem->{type} eq 'qual');
+    $func = "format_" . $node->{type};
 
-    print "Error: unhandled object type $elem->{type}\n";
-    exit 1;
+    # XXX should I handle every node type explicitely instead?
+    no strict;
+    return &$func($node);
 }
 
 sub format_ident {
@@ -249,8 +264,8 @@ sub format_qual {
     my $out;
     my $tmp = $qual->{left};
 
-    $out = format_elem($qual->{left}) . ' ' . $qual->{op} . ' '
-         . format_elem($qual->{right});
+    $out = format_node($qual->{left}) . ' ' . $qual->{op} . ' '
+         . format_node($qual->{right});
 
     return $out;
 }
