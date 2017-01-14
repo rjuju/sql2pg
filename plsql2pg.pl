@@ -169,7 +169,9 @@ sub plsql2pg::selectfromwhere {
         }
     }
 
-    print "SELECT $select FROM $from";
+
+    print "SELECT $select";
+    print " FROM $from" if ($from ne 'dual'); # only if this is the only table
     print " $where" if defined($where);
     print ";\n";
 }
