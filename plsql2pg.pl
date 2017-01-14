@@ -44,9 +44,14 @@ a_expr ::=
 
 
 from_list ::=
-    from_list ',' IDENT action => append_ident
-    | IDENT AS IDENT action => make_ident
+    from_list ',' from_elem action => append_from
+    | from_elem action => ::first
+
+from_elem ::=
+    IDENT AS IDENT action => make_ident
     | IDENT action => make_ident
+    | '(' SelectStmt ')' AS IDENT action => make_subselect
+    | '(' SelectStmt ')' action => make_subselect
 
 where_list ::=
     where_list QUAL_OP qual action => append_qual
@@ -94,6 +99,10 @@ my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
 my $input = 'SElect 1 from DUAL; SELECT 1, abc from "toto"; select * from "TOTO" as "TATA";';
 $input .= " SELECT 1 from dual WHERE 1 > 2;";
 $input .= " SELECT 1, * from dual WHERE 1 > 2 OR b > 2;";
+$input .= " select true from (select 1 from dual);";
+$input .= " select * from (
+select 1 from dual
+) as t";
 
 
 my $value_ref = $grammar->parse( \$input, 'plsql2pg' );
@@ -106,7 +115,7 @@ sub plsql2pg::make_ident {
     $ident->{name} = quote_ident($name);
     $ident->{alias} = quote_ident($alias);
 
-    push (@{$idents}, $ident);
+    push(@{$idents}, $ident);
 
     return $idents;
 }
@@ -114,7 +123,7 @@ sub plsql2pg::make_ident {
 sub plsql2pg::append_ident {
     my (undef, $idents, undef, $ident) = @_;
 
-    push (@{$idents}, @{$ident});
+    push(@{$idents}, @{$ident});
 
     return $idents;
 }
@@ -137,9 +146,17 @@ sub plsql2pg::append_qual {
     my (undef, $quals, $qualop, $qual) = @_;
 
     push(@{$quals}, $qualop);
-    push (@{$quals}, @{$qual});
+    push(@{$quals}, @{$qual});
 
     return $quals;
+}
+
+sub plsql2pg::append_from {
+    my (undef, $froms, undef, $node) = @_;
+
+    push(@{$froms}, @{$node});
+
+    return $froms;
 }
 
 sub plsql2pg::make_select {
@@ -154,6 +171,18 @@ sub plsql2pg::make_select {
     push(@{$stmts}, $stmt);
 
     return $stmts;
+}
+
+sub plsql2pg::make_subselect {
+    my (undef, undef, $stmt, undef, undef, $alias) = @_;
+    my $node = pop(@{$stmt});
+
+    $node->{type} = 'subselect';
+    $node->{alias} = $alias if defined($alias);
+
+    push(@{$stmt}, $node);
+
+    return $stmt;
 }
 
 sub format_select {
@@ -186,13 +215,28 @@ sub format_select {
     $out  = "SELECT $select";
     $out .= " FROM $from" if ($from ne 'dual'); # only if this is the only table
     $out .= " $where" if defined($where);
-    $out .= ";";
+
+    return $out;
+}
+
+sub format_subselect {
+    my ($stmt) = @_;
+    my $out = "( ";
+
+    $stmt->{type} = 'select';
+
+    $out .= format_node($stmt);
+    $out .= " )";
+    $out .= " AS $stmt->{alias}" if defined($stmt->{alias});
+
+    return $out;
 }
 
 sub plsql2pg::print_node {
     my (undef, $node) = @_;
 
-    print format_node($node);
+    print format_node($node) . ";\n";
+
 }
 
 # Handle ident conversion from oracle to pg
@@ -228,16 +272,14 @@ sub format_node {
     if (ref($node) eq 'ARRAY') {
         my $out;
         foreach my $n (@{$node}) {
-            $out .= format_node($n) . "\n";
+            $out .= format_node($n) . " ";
         }
 
         return $out;
     }
 
     if (ref($node) ne 'HASH') {
-        print "Error: wrong object type\n";
-        print Dumper($node);
-        exit 1;
+        error("wrong object type", $node);
     }
 
     $func = "format_" . $node->{type};
@@ -268,4 +310,12 @@ sub format_qual {
          . format_node($qual->{right});
 
     return $out;
+}
+
+sub error {
+    my ($msg, $node) = @_;
+
+    print "ERROR: $msg\n";
+    print Dumper($node);
+    exit 1;
 }
