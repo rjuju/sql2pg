@@ -318,7 +318,7 @@ sub plsql2pg::make_select {
 }
 
 sub plsql2pg::make_subselect {
-    my (undef, undef, $stmt, $alias) = @_;
+    my (undef, undef, $stmt, undef, $alias) = @_;
     my $node = pop(@{$stmt});
 
     $node->{type} = 'subselect';

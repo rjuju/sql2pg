@@ -28,7 +28,7 @@ SELECT 1 AS nb FROM dual ;
 SELECT * FROM tbl AS t ORDER BY a ASC, b DESC, c ASC ;
 SELECT 1, abc, "DEF" FROM toto AS "TATA;" ;
 SELECT 1, 'test me', * FROM tbl AS t WHERE 1 > 2 OR b < 3 ;
-SELECT t.* FROM ( SELECT 1 FROM dual ) AS ) ;
+SELECT t.* FROM ( SELECT 1 FROM dual ) AS t ;
 SELECT * FROM a, c INNER JOIN b USING (id, id2) ;
 SELECT * FROM a, c RIGHT JOIN b ON a.id = b.id AND a.id2 = b.id2 ;
 SELECT 1 FROM a LEFT JOIN b AS t1 ON a.id = t1.id ;
