@@ -96,13 +96,12 @@ END_OF_DSL
 
 my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
 
-my $input = 'SElect 1 from DUAL; SELECT 1, abc from "toto"; select * from "TOTO" as "TATA";';
-$input .= " SELECT 1 from dual WHERE 1 > 2;";
-$input .= " SELECT 1, * from dual WHERE 1 > 2 OR b > 2;";
-$input .= " select true from (select 1 from dual);";
-$input .= " select * from (
-select 1 from dual
-) as t";
+my $input = 'SElect 1 from DUAL; SELECT * from "t1";';
+$input .= 'SELECT 1, abc, "DEF" from "toto" as "TATA;";';
+#$input .= " SELECT 1, 'test me', t.* from tbl t WHERE 1 > 2 OR b < 3;";
+#$input .= " select * from (
+#select 1 from dual
+#) as t";
 
 
 my $value_ref = $grammar->parse( \$input, 'plsql2pg' );
@@ -246,10 +245,10 @@ sub quote_ident {
     return undef if not defined($ident);
 
     if (substr($ident, 0, 1) eq '"') {
-        if (uc($ident) ne $ident) {
-            return $ident;
-        } else {
+        if ((substr($ident, 1, -1) =~ /[a-zA-Z_]/) and (lc($ident) eq $ident)) {
             return lc(substr($ident, 1, -1));
+        } else {
+            return $ident;
         }
     } else {
         return lc($ident);
