@@ -26,8 +26,7 @@ stmt ::=
     SelectStmt action => print_node
 
 SelectStmt ::=
-    SELECT target_list FROM from_list action => make_select
-    | SELECT target_list FROM from_list WHERE where_list action => make_select
+    SELECT select_clause from_clause join_clause where_clause action => make_select
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -35,6 +34,9 @@ ALIAS_CLAUSE ::=
     | EMPTY action => ::undef
 
 EMPTY ::= action => ::undef
+
+select_clause ::=
+    target_list action => make_selectclause
 
 target_list ::=
     target_list ',' target_el action => append_ident
@@ -49,6 +51,9 @@ a_expr ::=
     | LITERAL action => make_literal
 
 
+from_clause ::=
+    FROM from_list action => make_fromclause
+
 from_list ::=
     from_list ',' from_elem action => append_from
     | from_elem action => ::first
@@ -56,6 +61,28 @@ from_list ::=
 from_elem ::=
     IDENT ALIAS_CLAUSE action => alias_node
     | '(' SelectStmt ')' ALIAS_CLAUSE action => make_subselect
+
+join_clause ::=
+    join_list action => make_joinclause
+    | EMPTY action => ::undef
+
+join_list ::=
+    join_list join_elem action => append_join
+    | join_elem action => ::first
+
+join_elem ::=
+    join_type JOIN IDENT ALIAS_CLAUSE join_cond action => make_join
+
+join_type ::=
+    INNER action => make_jointype
+    | EMPTY action => make_jointype
+
+join_cond ::=
+    USING '(' target_list ')' action => make_joinusing
+
+where_clause ::=
+    WHERE where_list action => make_whereclause
+    | EMPTY action => make_whereclause
 
 where_list ::=
     where_list QUAL_OP qual action => append_qual
@@ -73,12 +100,15 @@ qual ::=
 # keywords
 AND     ~ 'AND':ic
 AS      ~ 'AS':ic
+INNER   ~ 'INNER':ic
 IS      ~ 'IS':ic
 #FALSE   ~ 'FALSE':ic
 FROM    ~ 'FROM':ic
+JOIN    ~ 'JOIN':ic
 NOT     ~ 'NOT':ic
 OR      ~ 'OR':ic
 SELECT  ~ 'SELECT':ic
+USING   ~ 'USING':ic
 #TRUE    ~ 'TRUE':ic
 WHERE   ~ 'WHERE':ic
 
@@ -120,7 +150,8 @@ SELECT 1, abc, "DEF" from "toto" as "TATA;";
  SELECT 1, 'test me', * from tbl t WHERE 1 > 2 OR b < 3;
  select t.* from (
 select 1 from dual
-) as t
+) as t;
+select * from a,c join b using (id,id2);
 SAMPLE_QUERIES
 
 
@@ -180,6 +211,24 @@ sub plsql2pg::make_literal {
     return $literals;
 }
 
+sub plsql2pg::make_selectclause {
+    my (undef, $tlist) = @_;
+
+    return make_clause('SELECT', $tlist);
+}
+
+sub plsql2pg::make_fromclause {
+    my (undef, undef, $froms) = @_;
+
+    return make_clause('FROM', $froms);
+}
+
+sub plsql2pg::make_whereclause {
+    my (undef, undef, $quals) = @_;
+
+    return make_clause('WHERE', $quals);
+}
+
 sub plsql2pg::make_qual {
     my (undef, $left, $op, $right) = @_;
     my $quals = [];
@@ -212,17 +261,15 @@ sub plsql2pg::append_from {
 }
 
 sub plsql2pg::make_select {
-    my (undef, @args) = @_;
+    my (undef, undef, @args) = @_;
     my $stmts = [];
     my $stmt = make_node('select');
     my $token;
 
-    while (scalar @args > 1) {
-        my $elem;
-        $token = uc(shift(@args));
-        $stmt->{$token} = shift(@args);
+    while (scalar @args > 0) {
+        $token = shift(@args);
+        $stmt->{$token->{type}} = $token->{content} if defined($token);
     }
-
 
     push(@{$stmts}, $stmt);
 
@@ -257,6 +304,63 @@ sub plsql2pg::alias_node {
     return $node;
 }
 
+sub plsql2pg::make_joinclause {
+    my (undef, $joins) = @_;
+
+    return make_clause('JOIN', $joins);
+}
+
+sub plsql2pg::make_join {
+    my (undef, $jointype, undef, $ident, $alias, $cond) = @_;
+    my $join = make_node('join');
+    my $joins = [];
+
+    $join->{jointype} = $jointype;
+    $join->{ident} = pop(@{$ident});
+    $join->{cond} = $cond;
+    $join->{alias} = $alias;
+
+    push (@{$joins}, $join);
+
+    return $joins;
+}
+
+sub plsql2pg::append_join {
+    my (undef, $joins, $join) = @_;
+
+    push(@{$joins}, $join);
+
+    return $joins;
+}
+
+sub plsql2pg::make_jointype {
+    my (undef, $kw1, $kw2) = @_;
+
+    return 'INNER' if (not defined($kw1));
+
+    $kw1 = uc($kw1);
+    $kw2 = uc($kw2);
+
+    return 'INNER' if ($kw1 eq 'INNER');
+}
+
+sub plsql2pg::make_joinusing {
+    my (undef, undef, undef, $targetlist) = @_;
+    my $node = make_node('using');
+
+    $node->{content} = $targetlist;
+    return $node;
+}
+
+sub make_clause {
+    my ($type, $content) = @_;
+    my $clause = make_node($type);
+
+    $clause->{content} = $content;
+
+    return $clause;
+}
+
 sub get_alias {
     my ($as, $alias) = @_;
 
@@ -269,6 +373,7 @@ sub format_select {
     my ($stmt) = @_;
     my $select = undef;
     my $from = undef;
+    my $join = undef;
     my $where = undef;
     my $out;
 
@@ -280,6 +385,11 @@ sub format_select {
     foreach my $node (@{$stmt->{FROM}}) {
         $from .= ', ' if defined($from);
         $from .= format_node($node);
+    }
+
+    foreach my $node (@{$stmt->{JOIN}}) {
+        $join .= ' ' if defined($join);
+        $join .= format_node($node);
     }
 
     foreach my $node (@{$stmt->{WHERE}}) {
@@ -294,6 +404,7 @@ sub format_select {
 
     $out  = "SELECT $select";
     $out .= " FROM $from" if ($from ne 'dual'); # only if this is the only table
+    $out .= " $join" if (defined($join));
     $out .= " $where" if defined($where);
 
     return $out;
@@ -309,6 +420,20 @@ sub format_subselect {
     $out .= " )";
     $out .= " AS $stmt->{alias}" if defined($stmt->{alias});
 
+    return $out;
+}
+
+sub format_using {
+    my ($node) = @_;
+    my $out = undef;
+
+    foreach my $ident (@{$node->{content}}) {
+        $out .= ', ' if defined($out);
+        $out .= format_node($ident);
+    }
+
+    $out = 'USING (' . $out;
+    $out .= ')';
     return $out;
 }
 
@@ -407,6 +532,18 @@ sub format_qual {
 
     $out = format_node($qual->{left}) . ' ' . $qual->{op} . ' '
          . format_node($qual->{right});
+
+    return $out;
+}
+
+sub format_join {
+    my ($join) = @_;
+    my $out;
+
+    $out = $join->{jointype} . " JOIN ";
+
+    $out .= format_ident($join->{ident});
+    $out .= ' ' . format_node($join->{cond});
 
     return $out;
 }
