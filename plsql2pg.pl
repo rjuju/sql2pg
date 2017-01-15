@@ -26,7 +26,7 @@ stmt ::=
     SelectStmt action => print_node
 
 SelectStmt ::=
-    SELECT select_clause from_clause join_clause where_clause action => make_select
+    SELECT select_clause from_clause join_clause where_clause order_clause action => make_select
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -88,7 +88,7 @@ join_cond ::=
 
 where_clause ::=
     WHERE qual_list action => make_whereclause
-    | EMPTY action => make_whereclause
+    | EMPTY action => ::undef
 
 qual_list ::=
     qual_list QUAL_OP qual action => append_qual
@@ -107,9 +107,28 @@ join_op ::=
     '(+)' action => ::first
     | EMPTY action => ::undef
 
+order_clause ::=
+    ORDER BY order_list action => make_orderbyclause
+    | EMPTY action => ::undef
+
+order_list ::=
+    order_list ',' order_elem action => append_orderby
+    | order_elem action => ::first
+
+order_elem ::=
+    a_expr ordering action => make_orderby
+
+ordering ::=
+    ASC action => ::first
+    | DESC action => ::first
+    | EMPTY action => ::undef
+
 # keywords
 AND     ~ 'AND':ic
 AS      ~ 'AS':ic
+ASC     ~ 'ASC':ic
+BY      ~ 'BY':ic
+DESC    ~ 'DESC':ic
 INNER   ~ 'INNER':ic
 IS      ~ 'IS':ic
 #FALSE   ~ 'FALSE':ic
@@ -120,6 +139,7 @@ LEFT    ~ 'LEFT':ic
 :lexeme ~ LEFT priority => 1
 NOT     ~ 'NOT':ic
 OR      ~ 'OR':ic
+ORDER   ~ 'ORDER':ic
 ON      ~ 'ON':ic
 OUTER   ~ 'OUTER':ic
 RIGHT   ~ 'RIGHT':ic
@@ -162,14 +182,14 @@ END_OF_DSL
 my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
 
 my $input = <<'SAMPLE_QUERIES';
-SElect 1 nb from DUAL; SELECT * from "t1" t;
+SElect 1 nb from DUAL; SELECT * from TBL t order by a, b desc, c asc;
 SELECT 1, abc, "DEF" from "toto" as "TATA;";
  SELECT 1, 'test me', * from tbl t WHERE 1 > 2 OR b < 3;
  select t.* from (
 select 1 from dual
 ) as t;
 select * from a,c join b using (id,id2);
-select * from a,c left join b on a.id = b.id AND a.id2 = b.id2;
+select * from a,c right join b on a.id = b.id AND a.id2 = b.id2;
 select 1 from a,b t1 where a.id = t1.id(+);
 SAMPLE_QUERIES
 
@@ -380,6 +400,38 @@ sub plsql2pg::make_joinon {
     return $node;
 }
 
+sub plsql2pg::make_orderby {
+    my (undef, $elem, $order) = @_;
+    my $orderbys = [];
+    my $orderby = make_node('orderby');
+
+    if (not defined($order)) {
+        $order = 'ASC' unless defined($order);
+    } else {
+        $order = uc($order);
+    }
+
+    $orderby->{elem} = $elem;
+    $orderby->{order} = $order;
+
+    push(@{$orderbys}, $orderby);
+
+    return $orderbys;
+}
+
+sub plsql2pg::append_orderby {
+    my (undef, $orderbys, undef, $orderby) = @_;
+
+    push(@{$orderbys}, @{$orderby});
+    return $orderbys;
+}
+
+sub plsql2pg::make_orderbyclause {
+    my (undef, undef, undef, $orderbys) = @_;
+
+    return make_clause('ORDERBY', $orderbys);
+}
+
 sub make_clause {
     my ($type, $content) = @_;
     my $clause = make_node($type);
@@ -387,6 +439,13 @@ sub make_clause {
     $clause->{content} = $content;
 
     return $clause;
+}
+
+sub format_orderby {
+    my ($orderby) = @_;
+    my $out;
+
+    return $orderby->{elem} . ' ' . $orderby->{order};
 }
 
 sub get_alias {
@@ -400,11 +459,8 @@ sub get_alias {
 sub format_select {
     my ($stmt) = @_;
     my $nodes;
-    my $select = undef;
-    my $from = undef;
-    my $join = undef;
-    my $where = undef;
-    my $out;
+    my $tmp = undef;
+    my $out = 'SELECT ';
 
     $nodes = handle_nonsqljoin($stmt->{FROM}, $stmt->{WHERE});
 
@@ -413,29 +469,47 @@ sub format_select {
         push(@{$stmt->{JOIN}}, @{$nodes});
     }
 
+    $tmp = undef;
     foreach my $node (@{$stmt->{SELECT}}) {
-        $select .= ', ' if defined($select);
-        $select .= format_node($node);
+        $tmp .= ', ' if defined($tmp);
+        $tmp .= format_node($node);
     }
+    $out .= $tmp;
 
+    $tmp = undef;
     foreach my $node (@{$stmt->{FROM}}) {
-        $from .= ', ' if defined($from);
-        $from .= format_node($node);
+        if (defined($tmp)) {
+            $tmp .= ', ';
+        } else {
+            $tmp .= ' FROM ';
+        }
+        $tmp .= format_node($node);
     }
+    $out .= $tmp if ($tmp ne 'dual'); # only if this is the only table
 
+    $tmp = undef;
     foreach my $node (@{$stmt->{JOIN}}) {
-        $join .= ' ' if defined($join);
-        $join .= format_node($node);
+        $tmp .= ' ';
+        $tmp .= format_node($node);
     }
+    $out .= $tmp if defined($tmp);
 
-    $where = "WHERE " . format_quallist($stmt->{WHERE})
+    $out .= " WHERE " . format_quallist($stmt->{WHERE})
         if defined($stmt->{WHERE}) and (scalar @{$stmt->{WHERE}} > 0);
 
+    $tmp = undef;
+    foreach my $node (@{$stmt->{ORDERBY}}) {
+        if (defined($tmp)) {
+            $tmp .= ", ";
+        } else {
+            $tmp = " ORDER BY ";
+        }
+        $tmp .= format_node(pop(@{$node->{elem}})) . " " . $node->{order};
+    }
+    $out .= $tmp if defined($tmp);
 
-    $out  = "SELECT $select";
-    $out .= " FROM $from" if ($from ne 'dual'); # only if this is the only table
-    $out .= " $join" if (defined($join));
-    $out .= " $where" if defined($where);
+    $tmp = undef;
+
 
     return $out;
 }
