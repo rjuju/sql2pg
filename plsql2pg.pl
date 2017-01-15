@@ -29,14 +29,19 @@ SelectStmt ::=
     SELECT target_list FROM from_list action => make_select
     | SELECT target_list FROM from_list WHERE where_list action => make_select
 
+ALIAS_CLAUSE ::=
+    AS ALIAS action => make_alias
+    | ALIAS action => make_alias
+    | EMPTY action => ::undef
+
+EMPTY ::= action => ::undef
+
 target_list ::=
     target_list ',' target_el action => append_ident
     | target_el action => ::first
 
 target_el ::=
-    a_expr AS ALIAS action => alias_node
-    | a_expr ALIAS action => alias_node
-    | a_expr action => ::first
+    a_expr ALIAS_CLAUSE action => alias_node
 
 a_expr ::=
     IDENT action => ::first
@@ -49,12 +54,8 @@ from_list ::=
     | from_elem action => ::first
 
 from_elem ::=
-    IDENT AS ALIAS action => alias_node
-    | IDENT ALIAS action => alias_node
-    | IDENT action => ::first
-    | '(' SelectStmt ')' AS ALIAS action => make_subselect
-    | '(' SelectStmt ')' ALIAS action => make_subselect
-    | '(' SelectStmt ')' action => make_subselect
+    IDENT ALIAS_CLAUSE action => alias_node
+    | '(' SelectStmt ')' ALIAS_CLAUSE action => make_subselect
 
 where_list ::=
     where_list QUAL_OP qual action => append_qual
@@ -125,6 +126,12 @@ SAMPLE_QUERIES
 
 my $value_ref = $grammar->parse( \$input, 'plsql2pg' );
 
+sub plsql2pg::make_alias {
+    my (undef, $as, $alias) = @_;
+
+    return get_alias($as, $alias);
+}
+
 sub plsql2pg::make_ident {
     my (undef, $db, undef, $table, undef, $schema, undef, $attribute) = @_;
     my $idents = [];
@@ -161,12 +168,12 @@ sub plsql2pg::append_ident {
 }
 
 sub plsql2pg::make_literal {
-    my (undef, $value, $as, $alias) = @_;
+    my (undef, $value, $alias) = @_;
     my $literals = [];
     my $literal = make_node('literal');
 
     $literal->{value} = $value;
-    $literal->{alias} = quote_ident(get_alias($as, $alias));
+    $literal->{alias} = $alias;
 
     push(@{$literals}, $literal);
 
@@ -205,13 +212,17 @@ sub plsql2pg::append_from {
 }
 
 sub plsql2pg::make_select {
-    my (undef, undef, $targetlist, undef, $fromlist, undef, $wherelist) = @_;
+    my (undef, @args) = @_;
     my $stmts = [];
     my $stmt = make_node('select');
+    my $token;
 
-    $stmt->{targetlist} = $targetlist;
-    $stmt->{fromlist} = $fromlist;
-    $stmt->{wherelist} = $wherelist;
+    while (scalar @args > 1) {
+        my $elem;
+        $token = uc(shift(@args));
+        $stmt->{$token} = shift(@args);
+    }
+
 
     push(@{$stmts}, $stmt);
 
@@ -219,11 +230,11 @@ sub plsql2pg::make_select {
 }
 
 sub plsql2pg::make_subselect {
-    my (undef, undef, $stmt, undef, $as, $alias) = @_;
+    my (undef, undef, $stmt, $alias) = @_;
     my $node = pop(@{$stmt});
 
     $node->{type} = 'subselect';
-    $node->{alias} = get_alias($as, $alias);
+    $node->{alias} = $alias;
 
     push(@{$stmt}, $node);
 
@@ -231,7 +242,7 @@ sub plsql2pg::make_subselect {
 }
 
 sub plsql2pg::alias_node {
-    my (undef, $node, $as, $alias) = @_;
+    my (undef, $node, $alias) = @_;
     my $n;
 
     if (scalar @{$node} != 1) {
@@ -240,7 +251,7 @@ sub plsql2pg::alias_node {
 
     $n = pop(@{$node});
 
-    $n->{alias} = get_alias($as, $alias);
+    $n->{alias} = $alias;
     push(@{$node}, $n);
 
     return $node;
@@ -249,8 +260,8 @@ sub plsql2pg::alias_node {
 sub get_alias {
     my ($as, $alias) = @_;
 
-    return $alias if defined($alias);
-    return $as if defined ($as);
+    return quote_ident($alias) if defined($alias);
+    return quote_ident($as) if defined ($as);
     return undef;
 }
 
@@ -261,17 +272,17 @@ sub format_select {
     my $where = undef;
     my $out;
 
-    foreach my $node (@{$stmt->{targetlist}}) {
+    foreach my $node (@{$stmt->{SELECT}}) {
         $select .= ', ' if defined($select);
         $select .= format_node($node);
     }
 
-    foreach my $node (@{$stmt->{fromlist}}) {
+    foreach my $node (@{$stmt->{FROM}}) {
         $from .= ', ' if defined($from);
         $from .= format_node($node);
     }
 
-    foreach my $node (@{$stmt->{wherelist}}) {
+    foreach my $node (@{$stmt->{WHERE}}) {
         $where .= "WHERE " unless defined($where);
         if (ref($node)) {
             $where .= format_node($node);
