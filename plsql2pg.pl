@@ -101,7 +101,11 @@ IDENT ::=
     | ident action => make_ident
 
 qual ::=
-    a_expr OPERATOR a_expr action => make_qual
+    a_expr OPERATOR a_expr join_op action => make_qual
+
+join_op ::=
+    '(+)' action => ::first
+    | EMPTY action => ::undef
 
 # keywords
 AND     ~ 'AND':ic
@@ -166,9 +170,11 @@ select 1 from dual
 ) as t;
 select * from a,c join b using (id,id2);
 select * from a,c left join b on a.id = b.id AND a.id2 = b.id2;
+select 1 from a,b t1 where a.id = t1.id(+);
 SAMPLE_QUERIES
 
 
+print "Original:\n---------\n" . $input . "\n\nConverted:\n----------\n";
 my $value_ref = $grammar->parse( \$input, 'plsql2pg' );
 
 sub plsql2pg::make_alias {
@@ -180,7 +186,7 @@ sub plsql2pg::make_alias {
 sub plsql2pg::make_ident {
     my (undef, $db, undef, $table, undef, $schema, undef, $attribute) = @_;
     my $idents = [];
-    my @atts = ('db', 'table', 'schema', 'attribute');
+    my @atts = ('db', 'schema', 'table', 'attribute');
     my $ident = make_node('ident');
 
     if (defined($attribute)) {
@@ -244,13 +250,14 @@ sub plsql2pg::make_whereclause {
 }
 
 sub plsql2pg::make_qual {
-    my (undef, $left, $op, $right) = @_;
+    my (undef, $left, $op, $right, $join_op) = @_;
     my $quals = [];
     my $qual = make_node('qual');
 
     $qual->{left} = pop(@{$left});
     $qual->{op} = $op;
     $qual->{right} = pop(@{$right});
+    $qual->{join_op} = $join_op;
 
     push(@{$quals}, $qual);
 
@@ -304,16 +311,12 @@ sub plsql2pg::make_subselect {
 
 sub plsql2pg::alias_node {
     my (undef, $node, $alias) = @_;
-    my $n;
 
     if (scalar @{$node} != 1) {
         error("Node should contain only one item", $node);
     }
 
-    $n = pop(@{$node});
-
-    $n->{alias} = $alias;
-    push(@{$node}, $n);
+    @{$node}[0]->{alias} = $alias;
 
     return $node;
 }
@@ -331,8 +334,8 @@ sub plsql2pg::make_join {
 
     $join->{jointype} = $jointype;
     $join->{ident} = pop(@{$ident});
+    $join->{ident}->{alias} = $alias;
     $join->{cond} = $cond;
-    $join->{alias} = $alias;
 
     push (@{$joins}, $join);
 
@@ -396,11 +399,19 @@ sub get_alias {
 
 sub format_select {
     my ($stmt) = @_;
+    my $nodes;
     my $select = undef;
     my $from = undef;
     my $join = undef;
     my $where = undef;
     my $out;
+
+    $nodes = handle_nonsqljoin($stmt->{FROM}, $stmt->{WHERE});
+
+    if (defined($nodes)) {
+        $stmt->{join} = [] unless defined($stmt->{JOIN});
+        push(@{$stmt->{JOIN}}, @{$nodes});
+    }
 
     foreach my $node (@{$stmt->{SELECT}}) {
         $select .= ', ' if defined($select);
@@ -418,7 +429,7 @@ sub format_select {
     }
 
     $where = "WHERE " . format_quallist($stmt->{WHERE})
-        if defined($stmt->{WHERE});
+        if defined($stmt->{WHERE}) and (scalar @{$stmt->{WHERE}} > 0);
 
 
     $out  = "SELECT $select";
@@ -427,6 +438,59 @@ sub format_select {
     $out .= " $where" if defined($where);
 
     return $out;
+}
+
+sub handle_nonsqljoin {
+    my ($from, $where) = @_;
+    my $joinlist = undef;
+    my $i;
+
+    return if not defined($where);
+
+    for ($i=0; $i<(scalar @{$where} > 0); $i++) {
+        if ((ref @{$where}[$i] eq 'HASH') and
+            defined(@{$where}[$i]->{join_op})
+        ) {
+            my $node;
+            my $w = splice(@{$where}, $i, 1);
+            my $t;
+            my $ident = [];
+            my $cond = [];
+
+            $joinlist = [] unless defined($joinlist);
+            push(@{$cond}, $w);
+
+            $t = splice_table_from_fromlist($from, $w->{right}->{table});
+            push(@{$ident}, $t);
+
+            $node = plsql2pg::make_join(undef, 'LEFT', undef, $ident,
+                $t->{alias}, plsql2pg::make_joinon(undef, undef, $cond));
+
+            push(@{$joinlist}, @{$node});
+        }
+    }
+
+    return $joinlist;
+}
+
+sub splice_table_from_fromlist {
+    my ($from, $name) = @_;
+    my $elem = undef;
+    my $i;
+
+    for ($i=0; $i<(scalar @{$from}); $i++) {
+        my $t = @{$from}[$i];
+        if (
+            (defined($t->{alias}) and $t->{alias} eq $name)
+            or
+            ($t->{attribute} eq $name)
+        ) {
+            $elem = splice(@{$from}, $i, 1);
+            last;
+        }
+    }
+
+    return $elem;
 }
 
 sub format_subselect {
@@ -538,7 +602,7 @@ sub format_node {
 
 sub format_ident {
     my ($ident) = @_;
-    my @atts = ('attribute', 'schema', 'table', 'db');
+    my @atts = ('attribute', 'table', 'schema', 'db');
     my $out;
 
     while (my $elem = pop(@atts)) {
