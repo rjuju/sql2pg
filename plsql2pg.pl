@@ -34,7 +34,8 @@ target_list ::=
     | target_el action => ::first
 
 target_el ::=
-    a_expr AS IDENT action => ::first
+    a_expr AS IDENT action => alias_node
+    | a_expr IDENT action => alias_node
     | a_expr action => ::first
 
 a_expr ::=
@@ -49,6 +50,7 @@ from_list ::=
 
 from_elem ::=
     IDENT AS IDENT action => make_ident
+    | IDENT IDENT action => make_ident
     | IDENT action => make_ident
     | '(' SelectStmt ')' AS IDENT action => make_subselect
     | '(' SelectStmt ')' action => make_subselect
@@ -96,23 +98,23 @@ END_OF_DSL
 
 my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
 
-my $input = 'SElect 1 from DUAL; SELECT * from "t1";';
+my $input = 'SElect 1 nb from DUAL; SELECT * from "t1" t;';
 $input .= 'SELECT 1, abc, "DEF" from "toto" as "TATA;";';
 #$input .= " SELECT 1, 'test me', t.* from tbl t WHERE 1 > 2 OR b < 3;";
-#$input .= " select * from (
-#select 1 from dual
-#) as t";
+$input .= " select * from (
+select 1 from dual
+) as t";
 
 
 my $value_ref = $grammar->parse( \$input, 'plsql2pg' );
 
 sub plsql2pg::make_ident {
-    my (undef, $name, undef, $alias) = @_;
+    my (undef, $name, $as, $alias) = @_;
     my $idents = [];
     my $ident = make_node('ident');
 
     $ident->{name} = quote_ident($name);
-    $ident->{alias} = quote_ident($alias);
+    $ident->{alias} = quote_ident(get_alias($as, $alias));
 
     push(@{$idents}, $ident);
 
@@ -182,6 +184,30 @@ sub plsql2pg::make_subselect {
     push(@{$stmt}, $node);
 
     return $stmt;
+}
+
+sub plsql2pg::alias_node {
+    my (undef, $node, $as, $alias) = @_;
+    my $n;
+
+    if (scalar @{$node} != 1) {
+        error("Node should contain only one item", $node);
+    }
+
+    $n = pop(@{$node});
+
+    $n->{alias} = get_alias($as, $alias);
+    push(@{$node}, $n);
+
+    return $node;
+}
+
+sub get_alias {
+    my ($as, $alias) = @_;
+
+    return $alias if defined($alias);
+    return $as if defined ($as);
+    return undef;
 }
 
 sub format_select {
