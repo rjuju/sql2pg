@@ -75,17 +75,23 @@ join_elem ::=
 
 join_type ::=
     INNER action => make_jointype
+    | LEFT action => make_jointype
+    | LEFT OUTER action => make_jointype
+    | RIGHT action => make_jointype
+    | RIGHT OUTER action => make_jointype
+    | FULL OUTER action => make_jointype
     | EMPTY action => make_jointype
 
 join_cond ::=
     USING '(' target_list ')' action => make_joinusing
+    | ON qual_list action => make_joinon
 
 where_clause ::=
-    WHERE where_list action => make_whereclause
+    WHERE qual_list action => make_whereclause
     | EMPTY action => make_whereclause
 
-where_list ::=
-    where_list QUAL_OP qual action => append_qual
+qual_list ::=
+    qual_list QUAL_OP qual action => append_qual
     | qual action => ::first
 
 IDENT ::=
@@ -103,10 +109,17 @@ AS      ~ 'AS':ic
 INNER   ~ 'INNER':ic
 IS      ~ 'IS':ic
 #FALSE   ~ 'FALSE':ic
+FULL    ~ 'FULL':ic
 FROM    ~ 'FROM':ic
 JOIN    ~ 'JOIN':ic
+LEFT    ~ 'LEFT':ic
+:lexeme ~ LEFT priority => 1
 NOT     ~ 'NOT':ic
 OR      ~ 'OR':ic
+ON      ~ 'ON':ic
+OUTER   ~ 'OUTER':ic
+RIGHT   ~ 'RIGHT':ic
+:lexeme ~ RIGHT priority => 1
 SELECT  ~ 'SELECT':ic
 USING   ~ 'USING':ic
 #TRUE    ~ 'TRUE':ic
@@ -152,6 +165,7 @@ SELECT 1, abc, "DEF" from "toto" as "TATA;";
 select 1 from dual
 ) as t;
 select * from a,c join b using (id,id2);
+select * from a,c left join b on a.id = b.id AND a.id2 = b.id2;
 SAMPLE_QUERIES
 
 
@@ -342,6 +356,9 @@ sub plsql2pg::make_jointype {
     $kw2 = uc($kw2);
 
     return 'INNER' if ($kw1 eq 'INNER');
+    return 'LEFT' if ($kw1 eq 'LEFT');
+    return 'RIGHT' if ($kw1 eq 'RIGHT');
+    return 'FULL OUTER' if ($kw1 eq 'FULL') and ($kw2 eq 'OUTER');
 }
 
 sub plsql2pg::make_joinusing {
@@ -349,6 +366,14 @@ sub plsql2pg::make_joinusing {
     my $node = make_node('using');
 
     $node->{content} = $targetlist;
+    return $node;
+}
+
+sub plsql2pg::make_joinon {
+    my (undef, undef, $quallist) = @_;
+    my $node = make_node('on');
+
+    $node->{quallist} = $quallist;
     return $node;
 }
 
@@ -392,14 +417,8 @@ sub format_select {
         $join .= format_node($node);
     }
 
-    foreach my $node (@{$stmt->{WHERE}}) {
-        $where .= "WHERE " unless defined($where);
-        if (ref($node)) {
-            $where .= format_node($node);
-        } else {
-            $where .= ' ' . $node . ' ';
-        }
-    }
+    $where = "WHERE " . format_quallist($stmt->{WHERE})
+        if defined($stmt->{WHERE});
 
 
     $out  = "SELECT $select";
@@ -423,6 +442,21 @@ sub format_subselect {
     return $out;
 }
 
+sub format_quallist {
+    my ($quallist) = @_;
+    my $out;
+
+    foreach my $node (@{$quallist}) {
+        if (ref($node)) {
+            $out .= format_node($node);
+        } else {
+            $out .= ' ' . $node . ' ';
+        }
+    }
+
+    return $out;
+}
+
 sub format_using {
     my ($node) = @_;
     my $out = undef;
@@ -434,6 +468,14 @@ sub format_using {
 
     $out = 'USING (' . $out;
     $out .= ')';
+    return $out;
+}
+
+sub format_on {
+    my ($node) = @_;
+    my $out = undef;
+
+    $out = 'ON '. format_quallist($node->{quallist});
     return $out;
 }
 
