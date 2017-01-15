@@ -42,6 +42,7 @@ a_expr ::=
     '*' action => make_ident
     | IDENT action => make_ident
     | number action => make_ident
+    | LITERAL action => make_literal
 
 
 from_list ::=
@@ -87,6 +88,10 @@ unquoted_chars ~ [a-zA-Z_0-9]*
 quoted_ident ~ '"' quoted_chars '"'
 quoted_chars ~ [^"]+
 
+LITERAL         ~ literal_delim literal_chars literal_delim
+literal_delim   ~ [']
+literal_chars   ~ [^']*
+
 QUAL_OP     ~ AND | OR
 
 OPERATOR    ~ '=' | '<' | '<=' | '>' | '>=' | '%' | IS | IS NOT
@@ -100,10 +105,10 @@ my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
 
 my $input = 'SElect 1 nb from DUAL; SELECT * from "t1" t;';
 $input .= 'SELECT 1, abc, "DEF" from "toto" as "TATA;";';
-#$input .= " SELECT 1, 'test me', t.* from tbl t WHERE 1 > 2 OR b < 3;";
-$input .= " select * from (
-select 1 from dual
-) as t";
+$input .= " SELECT 1, 'test me', * from tbl t WHERE 1 > 2 OR b < 3;";
+#$input .= " select t.* from (
+#select 1 from dual
+#) as t";
 
 
 my $value_ref = $grammar->parse( \$input, 'plsql2pg' );
@@ -127,6 +132,19 @@ sub plsql2pg::append_ident {
     push(@{$idents}, @{$ident});
 
     return $idents;
+}
+
+sub plsql2pg::make_literal {
+    my (undef, $value, $as, $alias) = @_;
+    my $literals = [];
+    my $literal = make_node('literal');
+
+    $literal->{value} = $value;
+    $literal->{alias} = quote_ident(get_alias($as, $alias));
+
+    push(@{$literals}, $literal);
+
+    return $literals;
 }
 
 sub plsql2pg::make_qual {
@@ -321,6 +339,18 @@ sub format_ident {
     $out = $ident->{name};
     if (defined($ident->{alias})) {
         $out .= " AS $ident->{alias}";
+    }
+
+    return $out;
+}
+
+sub format_literal {
+    my ($literal) = @_;
+    my $out;
+
+    $out = $literal->{value};
+    if (defined($literal->{alias})) {
+        $out .= " AS $literal->{alias}";
     }
 
     return $out;
