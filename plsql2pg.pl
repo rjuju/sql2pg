@@ -34,13 +34,12 @@ target_list ::=
     | target_el action => ::first
 
 target_el ::=
-    a_expr AS IDENT action => alias_node
-    | a_expr IDENT action => alias_node
+    a_expr AS ALIAS action => alias_node
+    | a_expr ALIAS action => alias_node
     | a_expr action => ::first
 
 a_expr ::=
-    '*' action => make_ident
-    | IDENT action => make_ident
+    IDENT action => ::first
     | number action => make_ident
     | LITERAL action => make_literal
 
@@ -50,15 +49,22 @@ from_list ::=
     | from_elem action => ::first
 
 from_elem ::=
-    IDENT AS IDENT action => make_ident
-    | IDENT IDENT action => make_ident
-    | IDENT action => make_ident
-    | '(' SelectStmt ')' AS IDENT action => make_subselect
+    IDENT AS ALIAS action => alias_node
+    | IDENT ALIAS action => alias_node
+    | IDENT action => ::first
+    | '(' SelectStmt ')' AS ALIAS action => make_subselect
+    | '(' SelectStmt ')' ALIAS action => make_subselect
     | '(' SelectStmt ')' action => make_subselect
 
 where_list ::=
     where_list QUAL_OP qual action => append_qual
     | qual action => ::first
+
+IDENT ::=
+    ident '.' ident '.' ident '.' ident action => make_ident
+    | ident '.' ident '.' ident action => make_ident
+    | ident '.' ident action => make_ident
+    | ident action => make_ident
 
 qual ::=
     a_expr OPERATOR a_expr action => make_qual
@@ -81,7 +87,11 @@ digits  ~ [0-9]+
 float   ~ digits '.' digits
         | '.' digits
 
-IDENT   ~ unquoted_start unquoted_chars
+ident   ~ unquoted_start unquoted_chars
+        | quoted_ident
+        # only for a_expr, but assuming original SQL is valid
+        | '*'
+ALIAS   ~ unquoted_start unquoted_chars
         | quoted_ident
 unquoted_start ~ [a-zA-Z_]
 unquoted_chars ~ [a-zA-Z_0-9]*
@@ -106,20 +116,34 @@ my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
 my $input = 'SElect 1 nb from DUAL; SELECT * from "t1" t;';
 $input .= 'SELECT 1, abc, "DEF" from "toto" as "TATA;";';
 $input .= " SELECT 1, 'test me', * from tbl t WHERE 1 > 2 OR b < 3;";
-#$input .= " select t.* from (
-#select 1 from dual
-#) as t";
+$input .= " select t.* from (
+select 1 from dual
+) as t";
 
 
 my $value_ref = $grammar->parse( \$input, 'plsql2pg' );
 
 sub plsql2pg::make_ident {
-    my (undef, $name, $as, $alias) = @_;
+    my (undef, $db, undef, $table, undef, $schema, undef, $attribute) = @_;
     my $idents = [];
+    my @atts = ('db', 'table', 'schema', 'attribute');
     my $ident = make_node('ident');
 
-    $ident->{name} = quote_ident($name);
-    $ident->{alias} = quote_ident(get_alias($as, $alias));
+    if (defined($attribute)) {
+        $ident->{pop(@atts)} = quote_ident($attribute);
+    }
+
+    if (defined($schema)) {
+        $ident->{pop(@atts)} = quote_ident($schema);
+    }
+
+    if (defined($table)) {
+        $ident->{pop(@atts)} = quote_ident($table);
+    }
+
+    if (defined($db)) {
+        $ident->{pop(@atts)} = quote_ident($db);
+    }
 
     push(@{$idents}, $ident);
 
@@ -193,11 +217,11 @@ sub plsql2pg::make_select {
 }
 
 sub plsql2pg::make_subselect {
-    my (undef, undef, $stmt, undef, undef, $alias) = @_;
+    my (undef, undef, $stmt, undef, $as, $alias) = @_;
     my $node = pop(@{$stmt});
 
     $node->{type} = 'subselect';
-    $node->{alias} = $alias if defined($alias);
+    $node->{alias} = get_alias($as, $alias);
 
     push(@{$stmt}, $node);
 
@@ -334,9 +358,16 @@ sub format_node {
 
 sub format_ident {
     my ($ident) = @_;
+    my @atts = ('attribute', 'schema', 'table', 'db');
     my $out;
 
-    $out = $ident->{name};
+    while (my $elem = pop(@atts)) {
+        if (defined ($ident->{$elem})) {
+            $out .= "." if defined($out);
+            $out .= $ident->{$elem};
+        }
+    }
+
     if (defined($ident->{alias})) {
         $out .= " AS $ident->{alias}";
     }
