@@ -113,12 +113,14 @@ END_OF_DSL
 
 my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
 
-my $input = 'SElect 1 nb from DUAL; SELECT * from "t1" t;';
-$input .= 'SELECT 1, abc, "DEF" from "toto" as "TATA;";';
-$input .= " SELECT 1, 'test me', * from tbl t WHERE 1 > 2 OR b < 3;";
-$input .= " select t.* from (
+my $input = <<'SAMPLE_QUERIES';
+SElect 1 nb from DUAL; SELECT * from "t1" t;
+SELECT 1, abc, "DEF" from "toto" as "TATA;";
+ SELECT 1, 'test me', * from tbl t WHERE 1 > 2 OR b < 3;
+ select t.* from (
 select 1 from dual
-) as t";
+) as t
+SAMPLE_QUERIES
 
 
 my $value_ref = $grammar->parse( \$input, 'plsql2pg' );
