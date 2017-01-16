@@ -12,6 +12,8 @@ use 5.010;
 use Marpa::R2;
 # need at least Marpa::R2 2.076000 for case insensitive L0 rules
 
+my $alias_gen = 0;
+
 use Data::Dumper;
 
 my $dsl = <<'END_OF_DSL';
@@ -60,7 +62,7 @@ from_list ::=
 
 from_elem ::=
     IDENT ALIAS_CLAUSE action => alias_node
-    | '(' SelectStmt ')' ALIAS_CLAUSE action => make_subselect
+    | '(' SelectStmt ')' ALIAS_CLAUSE action => make_subquery
 
 join_clause ::=
     join_list action => make_joinclause
@@ -182,13 +184,13 @@ END_OF_DSL
 my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
 
 my $input = <<'SAMPLE_QUERIES';
-SElect 1 nb from DUAL; SELECT * from TBL t order by a, b desc, c asc;
+SElect 1 nb from DUAL; SELECT * from TBL t order by a, b desc, tbl.c asc;
 SELECT 1, abc, "DEF" from "toto" as "TATA;";
- SELECT 1, 'test me', * from tbl t WHERE 1 > 2 OR b < 3;
- select t.* from (
+ SELECT 1, 'test me', t.* from tbl t WHERE 1 > 2 OR b < 3;
+ select * from (
 select 1 from dual
-) as t;
-select * from a,c join b using (id,id2);
+);
+select * from a,c join b using (id,id2) left join d using (id);
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2;
 select 1 from a,b t1 where a.id = t1.id(+);
 SAMPLE_QUERIES
@@ -265,8 +267,11 @@ sub plsql2pg::make_fromclause {
 
 sub plsql2pg::make_whereclause {
     my (undef, undef, $quals) = @_;
+    my $quallist = make_node('quallist');
 
-    return make_clause('WHERE', $quals);
+    $quallist->{quallist} = $quals;
+
+    return make_clause('WHERE', $quallist);
 }
 
 sub plsql2pg::make_qual {
@@ -309,7 +314,7 @@ sub plsql2pg::make_select {
 
     while (scalar @args > 0) {
         $token = shift(@args);
-        $stmt->{$token->{type}} = $token->{content} if defined($token);
+        $stmt->{$token->{type}} = $token if defined($token);
     }
 
     push(@{$stmts}, $stmt);
@@ -317,16 +322,17 @@ sub plsql2pg::make_select {
     return $stmts;
 }
 
-sub plsql2pg::make_subselect {
+sub plsql2pg::make_subquery {
     my (undef, undef, $stmt, undef, $alias) = @_;
-    my $node = pop(@{$stmt});
+    my $clause;
 
-    $node->{type} = 'subselect';
-    $node->{alias} = $alias;
+    error("Node should contain only one item", $stmt) if (scalar @{$stmt} != 1);
 
-    push(@{$stmt}, $node);
+    @{$stmt}[0]->{alias} = $alias;
+    $clause = make_clause('subquery', $stmt);
 
-    return $stmt;
+    #return $stmt;
+    return $clause;
 }
 
 sub plsql2pg::alias_node {
@@ -445,7 +451,7 @@ sub format_orderby {
     my ($orderby) = @_;
     my $out;
 
-    return $orderby->{elem} . ' ' . $orderby->{order};
+    return format_node(@{$orderby->{elem}}[0]) . ' ' . $orderby->{order};
 }
 
 sub get_alias {
@@ -458,9 +464,9 @@ sub get_alias {
 
 sub format_select {
     my ($stmt) = @_;
+    my @clauselist = ('SELECT', 'FROM', 'JOIN', 'WHERE', 'ORDERBY');
     my $nodes;
-    my $tmp = undef;
-    my $out = 'SELECT ';
+    my $out = '';
 
     $nodes = handle_nonsqljoin($stmt->{FROM}, $stmt->{WHERE});
 
@@ -469,48 +475,15 @@ sub format_select {
         push(@{$stmt->{JOIN}}, @{$nodes});
     }
 
-    $tmp = undef;
-    foreach my $node (@{$stmt->{SELECT}}) {
-        $tmp .= ', ' if defined($tmp);
-        $tmp .= format_node($node);
-    }
-    $out .= $tmp;
-
-    $tmp = undef;
-    foreach my $node (@{$stmt->{FROM}}) {
-        if (defined($tmp)) {
-            $tmp .= ', ';
-        } else {
-            $tmp .= ' FROM ';
+    foreach my $current (@clauselist) {
+        if (defined($stmt->{$current})) {
+            my $format = format_node($stmt->{$current});
+            if (defined($format)) {
+                $out .= ' ' if ($out ne '');
+                $out .= $format;
+            }
         }
-        $tmp .= format_node($node);
     }
-    # FIXME should be handled by a format_FROM I'll add soon
-    $out .= $tmp if ($tmp ne ' FROM dual'); # only if this is the only table
-
-    $tmp = undef;
-    foreach my $node (@{$stmt->{JOIN}}) {
-        $tmp .= ' ';
-        $tmp .= format_node($node);
-    }
-    $out .= $tmp if defined($tmp);
-
-    $out .= " WHERE " . format_quallist($stmt->{WHERE})
-        if defined($stmt->{WHERE}) and (scalar @{$stmt->{WHERE}} > 0);
-
-    $tmp = undef;
-    foreach my $node (@{$stmt->{ORDERBY}}) {
-        if (defined($tmp)) {
-            $tmp .= ", ";
-        } else {
-            $tmp = " ORDER BY ";
-        }
-        $tmp .= format_node(pop(@{$node->{elem}})) . " " . $node->{order};
-    }
-    $out .= $tmp if defined($tmp);
-
-    $tmp = undef;
-
 
     return $out;
 }
@@ -520,14 +493,14 @@ sub handle_nonsqljoin {
     my $joinlist = undef;
     my $i;
 
-    return if not defined($where);
+    return if not defined($where->{content});
 
-    for ($i=0; $i<(scalar @{$where} > 0); $i++) {
-        if ((ref @{$where}[$i] eq 'HASH') and
-            defined(@{$where}[$i]->{join_op})
+    for ($i=0; $i<(scalar @{$where->{content}->{quallist}} > 0); $i++) {
+        if ((ref @{$where->{content}->{quallist}}[$i] eq 'HASH') and
+            defined(@{$where->{content}->{quallist}}[$i]->{join_op})
         ) {
             my $node;
-            my $w = splice(@{$where}, $i, 1);
+            my $w = splice(@{$where->{content}->{quallist}}, $i, 1);
             my $t;
             my $ident = [];
             my $cond = [];
@@ -535,7 +508,7 @@ sub handle_nonsqljoin {
             $joinlist = [] unless defined($joinlist);
             push(@{$cond}, $w);
 
-            $t = splice_table_from_fromlist($from, $w->{right}->{table});
+            $t = splice_table_from_fromlist($from->{content}, $w->{right}->{table});
             push(@{$ident}, $t);
 
             $node = plsql2pg::make_join(undef, 'LEFT', undef, $ident,
@@ -568,22 +541,9 @@ sub splice_table_from_fromlist {
     return $elem;
 }
 
-sub format_subselect {
-    my ($stmt) = @_;
-    my $out = "( ";
-
-    $stmt->{type} = 'select';
-
-    $out .= format_node($stmt);
-    $out .= " )";
-    $out .= " AS $stmt->{alias}" if defined($stmt->{alias});
-
-    return $out;
-}
-
 sub format_quallist {
     my ($quallist) = @_;
-    my $out;
+    my $out = '';
 
     foreach my $node (@{$quallist}) {
         if (ref($node)) {
@@ -621,7 +581,7 @@ sub format_on {
 sub plsql2pg::print_node {
     my (undef, $node) = @_;
 
-    print format_node($node) . ";\n";
+    print format_node($node) . " ;\n";
 
 }
 
@@ -656,9 +616,10 @@ sub format_node {
     my $func;
 
     if (ref($node) eq 'ARRAY') {
-        my $out;
+        my $out = undef;
         foreach my $n (@{$node}) {
-            $out .= format_node($n) . " ";
+            $out .= " " if defined($out);
+            $out .= format_node($n);
         }
 
         return $out;
@@ -727,6 +688,83 @@ sub format_join {
     $out .= ' ' . format_node($join->{cond});
 
     return $out;
+}
+
+sub format_SELECT {
+    my ($select) = @_;
+
+    return "SELECT " . format_standard_clause($select, ', ');
+}
+
+sub format_FROM {
+    my ($from) = @_;
+    my $out = format_standard_clause($from, ', ');
+
+    return undef if ($out eq 'dual');
+    return "FROM " . $out;
+}
+
+sub format_WHERE {
+    my ($from) = @_;
+
+    # handle_nonsqljoin can leave an empty array here
+    if (scalar @{$from->{content}->{quallist}} == 0) {
+    } else {
+        return "WHERE " . format_quallist($from->{content}->{quallist});
+    }
+}
+
+sub format_JOIN {
+    my ($from) = @_;
+
+    return format_standard_clause($from, ' ');
+}
+
+sub format_ORDERBY {
+    my ($from) = @_;
+
+    return "ORDER BY " . format_standard_clause($from, ', ');
+}
+
+sub format_subquery {
+    my ($query) = @_;
+    my $alias;
+    my $out;
+
+    $out .= '( ' . format_standard_clause($query) . ' ) AS ';
+    $alias = @{$query->{content}}[0]->{alias};
+
+    # alias on subquery in mandatory in pg
+    if (not defined($alias)) {
+        $alias = generate_alias();
+    }
+
+    $out .= $alias;
+
+    return $out;
+}
+
+sub format_standard_clause {
+    my ($clause, $delim) = @_;
+    my $content = $clause->{content};
+    my $out = undef;
+
+    if (ref($content) eq 'HASH') {
+        $out = format_node($content);
+    } else {
+        foreach my $node (@{$content}) {
+            $out .= $delim if defined($out);
+            $out .= format_node($node);
+        }
+    }
+
+    return $out;
+}
+
+sub generate_alias {
+    $alias_gen++;
+
+    return "subquery$alias_gen";
 }
 
 sub error {
