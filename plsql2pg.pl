@@ -485,7 +485,8 @@ sub format_select {
         }
         $tmp .= format_node($node);
     }
-    $out .= $tmp if ($tmp ne 'dual'); # only if this is the only table
+    # FIXME should be handled by a format_FROM I'll add soon
+    $out .= $tmp if ($tmp ne ' FROM dual'); # only if this is the only table
 
     $tmp = undef;
     foreach my $node (@{$stmt->{JOIN}}) {
