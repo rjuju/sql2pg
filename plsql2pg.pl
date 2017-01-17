@@ -20,9 +20,9 @@ my $dsl = <<'END_OF_DSL';
 lexeme default = latm => 1
 
 stmtmulti ::=
-    stmtmulti ';' stmt action => ::first
-    | stmtmulti ';' action => ::first # handle terminal ; FIXME
-    | stmt action => ::first
+    stmtmulti ';' stmt
+    | stmtmulti ';' # handle terminal ; FIXME
+    | stmt
 
 stmt ::=
     SelectStmt action => print_node
@@ -44,7 +44,7 @@ select_clause ::=
 
 target_list ::=
     target_list ',' alias_target_el action => append_ident
-    | alias_target_el action => ::first
+    | alias_target_el
 
 alias_target_el ::=
     target_el ALIAS_CLAUSE action => alias_node
@@ -53,11 +53,11 @@ alias_target_el ::=
 # to allow function in quals without ambiguity (having function in a_expr is
 # ambiguous)
 target_el ::=
-    a_expr action => ::first
-    | function action => ::first
+    a_expr
+    | function
 
 a_expr ::=
-    IDENT action => ::first
+    IDENT
     | number action => make_ident
     | LITERAL action => make_literal
 
@@ -66,18 +66,18 @@ function ::=
 
 function_args ::=
     function_args ',' function_arg action => append_function_arg
-    | function_arg action => ::first
+    | function_arg
 
 function_arg ::=
-    a_expr action => ::first
-    | function action => ::first
+    a_expr
+    | function
 
 from_clause ::=
     FROM from_list action => make_fromclause
 
 from_list ::=
     from_list ',' from_elem action => append_from
-    | from_elem action => ::first
+    | from_elem
 
 from_elem ::=
     IDENT ALIAS_CLAUSE action => alias_node
@@ -89,7 +89,7 @@ join_clause ::=
 
 join_list ::=
     join_list join_elem action => append_join
-    | join_elem action => ::first
+    | join_elem
 
 join_elem ::=
     join_type JOIN IDENT ALIAS_CLAUSE join_cond action => make_join
@@ -109,7 +109,7 @@ join_cond ::=
 
 using_list ::=
     using_list ',' using_el action => append_ident
-    | using_el action => ::first
+    | using_el
 
 using_el ::=
     a_expr ALIAS_CLAUSE action => alias_node
@@ -120,7 +120,7 @@ where_clause ::=
 
 qual_list ::=
     qual_list QUAL_OP qual action => append_qual
-    | qual action => ::first
+    | qual
 
 IDENT ::=
     ident '.' ident '.' ident '.' ident action => make_ident
@@ -132,7 +132,7 @@ qual ::=
     target_el OPERATOR target_el join_op action => make_qual
 
 join_op ::=
-    '(+)' action => ::first
+    '(+)'
     | EMPTY action => ::undef
 
 group_clause ::=
@@ -141,7 +141,7 @@ group_clause ::=
 
 group_list ::=
     group_list ',' group_elem action => append_groupby
-    | group_elem action => ::first
+    | group_elem
 
 group_elem ::=
     IDENT action => make_groupby
@@ -156,14 +156,14 @@ order_clause ::=
 
 order_list ::=
     order_list ',' order_elem action => append_orderby
-    | order_elem action => ::first
+    | order_elem
 
 order_elem ::=
     a_expr ordering action => make_orderby
 
 ordering ::=
-    ASC action => ::first
-    | DESC action => ::first
+    ASC
+    | DESC
     | EMPTY action => ::undef
 
 # keywords
@@ -224,7 +224,10 @@ whitespace ~ [\s]+
 
 END_OF_DSL
 
-my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
+my $grammar = Marpa::R2::Scanless::G->new( {
+    default_action => '::first',
+    source => \$dsl
+} );
 
 my $input = <<'SAMPLE_QUERIES';
 SElect 1 nb from DUAL; SELECT * from TBL t order by a, b desc, tbl.c asc;
