@@ -47,12 +47,23 @@ target_list ::=
 
 target_el ::=
     a_expr ALIAS_CLAUSE action => alias_node
+    | function ALIAS_CLAUSE action => alias_node
 
 a_expr ::=
     IDENT action => ::first
     | number action => make_ident
     | LITERAL action => make_literal
 
+function ::=
+    IDENT '(' function_args ')' action => make_function
+
+function_args ::=
+    function_args ',' function_arg action => append_function_arg
+    | function_arg action => ::first
+
+function_arg ::=
+    a_expr action => ::first
+    | function action => ::first
 
 from_clause ::=
     FROM from_list action => make_fromclause
@@ -198,14 +209,14 @@ my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
 
 my $input = <<'SAMPLE_QUERIES';
 SElect 1 nb from DUAL; SELECT * from TBL t order by a, b desc, tbl.c asc;
-SELECT 1, abc, "DEF" from "toto" as "TATA;";
+SELECT nvl(val, 'null') "vAl",1, abc, "DEF" from "toto" as "TATA;";
  SELECT 1, 'test me', t.* from tbl t WHERE 1 > 2 OR b < 3 GROUP BY a, t.b;
  select * from (
 select 1 from dual
 );
 select * from a,c join b using (id,id2) left join d using (id);
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2;
-select 1 from a,b t1 where a.id = t1.id(+);
+select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SAMPLE_QUERIES
 
 
@@ -264,6 +275,44 @@ sub plsql2pg::make_literal {
     push(@{$literals}, $literal);
 
     return $literals;
+}
+
+sub plsql2pg::make_function {
+    my (undef, $ident, undef, $args, undef) = @_;
+    my $nodes = [];
+    my $func = make_node('function');
+
+    $func->{ident} = $ident;
+    $func->{args} = $args;
+    push(@{$nodes}, $func);
+
+    return $nodes;
+}
+
+sub plsql2pg::append_function_arg {
+    my (undef, $args, undef, $arg, undef) = @_;
+
+    push(@{$args}, @{$arg});
+
+    return $args;
+}
+
+sub format_function {
+    my ($func) = @_;
+    my $out = undef;
+    my $ident;
+
+    foreach my $arg (@{$func->{args}}) {
+        $out .= ', ' if defined($out);
+        $out .= format_node($arg);
+    }
+
+    $ident = pop(@{$func->{ident}});
+    $ident->{attribute} = translate_function_name($ident->{attribute});
+    $out = format_ident($ident) . '(' . $out . ')';
+    $out .= format_alias($func->{alias});
+
+    return $out;
 }
 
 sub plsql2pg::make_selectclause {
@@ -693,9 +742,7 @@ sub format_ident {
         }
     }
 
-    if (defined($ident->{alias})) {
-        $out .= " AS $ident->{alias}";
-    }
+    $out .= format_alias($ident->{alias});
 
     return $out;
 }
@@ -705,9 +752,7 @@ sub format_literal {
     my $out;
 
     $out = $literal->{value};
-    if (defined($literal->{alias})) {
-        $out .= " AS $literal->{alias}";
-    }
+    $out .= format_alias($literal->{alias});
 
     return $out;
 }
@@ -782,12 +827,13 @@ sub format_subquery {
     my $alias;
     my $out;
 
-    $out .= '( ' . format_standard_clause($query) . ' ) AS ';
-    $alias = @{$query->{content}}[0]->{alias};
+    $out .= '( ' . format_standard_clause($query) . ' )';
+
+    $alias = format_alias(@{$query->{content}}[0]->{alias});
 
     # alias on subquery in mandatory in pg
-    if (not defined($alias)) {
-        $alias = generate_alias();
+    if ($alias eq '') {
+        $alias = " AS " . generate_alias();
     }
 
     $out .= $alias;
@@ -812,10 +858,25 @@ sub format_standard_clause {
     return $out;
 }
 
+sub format_alias {
+    my ($alias) = @_;
+
+    return ' AS ' . quote_ident($alias) if defined($alias);
+    return '';
+}
+
 sub generate_alias {
     $alias_gen++;
 
     return "subquery$alias_gen";
+}
+
+sub translate_function_name {
+    my ($name) = @_;
+
+    return 'COALESCE' if ($name eq 'nvl');
+
+    return $name;
 }
 
 sub error {
