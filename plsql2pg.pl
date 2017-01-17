@@ -97,8 +97,15 @@ join_type ::=
     | EMPTY action => make_jointype
 
 join_cond ::=
-    USING '(' target_list ')' action => make_joinusing
+    USING '(' using_list ')' action => make_joinusing
     | ON qual_list action => make_joinon
+
+using_list ::=
+    using_list ',' using_el action => append_ident
+    | using_el action => ::first
+
+using_el ::=
+    a_expr ALIAS_CLAUSE action => alias_node
 
 where_clause ::=
     WHERE qual_list action => make_whereclause
