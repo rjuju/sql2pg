@@ -28,7 +28,8 @@ stmt ::=
     SelectStmt action => print_node
 
 SelectStmt ::=
-    SELECT select_clause from_clause join_clause where_clause order_clause action => make_select
+    SELECT select_clause from_clause join_clause
+        where_clause group_clause order_clause action => make_select
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -109,6 +110,17 @@ join_op ::=
     '(+)' action => ::first
     | EMPTY action => ::undef
 
+group_clause ::=
+    GROUP BY group_list action => make_groupbyclause
+    | EMPTY action => ::undef
+
+group_list ::=
+    group_list ',' group_elem action => append_groupby
+    | group_elem action => ::first
+
+group_elem ::=
+    IDENT action => make_groupby
+
 order_clause ::=
     ORDER BY order_list action => make_orderbyclause
     | EMPTY action => ::undef
@@ -136,6 +148,7 @@ IS      ~ 'IS':ic
 #FALSE   ~ 'FALSE':ic
 FULL    ~ 'FULL':ic
 FROM    ~ 'FROM':ic
+GROUP   ~ 'GROUP':ic
 JOIN    ~ 'JOIN':ic
 LEFT    ~ 'LEFT':ic
 :lexeme ~ LEFT priority => 1
@@ -186,7 +199,7 @@ my $grammar = Marpa::R2::Scanless::G->new( { source => \$dsl } );
 my $input = <<'SAMPLE_QUERIES';
 SElect 1 nb from DUAL; SELECT * from TBL t order by a, b desc, tbl.c asc;
 SELECT 1, abc, "DEF" from "toto" as "TATA;";
- SELECT 1, 'test me', t.* from tbl t WHERE 1 > 2 OR b < 3;
+ SELECT 1, 'test me', t.* from tbl t WHERE 1 > 2 OR b < 3 GROUP BY a, t.b;
  select * from (
 select 1 from dual
 );
@@ -406,6 +419,38 @@ sub plsql2pg::make_joinon {
     return $node;
 }
 
+sub plsql2pg::make_groupby {
+    my (undef, $elem) = @_;
+    my $groupbys = [];
+    my $groupby = make_node('groupby');
+
+    $groupby->{elem} = $elem;
+
+    push(@{$groupbys}, $groupby);
+
+    return $groupbys;
+}
+
+sub plsql2pg::append_groupby {
+    my (undef, $groupbys, undef, $groupby) = @_;
+
+    push(@{$groupbys}, @{$groupby});
+    return $groupbys;
+}
+
+sub plsql2pg::make_groupbyclause {
+    my (undef, undef, undef, $groupbys) = @_;
+
+    return make_clause('GROUPBY', $groupbys);
+}
+
+sub format_groupby {
+    my ($groupby) = @_;
+    my $out;
+
+    return format_node(@{$groupby->{elem}}[0]);
+}
+
 sub plsql2pg::make_orderby {
     my (undef, $elem, $order) = @_;
     my $orderbys = [];
@@ -438,6 +483,13 @@ sub plsql2pg::make_orderbyclause {
     return make_clause('ORDERBY', $orderbys);
 }
 
+sub format_orderby {
+    my ($orderby) = @_;
+    my $out;
+
+    return format_node(@{$orderby->{elem}}[0]) . ' ' . $orderby->{order};
+}
+
 sub make_clause {
     my ($type, $content) = @_;
     my $clause = make_node($type);
@@ -445,13 +497,6 @@ sub make_clause {
     $clause->{content} = $content;
 
     return $clause;
-}
-
-sub format_orderby {
-    my ($orderby) = @_;
-    my $out;
-
-    return format_node(@{$orderby->{elem}}[0]) . ' ' . $orderby->{order};
 }
 
 sub get_alias {
@@ -464,7 +509,7 @@ sub get_alias {
 
 sub format_select {
     my ($stmt) = @_;
-    my @clauselist = ('SELECT', 'FROM', 'JOIN', 'WHERE', 'ORDERBY');
+    my @clauselist = ('SELECT', 'FROM', 'JOIN', 'WHERE', 'GROUPBY', 'ORDERBY');
     my $nodes;
     my $out = '';
 
@@ -705,25 +750,31 @@ sub format_FROM {
 }
 
 sub format_WHERE {
-    my ($from) = @_;
+    my ($where) = @_;
 
     # handle_nonsqljoin can leave an empty array here
-    if (scalar @{$from->{content}->{quallist}} == 0) {
+    if (scalar @{$where->{content}->{quallist}} == 0) {
     } else {
-        return "WHERE " . format_quallist($from->{content}->{quallist});
+        return "WHERE " . format_quallist($where->{content}->{quallist});
     }
 }
 
 sub format_JOIN {
-    my ($from) = @_;
+    my ($join) = @_;
 
-    return format_standard_clause($from, ' ');
+    return format_standard_clause($join, ' ');
+}
+
+sub format_GROUPBY {
+    my ($group) = @_;
+
+    return "GROUP BY " . format_standard_clause($group, ', ');
 }
 
 sub format_ORDERBY {
-    my ($from) = @_;
+    my ($orderby) = @_;
 
-    return "ORDER BY " . format_standard_clause($from, ', ');
+    return "ORDER BY " . format_standard_clause($orderby, ', ');
 }
 
 sub format_subquery {
