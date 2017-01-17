@@ -25,7 +25,17 @@ stmtmulti ::=
     | stmt
 
 stmt ::=
-    SelectStmt action => print_node
+    CombinedSelectStmt action => print_stmts
+
+CombinedSelectStmt ::=
+    CombinedSelectStmt combine_op '(' SelectStmt ')' action => combine_select
+    | SelectStmt
+
+combine_op ::=
+    UNION
+    | UNION ALL action => concat
+    | INTERSECT
+    | MINUS
 
 SelectStmt ::=
     SELECT select_clause from_clause join_clause
@@ -172,34 +182,36 @@ ordering ::=
     | EMPTY action => ::undef
 
 # keywords
-AND     ~ 'AND':ic
-AS      ~ 'AS':ic
-ASC     ~ 'ASC':ic
-BY      ~ 'BY':ic
-CROSS   ~ 'CROSS':ic
-DESC    ~ 'DESC':ic
-INNER   ~ 'INNER':ic
-IS      ~ 'IS':ic
-#FALSE   ~ 'FALSE':ic
-FULL    ~ 'FULL':ic
-FROM    ~ 'FROM':ic
-GROUP   ~ 'GROUP':ic
-HAVING  ~ 'HAVING':ic
-JOIN    ~ 'JOIN':ic
-LEFT    ~ 'LEFT':ic
-:lexeme ~ LEFT priority => 1
-NATURAL ~ 'NATURAL':ic
-NOT     ~ 'NOT':ic
-OR      ~ 'OR':ic
-ORDER   ~ 'ORDER':ic
-ON      ~ 'ON':ic
-OUTER   ~ 'OUTER':ic
-RIGHT   ~ 'RIGHT':ic
-:lexeme ~ RIGHT priority => 1
-SELECT  ~ 'SELECT':ic
-USING   ~ 'USING':ic
-#TRUE    ~ 'TRUE':ic
-WHERE   ~ 'WHERE':ic
+ALL         ~ 'ALL':ic
+AND         ~ 'AND':ic
+AS          ~ 'AS':ic
+ASC         ~ 'ASC':ic
+BY          ~ 'BY':ic
+CROSS       ~ 'CROSS':ic
+DESC        ~ 'DESC':ic
+INNER       ~ 'INNER':ic
+INTERSECT   ~ 'INTERSECT':ic
+IS          ~ 'IS':ic
+FULL        ~ 'FULL':ic
+FROM        ~ 'FROM':ic
+GROUP       ~ 'GROUP':ic
+HAVING      ~ 'HAVING':ic
+JOIN        ~ 'JOIN':ic
+LEFT        ~ 'LEFT':ic
+:lexeme     ~ LEFT priority => 1
+MINUS       ~ 'MINUS':ic
+NATURAL     ~ 'NATURAL':ic
+NOT         ~ 'NOT':ic
+OR          ~ 'OR':ic
+ORDER       ~ 'ORDER':ic
+ON          ~ 'ON':ic
+OUTER       ~ 'OUTER':ic
+RIGHT       ~ 'RIGHT':ic
+:lexeme     ~ RIGHT priority => 1
+SELECT      ~ 'SELECT':ic
+UNION       ~ 'UNION':ic
+USING       ~ 'USING':ic
+WHERE       ~ 'WHERE':ic
 
 # everything else
 number  ~ digits | float
@@ -242,7 +254,7 @@ SELECT nvl(val, 'null') "vAl",1, abc, "DEF" from "toto" as "TATA;";
  SELECT 1, 'test me', t.* from tbl t WHERE a > 2 and rownum < 10 OR b < 3 GROUP BY a, t.b;
  select * from (
 select 1 from dual
-);
+) union (select 2 from dual) minus (select 3 from dual) interSECT (select 4 from dual) union all (select 5 from dual);
 select * from a,c join b using (id,id2) left join d using (id) WHERE rownum >10 and rownum <= 20;
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d CROSS JOIN e cj;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
@@ -259,6 +271,11 @@ sub plsql2pg::make_alias {
     return get_alias($as, $alias);
 }
 
+sub plsql2pg::concat {
+    my (undef, $a, $b) = @_;
+
+    return "$a $b";
+}
 sub plsql2pg::make_number {
     my (undef, $val) = @_;
     my $number = make_node('number');
@@ -430,6 +447,25 @@ sub plsql2pg::make_select {
     push(@{$stmts}, $stmt);
 
     return $stmts;
+}
+
+sub plsql2pg::combine_select {
+    my (undef, $nodes, $raw_op, undef, $stmt, undef) = @_;
+    my $op = make_node('combine_op');
+
+    $op->{op} = $raw_op;
+
+    push(@{$nodes}, $op);
+    push(@{$nodes}, @{$stmt});
+
+    return $nodes;
+}
+
+sub format_combine_op {
+    my ($op) = @_;
+
+    return 'EXCEPT' if (uc($op->{op}) eq 'MINUS');
+    return uc($op->{op});
 }
 
 sub plsql2pg::make_subquery {
@@ -796,11 +832,16 @@ sub format_on {
     return $out;
 }
 
-sub plsql2pg::print_node {
-    my (undef, $node) = @_;
+sub plsql2pg::print_stmts {
+    my (undef, $stmts) = @_;
+    my $first = 1;
 
-    print format_node($node) . " ;\n";
-
+    foreach my $stmt (@{$stmts}) {
+        print "\n" if (not $first);
+        $first = 0;
+        print format_node($stmt);
+    }
+    print " ;\n";
 }
 
 # Handle ident conversion from oracle to pg
