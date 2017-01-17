@@ -93,6 +93,7 @@ join_list ::=
 
 join_elem ::=
     join_type JOIN IDENT ALIAS_CLAUSE join_cond action => make_join
+    | special_join_type JOIN IDENT ALIAS_CLAUSE action => make_join
 
 join_type ::=
     INNER action => make_jointype
@@ -102,6 +103,10 @@ join_type ::=
     | RIGHT OUTER action => make_jointype
     | FULL OUTER action => make_jointype
     | EMPTY action => make_jointype
+
+special_join_type ::=
+    NATURAL action => make_jointype
+    | CROSS action => make_jointype
 
 join_cond ::=
     USING '(' using_list ')' action => make_joinusing
@@ -171,6 +176,7 @@ AND     ~ 'AND':ic
 AS      ~ 'AS':ic
 ASC     ~ 'ASC':ic
 BY      ~ 'BY':ic
+CROSS   ~ 'CROSS':ic
 DESC    ~ 'DESC':ic
 INNER   ~ 'INNER':ic
 IS      ~ 'IS':ic
@@ -182,6 +188,7 @@ HAVING  ~ 'HAVING':ic
 JOIN    ~ 'JOIN':ic
 LEFT    ~ 'LEFT':ic
 :lexeme ~ LEFT priority => 1
+NATURAL ~ 'NATURAL':ic
 NOT     ~ 'NOT':ic
 OR      ~ 'OR':ic
 ORDER   ~ 'ORDER':ic
@@ -237,7 +244,7 @@ SELECT nvl(val, 'null') "vAl",1, abc, "DEF" from "toto" as "TATA;";
 select 1 from dual
 );
 select * from a,c join b using (id,id2) left join d using (id);
-select * from a,c right join b on a.id = b.id AND a.id2 = b.id2;
+select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d CROSS JOIN e cj;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
 SAMPLE_QUERIES
@@ -469,10 +476,8 @@ sub plsql2pg::make_jointype {
     $kw1 = uc($kw1);
     $kw2 = uc($kw2);
 
-    return 'INNER' if ($kw1 eq 'INNER');
-    return 'LEFT' if ($kw1 eq 'LEFT');
-    return 'RIGHT' if ($kw1 eq 'RIGHT');
     return 'FULL OUTER' if ($kw1 eq 'FULL') and ($kw2 eq 'OUTER');
+    return $kw1;
 }
 
 sub plsql2pg::make_joinusing {
@@ -815,7 +820,7 @@ sub format_join {
     $out = $join->{jointype} . " JOIN ";
 
     $out .= format_ident($join->{ident});
-    $out .= ' ' . format_node($join->{cond});
+    $out .= ' ' . format_node($join->{cond}) if defined($join->{cond});
 
     return $out;
 }
