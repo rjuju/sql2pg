@@ -58,7 +58,7 @@ target_el ::=
 
 a_expr ::=
     IDENT
-    | number action => make_ident
+    | number action => make_number
     | LITERAL action => make_literal
 
 function ::=
@@ -239,11 +239,11 @@ my $grammar = Marpa::R2::Scanless::G->new( {
 my $input = <<'SAMPLE_QUERIES';
 SElect 1 nb from DUAL; SELECT * from TBL t order by a, b desc, tbl.c asc;
 SELECT nvl(val, 'null') "vAl",1, abc, "DEF" from "toto" as "TATA;";
- SELECT 1, 'test me', t.* from tbl t WHERE 1 > 2 OR b < 3 GROUP BY a, t.b;
+ SELECT 1, 'test me', t.* from tbl t WHERE a > 2 and rownum < 10 OR b < 3 GROUP BY a, t.b;
  select * from (
 select 1 from dual
 );
-select * from a,c join b using (id,id2) left join d using (id);
+select * from a,c join b using (id,id2) left join d using (id) WHERE rownum >10 and rownum <= 20;
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d CROSS JOIN e cj;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
@@ -259,9 +259,27 @@ sub plsql2pg::make_alias {
     return get_alias($as, $alias);
 }
 
+sub plsql2pg::make_number {
+    my (undef, $val) = @_;
+    my $number = make_node('number');
+    my $nodes = [];
+
+    $number->{val} = $val;
+
+    push(@{$nodes}, $number);
+
+    return $nodes;
+}
+
+sub format_number {
+    my ($number) = @_;
+
+    return $number->{val} . format_alias($number->{alias});
+}
+
 sub plsql2pg::make_ident {
     my (undef, $db, undef, $table, undef, $schema, undef, $attribute) = @_;
-    my $idents = [];
+    my $nodes = [];
     my @atts = ('db', 'schema', 'table', 'attribute');
     my $ident = make_node('ident');
 
@@ -281,17 +299,17 @@ sub plsql2pg::make_ident {
         $ident->{pop(@atts)} = quote_ident($db);
     }
 
-    push(@{$idents}, $ident);
+    push(@{$nodes}, $ident);
 
-    return $idents;
+    return $nodes;
 }
 
 sub plsql2pg::append_ident {
-    my (undef, $idents, undef, $ident) = @_;
+    my (undef, $nodes, undef, $ident) = @_;
 
-    push(@{$idents}, @{$ident});
+    push(@{$nodes}, @{$ident});
 
-    return $idents;
+    return $nodes;
 }
 
 sub plsql2pg::make_literal {
@@ -603,7 +621,7 @@ sub get_alias {
 sub format_select {
     my ($stmt) = @_;
     my @clauselist = ('SELECT', 'FROM', 'JOIN', 'WHERE', 'GROUPBY', 'HAVING',
-        'ORDERBY');
+        'ORDERBY', 'LIMIT', 'OFFSET');
     my $nodes;
     my $out = '';
 
@@ -613,6 +631,8 @@ sub format_select {
         $stmt->{join} = [] unless defined($stmt->{JOIN});
         push(@{$stmt->{JOIN}}, @{$nodes});
     }
+
+    handle_rownum($stmt);
 
     foreach my $current (@clauselist) {
         if (defined($stmt->{$current})) {
@@ -634,7 +654,7 @@ sub handle_nonsqljoin {
 
     return if not defined($where->{content});
 
-    for ($i=0; $i<(scalar @{$where->{content}->{quallist}} > 0); $i++) {
+    for ($i=0; $i<(scalar @{$where->{content}->{quallist}}); $i++) {
         if ((ref @{$where->{content}->{quallist}}[$i] eq 'HASH') and
             defined(@{$where->{content}->{quallist}}[$i]->{join_op})
         ) {
@@ -658,6 +678,65 @@ sub handle_nonsqljoin {
     }
 
     return $joinlist;
+}
+
+# This function will transform any rown OPERATOR number to a LIMIT/OFFSET
+# clause.  No effort is done to make sure OR-ed or overlapping rownum
+# expressions will have expected result, such query would be stupid anyway.
+# This grammar also allows a float number, but as everywhere else I assume
+# original query is valid to keep the grammar simple.
+sub handle_rownum {
+    my ($stmt) = @_;
+    my $where;
+    my $i;
+
+    return if not defined($stmt->{WHERE});
+    $where = $stmt->{WHERE};
+    return if not defined($where->{content});
+
+    for ($i=0; $i<(scalar @{$where->{content}->{quallist}}); $i++) {
+        my $qual = @{$where->{content}->{quallist}}[$i];
+        next if (ref($qual) ne 'HASH');
+        if ((
+                (isA($qual->{left}, 'number') and isA($qual->{right}, 'ident')
+                and ($qual->{right}->{attribute} eq 'rownum')
+                and not defined($qual->{right}->{table}))
+            ) or (
+                (isA($qual->{right}, 'number') and isA($qual->{left}, 'ident')
+                and ($qual->{left}->{attribute} eq 'rownum')
+                and not defined($qual->{left}->{table}))
+            )
+        ){
+            my $q = splice(@{$where->{content}->{quallist}}, $i, 1);
+            my $number;
+            my $clause;
+
+            # Remove any preceding AND/OR op
+            # FIXME: this will need improvement when parens in WHERE clause
+            # will be handled
+            if (ref(@{$where->{content}->{quallist}}[$i-1]) ne 'HASH')
+            {
+                splice(@{$where->{content}->{quallist}}, $i-1, 1);
+            }
+            if (isA($q->{left}, 'ident')) {
+                $number = $q->{right};
+            } else {
+                $number = $q->{left};
+            }
+
+            if (($q->{op} eq '<') or ($q->{op} eq '<=')) {
+                $number->{val} -= 1 if ($q->{op} eq '<');
+                $clause = make_clause('LIMIT', $number);
+
+            } else {
+                $number->{val} -= 1 if ($q->{op} eq '>=');
+                $clause = make_clause('OFFSET', $number);
+            }
+
+            # XXX Should I handle stupid queries with multiple rownum clauses?
+            $stmt->{$clause->{type}} = $clause;
+        }
+    }
 }
 
 sub splice_table_from_fromlist {
@@ -867,6 +946,18 @@ sub format_ORDERBY {
     return "ORDER BY " . format_standard_clause($orderby, ', ');
 }
 
+sub format_LIMIT {
+    my ($limit) = @_;
+
+    return "LIMIT " . format_node($limit->{content});
+}
+
+sub format_OFFSET {
+    my ($offset) = @_;
+
+    return "OFFSET " . format_node($offset->{content});
+}
+
 sub format_subquery {
     my ($query) = @_;
     my $alias;
@@ -922,6 +1013,12 @@ sub translate_function_name {
     return 'COALESCE' if ($name eq 'nvl');
 
     return $name;
+}
+
+sub isA {
+    my ($node, $type) = @_;
+
+    return ($node->{type} eq $type);
 }
 
 sub error {
