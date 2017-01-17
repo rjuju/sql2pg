@@ -29,7 +29,8 @@ stmt ::=
 
 SelectStmt ::=
     SELECT select_clause from_clause join_clause
-        where_clause group_clause order_clause action => make_select
+        where_clause group_clause having_clause
+        order_clause action => make_select
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -42,12 +43,18 @@ select_clause ::=
     target_list action => make_selectclause
 
 target_list ::=
-    target_list ',' target_el action => append_ident
-    | target_el action => ::first
+    target_list ',' alias_target_el action => append_ident
+    | alias_target_el action => ::first
 
+alias_target_el ::=
+    target_el ALIAS_CLAUSE action => alias_node
+
+# aliasing is done in a different rule, so target_el can be used in qual rule,
+# to allow function in quals without ambiguity (having function in a_expr is
+# ambiguous)
 target_el ::=
-    a_expr ALIAS_CLAUSE action => alias_node
-    | function ALIAS_CLAUSE action => alias_node
+    a_expr action => ::first
+    | function action => ::first
 
 a_expr ::=
     IDENT action => ::first
@@ -122,7 +129,7 @@ IDENT ::=
     | ident action => make_ident
 
 qual ::=
-    a_expr OPERATOR a_expr join_op action => make_qual
+    target_el OPERATOR target_el join_op action => make_qual
 
 join_op ::=
     '(+)' action => ::first
@@ -138,6 +145,10 @@ group_list ::=
 
 group_elem ::=
     IDENT action => make_groupby
+
+having_clause ::=
+    HAVING qual_list action => make_havingclause
+    | EMPTY action => ::undef
 
 order_clause ::=
     ORDER BY order_list action => make_orderbyclause
@@ -167,6 +178,7 @@ IS      ~ 'IS':ic
 FULL    ~ 'FULL':ic
 FROM    ~ 'FROM':ic
 GROUP   ~ 'GROUP':ic
+HAVING  ~ 'HAVING':ic
 JOIN    ~ 'JOIN':ic
 LEFT    ~ 'LEFT':ic
 :lexeme ~ LEFT priority => 1
@@ -224,6 +236,7 @@ select 1 from dual
 select * from a,c join b using (id,id2) left join d using (id);
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
+SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
 SAMPLE_QUERIES
 
 
@@ -507,6 +520,22 @@ sub format_groupby {
     return format_node(@{$groupby->{elem}}[0]);
 }
 
+sub plsql2pg::make_havingclause {
+    my (undef, undef, $quals) = @_;
+    my $quallist = make_node('quallist');
+
+    $quallist->{quallist} = $quals;
+
+    return make_clause('HAVING', $quallist);
+}
+
+sub format_HAVING {
+    my ($having) = @_;
+    my $out;
+
+    return "HAVING " . format_quallist($having->{content}->{quallist});
+}
+
 sub plsql2pg::make_orderby {
     my (undef, $elem, $order) = @_;
     my $orderbys = [];
@@ -565,7 +594,8 @@ sub get_alias {
 
 sub format_select {
     my ($stmt) = @_;
-    my @clauselist = ('SELECT', 'FROM', 'JOIN', 'WHERE', 'GROUPBY', 'ORDERBY');
+    my @clauselist = ('SELECT', 'FROM', 'JOIN', 'WHERE', 'GROUPBY', 'HAVING',
+        'ORDERBY');
     my $nodes;
     my $out = '';
 

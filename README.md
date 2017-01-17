@@ -19,6 +19,7 @@ select 1 from dual
 select * from a,c join b using (id,id2) left join d using (id);
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
+SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
 ```
 
 Converted:
@@ -32,5 +33,6 @@ SELECT * FROM ( SELECT 1 ) AS subquery1 ;
 SELECT * FROM a, c INNER JOIN b USING (id, id2) LEFT JOIN d USING (id) ;
 SELECT * FROM a, c RIGHT JOIN b ON a.id = b.id AND a.id2 = b.id2 ;
 SELECT round(sum(count(*)), 2), 1 FROM a LEFT JOIN b AS t1 ON a.id = t1.id ;
+SELECT id, count(*) FROM a GROUP BY id HAVING count(*) < 10 ;
 ```
 
