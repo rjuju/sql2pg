@@ -170,8 +170,16 @@ where_clause ::=
     | EMPTY action => ::undef
 
 qual_list ::=
-    qual_list qual_op qual action => append_qual
-    | '(' qual_list ')' action => parens_qual
+    qual_list_no_parens
+    | qual_list_with_parens
+
+qual_list_with_parens ::=
+    '(' qual_list_no_parens ')' action => parens_qual
+    | '(' qual_list_with_parens ')' action => parens_qual
+
+qual_list_no_parens ::=
+    qual_list qual_op qual_list action => append_qual
+    #| '(' qual_list qual_op parens_qual ')' action => parens_qual
     | qual
 
 qual_op ::=
@@ -185,8 +193,6 @@ IDENT ::=
     | ident action => make_ident
 
 qual ::=
-#'(' qual ')' action => parens_node
-#| target_el OPERATOR target_el join_op action => make_qual
     target_el OPERATOR target_el join_op action => make_qual
 
 join_op ::=
@@ -300,7 +306,7 @@ my $grammar = Marpa::R2::Scanless::G->new( {
 } );
 
 my $input = <<'SAMPLE_QUERIES';
-SElect 1 nb from DUAL; SELECT * from TBL t order by a, b desc, tbl.c asc;
+SElect 1 nb from DUAL WHERE rownum < 2; SELECT * from TBL t order by a, b desc, tbl.c asc;
 SELECT nvl(val, 'null') "vAl",1, abc, "DEF" from "toto" as "TATA;";
  SELECT 1, 'test me', t.* from tbl t WHERE (((a > 2)) and rownum < 10) OR b < 3 GROUP BY a, t.b;
  select * from (
@@ -755,6 +761,7 @@ sub format_select {
         if (defined($stmt->{$current})) {
             my $format = format_node($stmt->{$current});
             if (defined($format)) {
+                next if ($format eq '');
                 $out .= ' ' if ($out ne '');
                 $out .= $format;
             }
@@ -797,23 +804,30 @@ sub handle_nonsqljoin {
     return $joinlist;
 }
 
-# This function will transform any rown OPERATOR number to a LIMIT/OFFSET
+# This function will transform any rownum OPERATOR number to a LIMIT/OFFSET
 # clause.  No effort is done to make sure OR-ed or overlapping rownum
 # expressions will have expected result, such query would be stupid anyway.
 # This grammar also allows a float number, but as everywhere else I assume
 # original query is valid to keep the grammar simple.
 sub handle_rownum {
-    my ($stmt) = @_;
-    my $where;
+    my ($node, $stmt) = @_;
     my $i;
 
-    return if not defined($stmt->{WHERE});
-    $where = $stmt->{WHERE};
-    return if not defined($where->{content});
+    return undef if (not defined($node));
+    if (isA($node, 'select')) {
+        return handle_rownum($node->{WHERE}->{content}, $node) if (defined($node->{WHERE}));
+        return undef;
+        }
+    return handle_rownum($node->{node}, $stmt) if isA($node, 'parens');
+    return handle_rownum($node->{quallist}, $stmt) if isA($node, 'quallist');
 
-    for ($i=0; $i<(scalar @{$where->{content}->{quallist}}); $i++) {
-        my $qual = @{$where->{content}->{quallist}}[$i];
+    for ($i=0; $i<(scalar @{$node}); $i++) {
+        my $qual = @{$node}[$i];
         next if (ref($qual) ne 'HASH');
+        if (isA($qual, 'parens')) {
+            handle_rownum($qual, $stmt);
+            next;
+        }
         if ((
                 (isA($qual->{left}, 'number') and isA($qual->{right}, 'ident')
                 and ($qual->{right}->{attribute} eq 'rownum')
@@ -824,36 +838,37 @@ sub handle_rownum {
                 and not defined($qual->{left}->{table}))
             )
         ){
-            my $q = splice(@{$where->{content}->{quallist}}, $i, 1);
             my $number;
             my $clause;
 
-            # Remove any preceding AND/OR op
-            # FIXME: this will need improvement when parens in WHERE clause
-            # will be handled
-            if (ref(@{$where->{content}->{quallist}}[$i-1]) ne 'HASH')
+            # Remove any preceding AND/OR op, too bad if it was an OR
+            if (($i>0) and (ref(@{$node}[$i-1]) ne 'HASH'))
             {
-                splice(@{$where->{content}->{quallist}}, $i-1, 1);
-            }
-            if (isA($q->{left}, 'ident')) {
-                $number = $q->{right};
-            } else {
-                $number = $q->{left};
+                @{$node}[$i-1] = undef;
             }
 
-            if (($q->{op} eq '<') or ($q->{op} eq '<=')) {
-                $number->{val} -= 1 if ($q->{op} eq '<');
+            if (isA($qual->{left}, 'ident')) {
+                $number = $qual->{right};
+            } else {
+                $number = $qual->{left};
+            }
+
+            if (($qual->{op} eq '<') or ($qual->{op} eq '<=')) {
+                $number->{val} -= 1 if ($qual->{op} eq '<');
                 $clause = make_clause('LIMIT', $number);
 
             } else {
-                $number->{val} -= 1 if ($q->{op} eq '>=');
+                $number->{val} -= 1 if ($qual->{op} eq '>=');
                 $clause = make_clause('OFFSET', $number);
             }
 
+            # Finally remove the qual
+            @{$node}[$i] = undef;
+
             # XXX Should I handle stupid queries with multiple rownum clauses?
             $stmt->{$clause->{type}} = $clause;
+            }
         }
-    }
 }
 
 sub splice_table_from_fromlist {
@@ -881,10 +896,11 @@ sub format_quallist {
     my $out = '';
 
     foreach my $node (@{$quallist}) {
+        next unless(defined($node));
         if (ref($node)) {
             $out .= format_node($node);
         } else {
-            $out .= ' ' . $node . ' ';
+            $out .= ' ' . $node . ' ' if ($node ne '');
         }
     }
 
@@ -958,6 +974,7 @@ sub format_node {
     if (ref($node) eq 'ARRAY') {
         my $out = undef;
         foreach my $n (@{$node}) {
+            next unless defined($n);
             $out .= " " if defined($out);
             $out .= format_node($n);
         }
@@ -1046,12 +1063,10 @@ sub format_FROM {
 
 sub format_WHERE {
     my ($where) = @_;
+    my $out = format_quallist($where->{content}->{quallist});
 
-    # handle_nonsqljoin can leave an empty array here
-    if (scalar @{$where->{content}->{quallist}} == 0) {
-    } else {
-        return "WHERE " . format_quallist($where->{content}->{quallist});
-    }
+    return '' if($out eq '');
+    return "WHERE " . $out;
 }
 
 sub format_JOIN {
