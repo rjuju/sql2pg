@@ -53,7 +53,7 @@ select_clause ::=
     target_list action => make_selectclause
 
 target_list ::=
-    target_list ',' alias_target_el action => append_ident
+    target_list ',' alias_target_el action => append_el_1_3
     | alias_target_el
 
 alias_target_el ::=
@@ -75,7 +75,7 @@ function ::=
     IDENT '(' function_args ')' window_clause action => make_function
 
 function_args ::=
-    function_args ',' function_arg action => append_function_arg
+    function_args ',' function_arg action => append_el_1_3
     | function_arg
     | EMPTY action => ::undef
 
@@ -92,7 +92,7 @@ partition_clause ::=
     | EMPTY action => ::undef
 
 partition_list ::=
-    partition_list ',' partition_elem action => append_partitionby
+    partition_list ',' partition_elem action => append_el_1_3
     | partition_elem
 
 partition_elem ::=
@@ -122,7 +122,7 @@ from_clause ::=
     FROM from_list action => make_fromclause
 
 from_list ::=
-    from_list ',' from_elem action => append_from
+    from_list ',' from_elem action => append_el_1_3
     | from_elem
 
 from_elem ::=
@@ -159,7 +159,7 @@ join_cond ::=
     | ON qual_list action => make_joinon
 
 using_list ::=
-    using_list ',' using_el action => append_ident
+    using_list ',' using_el action => append_el_1_3
     | using_el
 
 using_el ::=
@@ -171,6 +171,7 @@ where_clause ::=
 
 qual_list ::=
     qual_list qual_op qual action => append_qual
+    | '(' qual_list ')' action => parens_qual
     | qual
 
 qual_op ::=
@@ -184,6 +185,8 @@ IDENT ::=
     | ident action => make_ident
 
 qual ::=
+#'(' qual ')' action => parens_node
+#| target_el OPERATOR target_el join_op action => make_qual
     target_el OPERATOR target_el join_op action => make_qual
 
 join_op ::=
@@ -195,7 +198,7 @@ group_clause ::=
     | EMPTY action => ::undef
 
 group_list ::=
-    group_list ',' group_elem action => append_groupby
+    group_list ',' group_elem action => append_el_1_3
     | group_elem
 
 group_elem ::=
@@ -210,7 +213,7 @@ order_clause ::=
     | EMPTY action => ::undef
 
 order_list ::=
-    order_list ',' order_elem action => append_orderby
+    order_list ',' order_elem action => append_el_1_3
     | order_elem
 
 order_elem ::=
@@ -299,7 +302,7 @@ my $grammar = Marpa::R2::Scanless::G->new( {
 my $input = <<'SAMPLE_QUERIES';
 SElect 1 nb from DUAL; SELECT * from TBL t order by a, b desc, tbl.c asc;
 SELECT nvl(val, 'null') "vAl",1, abc, "DEF" from "toto" as "TATA;";
- SELECT 1, 'test me', t.* from tbl t WHERE a > 2 and rownum < 10 OR b < 3 GROUP BY a, t.b;
+ SELECT 1, 'test me', t.* from tbl t WHERE (((a > 2)) and rownum < 10) OR b < 3 GROUP BY a, t.b;
  select * from (
 select 1 from dual
 ) union (select 2 from dual) minus (select 3 from dual) interSECT (select 4 from dual) union all (select 5 from dual);
@@ -332,16 +335,21 @@ sub plsql2pg::upper {
     return uc($a);
 }
 
+sub plsql2pg::append_el_1_3 {
+    my (undef, $nodes, undef, $node) = @_;
+
+    push(@{$nodes}, @{$node});
+
+    return $nodes;
+}
+
 sub plsql2pg::make_number {
     my (undef, $val) = @_;
     my $number = make_node('number');
-    my $nodes = [];
 
     $number->{val} = $val;
 
-    push(@{$nodes}, $number);
-
-    return $nodes;
+    return to_array($number);
 }
 
 sub format_number {
@@ -352,7 +360,6 @@ sub format_number {
 
 sub plsql2pg::make_ident {
     my (undef, $db, undef, $table, undef, $schema, undef, $attribute) = @_;
-    my $nodes = [];
     my @atts = ('db', 'schema', 'table', 'attribute');
     my $ident = make_node('ident');
 
@@ -372,51 +379,28 @@ sub plsql2pg::make_ident {
         $ident->{pop(@atts)} = quote_ident($db);
     }
 
-    push(@{$nodes}, $ident);
-
-    return $nodes;
-}
-
-sub plsql2pg::append_ident {
-    my (undef, $nodes, undef, $ident) = @_;
-
-    push(@{$nodes}, @{$ident});
-
-    return $nodes;
+    return to_array($ident);
 }
 
 sub plsql2pg::make_literal {
     my (undef, $value, $alias) = @_;
-    my $literals = [];
     my $literal = make_node('literal');
 
     $literal->{value} = $value;
     $literal->{alias} = $alias;
 
-    push(@{$literals}, $literal);
-
-    return $literals;
+    return to_array($literal);
 }
 
 sub plsql2pg::make_function {
     my (undef, $ident, undef, $args, undef, $windowclause) = @_;
-    my $nodes = [];
     my $func = make_node('function');
 
     $func->{ident} = $ident;
     $func->{args} = $args;
     $func->{window} = $windowclause;
-    push(@{$nodes}, $func);
 
-    return $nodes;
-}
-
-sub plsql2pg::append_function_arg {
-    my (undef, $args, undef, $arg, undef) = @_;
-
-    push(@{$args}, @{$arg});
-
-    return $args;
+    return to_array($func);
 }
 
 sub format_function {
@@ -483,7 +467,6 @@ sub plsql2pg::make_whereclause {
 
 sub plsql2pg::make_qual {
     my (undef, $left, $op, $right, $join_op) = @_;
-    my $quals = [];
     my $qual = make_node('qual');
 
     $qual->{left} = pop(@{$left});
@@ -491,9 +474,7 @@ sub plsql2pg::make_qual {
     $qual->{right} = pop(@{$right});
     $qual->{join_op} = $join_op;
 
-    push(@{$quals}, $qual);
-
-    return $quals;
+    return to_array($qual);
 }
 
 sub plsql2pg::append_qual {
@@ -505,17 +486,8 @@ sub plsql2pg::append_qual {
     return $quals;
 }
 
-sub plsql2pg::append_from {
-    my (undef, $froms, undef, $node) = @_;
-
-    push(@{$froms}, @{$node});
-
-    return $froms;
-}
-
 sub plsql2pg::make_select {
     my (undef, undef, @args) = @_;
-    my $stmts = [];
     my $stmt = make_node('select');
     my $token;
 
@@ -524,9 +496,7 @@ sub plsql2pg::make_select {
         $stmt->{$token->{type}} = $token if defined($token);
     }
 
-    push(@{$stmts}, $stmt);
-
-    return $stmts;
+    return to_array($stmt);
 }
 
 sub plsql2pg::combine_select {
@@ -552,7 +522,7 @@ sub plsql2pg::make_subquery {
     my (undef, undef, $stmt, undef, $alias) = @_;
     my $clause;
 
-    error("Node should contain only one item", $stmt) if (scalar @{$stmt} != 1);
+    assert_one_el($stmt);
 
     @{$stmt}[0]->{alias} = $alias;
     $clause = make_clause('subquery', $stmt);
@@ -564,13 +534,19 @@ sub plsql2pg::make_subquery {
 sub plsql2pg::alias_node {
     my (undef, $node, $alias) = @_;
 
-    if (scalar @{$node} != 1) {
-        error("Node should contain only one item", $node);
-    }
+    assert_one_el($node);
 
     @{$node}[0]->{alias} = $alias;
 
     return $node;
+}
+
+sub plsql2pg::parens_qual {
+    my (undef, undef, $node, undef) = @_;
+    my $parens = make_node('parens');
+
+    $parens->{node} = $node;
+    return to_array($parens);
 }
 
 sub plsql2pg::make_joinclause {
@@ -582,16 +558,13 @@ sub plsql2pg::make_joinclause {
 sub plsql2pg::make_join {
     my (undef, $jointype, undef, $ident, $alias, $cond) = @_;
     my $join = make_node('join');
-    my $joins = [];
 
     $join->{jointype} = $jointype;
     $join->{ident} = pop(@{$ident});
     $join->{ident}->{alias} = $alias;
     $join->{cond} = $cond;
 
-    push (@{$joins}, $join);
-
-    return $joins;
+    return to_array($join);
 }
 
 sub plsql2pg::append_join {
@@ -632,21 +605,11 @@ sub plsql2pg::make_joinon {
 
 sub plsql2pg::make_groupby {
     my (undef, $elem) = @_;
-    my $groupbys = [];
     my $groupby = make_node('groupby');
 
     $groupby->{elem} = $elem;
 
-    push(@{$groupbys}, $groupby);
-
-    return $groupbys;
-}
-
-sub plsql2pg::append_groupby {
-    my (undef, $groupbys, undef, $groupby) = @_;
-
-    push(@{$groupbys}, @{$groupby});
-    return $groupbys;
+    return to_array($groupby);
 }
 
 sub plsql2pg::make_groupbyclause {
@@ -680,21 +643,11 @@ sub format_HAVING {
 
 sub plsql2pg::make_partitionby {
     my (undef, $elem) = @_;
-    my $partitionbys = [];
     my $partitionby = make_node('partitionby');
 
     $partitionby->{elem} = $elem;
 
-    push(@{$partitionbys}, $partitionby);
-
-    return $partitionbys;
-}
-
-sub plsql2pg::append_partitionby {
-    my (undef, $partitionbys, undef, $partitionby) = @_;
-
-    push(@{$partitionbys}, @{$partitionby});
-    return $partitionbys;
+    return to_array($partitionby);
 }
 
 sub format_partitionby {
@@ -738,7 +691,6 @@ sub format_frame {
 
 sub plsql2pg::make_orderby {
     my (undef, $elem, $order) = @_;
-    my $orderbys = [];
     my $orderby = make_node('orderby');
 
     if (not defined($order)) {
@@ -750,16 +702,7 @@ sub plsql2pg::make_orderby {
     $orderby->{elem} = $elem;
     $orderby->{order} = $order;
 
-    push(@{$orderbys}, $orderby);
-
-    return $orderbys;
-}
-
-sub plsql2pg::append_orderby {
-    my (undef, $orderbys, undef, $orderby) = @_;
-
-    push(@{$orderbys}, @{$orderby});
-    return $orderbys;
+    return to_array($orderby);
 }
 
 sub plsql2pg::make_orderbyclause {
@@ -1022,9 +965,7 @@ sub format_node {
         return $out;
     }
 
-    if (ref($node) ne 'HASH') {
-        error("wrong object type", $node);
-    }
+    return $node if (not ref($node));
 
     $func = "format_" . $node->{type};
 
@@ -1058,6 +999,12 @@ sub format_literal {
     $out .= format_alias($literal->{alias});
 
     return $out;
+}
+
+sub format_parens {
+    my ($parens) = @_;
+
+    return '(' . format_node($parens->{node}) . ')';
 }
 
 sub format_qual {
@@ -1209,7 +1156,25 @@ sub translate_function_name {
 sub isA {
     my ($node, $type) = @_;
 
+    return 0 if (not ref($node));
+    return 0 if (ref $node ne 'HASH');
+
     return ($node->{type} eq $type);
+}
+
+sub assert_one_el {
+    my ($arr) = @_;
+
+    error('Element is not an array', $arr) if (ref($arr) ne 'ARRAY');
+    error('Array contains more than one element', $arr) if (scalar @{$arr} != 1);
+}
+
+sub to_array {
+    my ($node) = @_;
+    my $nodes = [];
+
+    push(@{$nodes}, $node);
+    return $nodes;
 }
 
 sub error {

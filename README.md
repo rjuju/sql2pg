@@ -13,7 +13,7 @@ Original:
 ```sql
 SElect 1 nb from DUAL; SELECT * from TBL t order by a, b desc, tbl.c asc;
 SELECT nvl(val, 'null') "vAl",1, abc, "DEF" from "toto" as "TATA;";
- SELECT 1, 'test me', t.* from tbl t WHERE a > 2 and rownum < 10 OR b < 3 GROUP BY a, t.b;
+ SELECT 1, 'test me', t.* from tbl t WHERE (((a > 2)) and rownum < 10) OR b < 3 GROUP BY a, t.b;
  select * from (
 select 1 from dual
 ) union (select 2 from dual) minus (select 3 from dual) interSECT (select 4 from dual) union all (select 5 from dual);
@@ -30,7 +30,7 @@ Converted:
 SELECT 1 AS nb ;
 SELECT * FROM tbl AS t ORDER BY a ASC, b DESC, tbl.c ASC ;
 SELECT COALESCE(val, 'null') AS "vAl", 1, abc, "DEF" FROM toto AS "TATA;" ;
-SELECT 1, 'test me', t.* FROM tbl AS t WHERE a > 2 OR b < 3 GROUP BY a, t.b LIMIT 9 ;
+SELECT 1, 'test me', t.* FROM tbl AS t WHERE (((a > 2)) AND rownum < 10) OR b < 3 GROUP BY a, t.b ;
 SELECT * FROM ( SELECT 1 ) AS subquery1
 UNION
 SELECT 2
