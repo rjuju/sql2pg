@@ -72,15 +72,51 @@ a_expr ::=
     | LITERAL action => make_literal
 
 function ::=
-    IDENT '(' function_args ')' action => make_function
+    IDENT '(' function_args ')' window_clause action => make_function
 
 function_args ::=
     function_args ',' function_arg action => append_function_arg
     | function_arg
+    | EMPTY action => ::undef
 
 function_arg ::=
     a_expr
     | function
+
+window_clause ::=
+    OVER '(' partition_clause order_clause frame_clause ')' action => make_overclause
+    | EMPTY
+
+partition_clause ::=
+    PARTITION BY partition_list action => make_partitionclause
+    | EMPTY action => ::undef
+
+partition_list ::=
+    partition_list ',' partition_elem action => append_partitionby
+    | partition_elem
+
+partition_elem ::=
+    a_expr action => make_partitionby
+
+# should only be legal with an order_clause
+frame_clause ::=
+    RANGE_ROWS frame_start action => make_frame_simple
+    | RANGE_ROWS BETWEEN frame_start AND frame_end action => make_frame_between
+    | EMPTY action => ::undef
+
+RANGE_ROWS ::=
+    RANGE action => upper
+    | ROWS action => upper
+
+frame_start ::=
+    UNBOUNDED PRECEDING action => concat
+    | CURRENT ROW action => concat
+    | number PRECEDING action => concat
+
+frame_end ::=
+    UNBOUNDED FOLLOWING action => concat
+    | CURRENT ROW action => concat
+    | number FOLLOWING action => concat
 
 from_clause ::=
     FROM from_list action => make_fromclause
@@ -134,8 +170,12 @@ where_clause ::=
     | EMPTY action => ::undef
 
 qual_list ::=
-    qual_list QUAL_OP qual action => append_qual
+    qual_list qual_op qual action => append_qual
     | qual
+
+qual_op ::=
+    AND action => upper
+    | OR action => upper
 
 IDENT ::=
     ident '.' ident '.' ident '.' ident action => make_ident
@@ -186,12 +226,15 @@ ALL         ~ 'ALL':ic
 AND         ~ 'AND':ic
 AS          ~ 'AS':ic
 ASC         ~ 'ASC':ic
+BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
 CROSS       ~ 'CROSS':ic
+CURRENT     ~ 'CURRENT':ic
 DESC        ~ 'DESC':ic
 INNER       ~ 'INNER':ic
 INTERSECT   ~ 'INTERSECT':ic
 IS          ~ 'IS':ic
+FOLLOWING   ~ 'FOLLOWING':ic
 FULL        ~ 'FULL':ic
 FROM        ~ 'FROM':ic
 GROUP       ~ 'GROUP':ic
@@ -206,9 +249,16 @@ OR          ~ 'OR':ic
 ORDER       ~ 'ORDER':ic
 ON          ~ 'ON':ic
 OUTER       ~ 'OUTER':ic
+OVER        ~ 'OVER':ic
+PARTITION   ~ 'PARTITION':ic
+PRECEDING   ~ 'PRECEDING':ic
+RANGE       ~ 'RANGE':ic
 RIGHT       ~ 'RIGHT':ic
 :lexeme     ~ RIGHT priority => 1
+ROW         ~ 'ROW':ic
+ROWS        ~ 'ROWS':ic
 SELECT      ~ 'SELECT':ic
+UNBOUNDED   ~ 'UNBOUNDED':ic
 UNION       ~ 'UNION':ic
 USING       ~ 'USING':ic
 WHERE       ~ 'WHERE':ic
@@ -234,8 +284,6 @@ LITERAL         ~ literal_delim literal_chars literal_delim
 literal_delim   ~ [']
 literal_chars   ~ [^']*
 
-QUAL_OP     ~ AND | OR
-
 OPERATOR    ~ '=' | '<' | '<=' | '>' | '>=' | '%' | IS | IS NOT
 
 :discard ~ whitespace
@@ -259,6 +307,7 @@ select * from a,c join b using (id,id2) left join d using (id) WHERE rownum >10 
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d CROSS JOIN e cj;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
+SELECT val, rank() over (partition by id) rank, lead(val) over (order by val rows CURRENT ROW), lag(val) over (partition by id,val order by val range between 2 preceding and unbounded following) as lag from t;
 SAMPLE_QUERIES
 
 
@@ -274,8 +323,15 @@ sub plsql2pg::make_alias {
 sub plsql2pg::concat {
     my (undef, $a, $b) = @_;
 
-    return "$a $b";
+    return uc("$a $b");
 }
+
+sub plsql2pg::upper {
+    my (undef, $a) = @_;
+
+    return uc($a);
+}
+
 sub plsql2pg::make_number {
     my (undef, $val) = @_;
     my $number = make_node('number');
@@ -343,12 +399,13 @@ sub plsql2pg::make_literal {
 }
 
 sub plsql2pg::make_function {
-    my (undef, $ident, undef, $args, undef) = @_;
+    my (undef, $ident, undef, $args, undef, $windowclause) = @_;
     my $nodes = [];
     my $func = make_node('function');
 
     $func->{ident} = $ident;
     $func->{args} = $args;
+    $func->{window} = $windowclause;
     push(@{$nodes}, $func);
 
     return $nodes;
@@ -371,13 +428,36 @@ sub format_function {
         $out .= ', ' if defined($out);
         $out .= format_node($arg);
     }
+    # arguments are optional
+    $out = '' unless defined($out);
 
     $ident = pop(@{$func->{ident}});
     $ident->{attribute} = translate_function_name($ident->{attribute});
     $out = format_ident($ident) . '(' . $out . ')';
+
+    $out .= format_node($func->{window}) if defined($func->{window});
     $out .= format_alias($func->{alias});
 
     return $out;
+}
+
+sub plsql2pg::make_overclause {
+    my (undef, undef, undef, $partition, $order, $frame, undef) = @_;
+    my $clause;
+    my $content = [];
+
+    push(@{$content}, $partition) if defined($partition);
+    push(@{$content}, $order) if defined($order);
+    push(@{$content}, $frame) if defined($frame);
+    $clause = make_clause('OVERCLAUSE', $content);
+
+    return $clause;
+}
+
+sub plsql2pg::make_partitionclause {
+    my (undef, undef, undef, $partitionbys) = @_;
+
+    return make_clause('PARTITIONBY', $partitionbys);
 }
 
 sub plsql2pg::make_selectclause {
@@ -596,6 +676,64 @@ sub format_HAVING {
     my $out;
 
     return "HAVING " . format_quallist($having->{content}->{quallist});
+}
+
+sub plsql2pg::make_partitionby {
+    my (undef, $elem) = @_;
+    my $partitionbys = [];
+    my $partitionby = make_node('partitionby');
+
+    $partitionby->{elem} = $elem;
+
+    push(@{$partitionbys}, $partitionby);
+
+    return $partitionbys;
+}
+
+sub plsql2pg::append_partitionby {
+    my (undef, $partitionbys, undef, $partitionby) = @_;
+
+    push(@{$partitionbys}, @{$partitionby});
+    return $partitionbys;
+}
+
+sub format_partitionby {
+    my ($partitionby) = @_;
+    my $out;
+
+    return format_node(@{$partitionby->{elem}}[0]);
+}
+
+sub plsql2pg::make_frame_simple {
+    my (undef, $rangerows, $frame_start) = @_;
+    my $node = make_node('frame');
+
+    $node->{rangerows} = $rangerows;
+    $node->{frame_start} = $frame_start;
+
+    return $node;
+}
+
+sub plsql2pg::make_frame_between {
+    my (undef, $rangerows, undef, $frame_start, undef, $frame_end) = @_;
+    my $node = make_node('frame');
+
+    $node->{rangerows} = $rangerows;
+    $node->{frame_start} = $frame_start;
+    $node->{frame_end} = $frame_end;
+
+    return $node;
+}
+
+sub format_frame {
+    my ($frame) = @_;
+
+    if (defined($frame->{frame_end})) {
+        return $frame->{rangerows} . " BETWEEN "
+            . $frame->{frame_start} . " AND " . $frame->{frame_end};
+    } else {
+        return $frame->{rangerows} . " " . $frame->{frame_start};
+    }
 }
 
 sub plsql2pg::make_orderby {
@@ -985,6 +1123,18 @@ sub format_ORDERBY {
     my ($orderby) = @_;
 
     return "ORDER BY " . format_standard_clause($orderby, ', ');
+}
+
+sub format_OVERCLAUSE {
+    my ($windowclause) = @_;
+
+    return " OVER (" . format_standard_clause($windowclause, ' ') . ")";
+}
+
+sub format_PARTITIONBY {
+    my ($partitionby) = @_;
+
+    return "PARTITION BY " . format_standard_clause($partitionby, ', ');
 }
 
 sub format_LIMIT {

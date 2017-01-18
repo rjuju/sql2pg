@@ -5,6 +5,7 @@ Some references:
 
 - [Marpa::R2 main doc](http://search.cpan.org/~jkegl/Marpa-R2-3.000000/pod/Marpa_R2.pod)
 - [SLIF / Scanless interface](http://search.cpan.org/~jkegl/Marpa-R2-3.000000/pod/Scanless/DSL.pod)
+- [window functions spec](https://docs.oracle.com/cd/E11882_01/server.112/e25554/analysis.htm#DWHSG021)
 
 
 Original:
@@ -20,7 +21,7 @@ select * from a,c join b using (id,id2) left join d using (id) WHERE rownum >10 
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d CROSS JOIN e cj;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
-
+SELECT val, rank() over (partition by id) rank, lead(val) over (order by val rows CURRENT ROW), lag(val) over (partition by id,val order by val range between 2 preceding and unbounded following) as lag from t;
 ```
 
 Converted:
@@ -43,5 +44,6 @@ SELECT * FROM a, c INNER JOIN b USING (id, id2) LEFT JOIN d USING (id) LIMIT 20 
 SELECT * FROM a, c RIGHT JOIN b ON a.id = b.id AND a.id2 = b.id2 NATURAL JOIN d CROSS JOIN e AS cj ;
 SELECT round(sum(count(*)), 2), 1 FROM a LEFT JOIN b AS t1 ON a.id = t1.id ;
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*) < 10 ;
+SELECT val, rank() OVER (PARTITION BY id) AS rank, lead(val) OVER (ORDER BY val ASC ROWS CURRENT ROW), lag(val) OVER (PARTITION BY id, val ORDER BY val ASC RANGE BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING) AS lag FROM t ;
 ```
 
