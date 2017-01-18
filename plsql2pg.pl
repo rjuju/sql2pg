@@ -178,9 +178,9 @@ qual_list_with_parens ::=
     | '(' qual_list_with_parens ')' action => parens_qual
 
 qual_list_no_parens ::=
-    qual_list qual_op qual_list action => append_qual
+    qual_list qual_op qual action => append_qual
     #| '(' qual_list qual_op parens_qual ')' action => parens_qual
-    | qual
+    | qual_no_parens
 
 qual_op ::=
     AND action => upper
@@ -192,8 +192,12 @@ IDENT ::=
     | ident '.' ident action => make_ident
     | ident action => make_ident
 
-qual ::=
+qual_no_parens ::=
     target_el OPERATOR target_el join_op action => make_qual
+
+qual ::=
+    qual_no_parens
+    | '(' qual_list ')' action => parens_qual
 
 join_op ::=
     '(+)'
@@ -308,7 +312,7 @@ my $grammar = Marpa::R2::Scanless::G->new( {
 my $input = <<'SAMPLE_QUERIES';
 SElect 1 nb from DUAL WHERE rownum < 2; SELECT * from TBL t order by a, b desc, tbl.c asc;
 SELECT nvl(val, 'null') "vAl",1, abc, "DEF" from "toto" as "TATA;";
- SELECT 1, 'test me', t.* from tbl t WHERE (((a > 2)) and rownum < 10) OR b < 3 GROUP BY a, t.b;
+ SELECT 1, 'test me', t.* from tbl t WHERE (((((a > 2)) and (rownum < 10)) OR ((((b < 3)))))) GROUP BY a, t.b;
  select * from (
 select 1 from dual
 ) union (select 2 from dual) minus (select 3 from dual) interSECT (select 4 from dual) union all (select 5 from dual);
@@ -823,9 +827,18 @@ sub handle_rownum {
 
     for ($i=0; $i<(scalar @{$node}); $i++) {
         my $qual = @{$node}[$i];
+        my $todel = $i-1;;
         next if (ref($qual) ne 'HASH');
+
+        # We'll need to remove any preceding AND/OR op (or following if first
+        # el), too bad if it was an OR
+        $todel = $i+1 if ($i == 0);
+
         if (isA($qual, 'parens')) {
             handle_rownum($qual, $stmt);
+            if ((parens_is_empty($qual)) and (ref(@{$node}[$todel])) ne 'HASH') {
+                @{$node}[$todel] = undef;
+            }
             next;
         }
         if ((
@@ -841,10 +854,8 @@ sub handle_rownum {
             my $number;
             my $clause;
 
-            # Remove any preceding AND/OR op, too bad if it was an OR
-            if (($i>0) and (ref(@{$node}[$i-1]) ne 'HASH'))
-            {
-                @{$node}[$i-1] = undef;
+            if (ref(@{$node}[$todel]) ne 'HASH') {
+                @{$node}[$todel] = undef;
             }
 
             if (isA($qual->{left}, 'ident')) {
@@ -869,6 +880,60 @@ sub handle_rownum {
             $stmt->{$clause->{type}} = $clause;
             }
         }
+}
+
+sub parens_is_empty {
+    my ($parens) = @_;
+
+    return 0 unless (ref($parens->{node}) eq 'ARRAY');
+
+    foreach my $node (@{$parens->{node}}) {
+        if (defined($node)) {
+            if ((ref($node) eq 'HASH') and (isA($node, 'parens'))) {
+                my $rc = parens_is_empty($node);
+                return $rc if (not $rc);
+            }
+        }
+        return 0 if (defined($node));
+    }
+    return 1;
+}
+
+sub parens_get_new_node {
+    my ($parens) = @_;
+    my $node = undef;
+    my $cpt = 0;
+
+    return undef unless(ref($parens->{node}) eq 'ARRAY');
+
+    foreach my $el (@{$parens->{node}}) {
+        next unless(defined($el));
+        return undef unless(isA($el, 'parens'));
+        $node = $el->{node};
+        $cpt++;
+        last if($cpt > 1);
+    }
+
+    return undef if ($cpt != 1);
+    return $node;
+}
+
+sub prune_parens {
+    my ($parens) = @_;
+    my $node;
+
+    return if (not isA($parens, 'parens'));
+
+    if (parens_is_empty($parens)) {
+        $parens->{node} = undef;
+        return;
+    }
+
+    $node = parens_get_new_node($parens);
+    if (defined($node)) {
+        $parens->{node} = $node;
+        prune_parens($parens);
+    }
 }
 
 sub splice_table_from_fromlist {
@@ -984,6 +1049,7 @@ sub format_node {
 
     return $node if (not ref($node));
 
+    prune_parens($node);
     $func = "format_" . $node->{type};
 
     # XXX should I handle every node type explicitely instead?
@@ -1020,8 +1086,10 @@ sub format_literal {
 
 sub format_parens {
     my ($parens) = @_;
+    my $out = format_node($parens->{node});
 
-    return '(' . format_node($parens->{node}) . ')';
+    return '(' . $out . ')' if (defined($out) and ($out ne ''));
+    return '';
 }
 
 sub format_qual {
