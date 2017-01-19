@@ -26,6 +26,7 @@ stmtmulti ::=
 
 stmt ::=
     CombinedSelectStmt action => print_stmts
+    | WithSelectStmt action => print_stmts
 
 CombinedSelectStmt ::=
     CombinedSelectStmt combine_op '(' SelectStmt ')' action => combine_select
@@ -36,6 +37,9 @@ combine_op ::=
     | UNION ALL action => concat
     | INTERSECT
     | MINUS
+
+WithSelectStmt ::=
+    with_clause SelectStmt action => add_withclause
 
 SelectStmt ::=
     SELECT select_clause from_clause join_clause
@@ -48,6 +52,16 @@ ALIAS_CLAUSE ::=
     | EMPTY action => ::undef
 
 EMPTY ::= action => ::undef
+
+with_clause ::=
+    WITH with_list action => make_withclause
+
+with_list ::=
+    with_list ',' with_elem action => append_el_1_3
+    | with_elem
+
+with_elem ::=
+    ident AS '(' SelectStmt ')' action => make_with
 
 select_clause ::=
     target_list action => make_selectclause
@@ -279,6 +293,7 @@ UNBOUNDED   ~ 'UNBOUNDED':ic
 UNION       ~ 'UNION':ic
 USING       ~ 'USING':ic
 WHERE       ~ 'WHERE':ic
+WITH        ~ 'WITH':ic
 
 # everything else
 number  ~ digits | float
@@ -325,6 +340,7 @@ select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d C
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
 SELECT val, rank() over (partition by id) rank, lead(val) over (order by val rows CURRENT ROW), lag(val) over (partition by id,val order by val range between 2 preceding and unbounded following) as lag from t;
+WITH s1 as (select 1 from dual), s AS (SELECT * FROM s1 where rownum < 2) SELECT * From s;
 SAMPLE_QUERIES
 
 
@@ -516,6 +532,40 @@ sub plsql2pg::append_qual {
     push(@{$quals}, @{$qual});
 
     return $quals;
+}
+
+sub plsql2pg::make_withclause {
+    my (undef, undef, $list) = @_;
+
+    return make_clause('WITH', $list);
+}
+
+sub plsql2pg::add_withclause {
+    my (undef, $withclause, $selectclause) = @_;
+
+    assert_one_el($selectclause);
+
+    @{$selectclause}[0]->{WITH} = $withclause;
+
+    return $selectclause;
+}
+
+sub plsql2pg::make_with {
+    my (undef, $alias, undef, undef, $select, undef) = @_;
+    my $with = make_node('with');
+
+    $with->{alias} = $alias;
+    $with->{select} = $select;
+
+    return to_array($with);
+}
+
+sub format_with {
+    my ($with) = @_;
+
+    return quote_ident($with->{alias})
+           . ' AS (' . format_node($with->{select})
+           . ')';
 }
 
 sub plsql2pg::make_select {
@@ -769,8 +819,8 @@ sub get_alias {
 
 sub format_select {
     my ($stmt) = @_;
-    my @clauselist = ('SELECT', 'FROM', 'JOIN', 'WHERE', 'GROUPBY', 'HAVING',
-        'ORDERBY', 'LIMIT', 'OFFSET');
+    my @clauselist = ('WITH', 'SELECT', 'FROM', 'JOIN', 'WHERE', 'GROUPBY',
+        'HAVING', 'ORDERBY', 'LIMIT', 'OFFSET');
     my $nodes;
     my $out = '';
 
@@ -1135,6 +1185,12 @@ sub format_join {
     $out .= ' ' . format_node($join->{cond}) if defined($join->{cond});
 
     return $out;
+}
+
+sub format_WITH {
+    my ($with) = @_;
+
+    return "WITH " . format_standard_clause($with, ', ');
 }
 
 sub format_SELECT {
