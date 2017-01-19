@@ -63,6 +63,10 @@ alias_target_el ::=
 # to allow function in quals without ambiguity (having function in a_expr is
 # ambiguous)
 target_el ::=
+    target_el '||' simple_target_el action => make_concat
+    | simple_target_el
+
+simple_target_el ::=
     a_expr
     | function
 
@@ -311,7 +315,7 @@ my $grammar = Marpa::R2::Scanless::G->new( {
 
 my $input = <<'SAMPLE_QUERIES';
 SElect 1 nb from DUAL WHERE rownum < 2; SELECT * from TBL t order by a, b desc, tbl.c asc;
-SELECT nvl(val, 'null') "vAl",1, abc, "DEF" from "toto" as "TATA;";
+SELECT nvl(val, 'null') || ' '|| nvl(val2, 'empty') "vAl",1, abc, "DEF" from "toto" as "TATA;";
  SELECT 1, 'test me', t.* from tbl t WHERE (((((a > 2)) and (rownum < 10)) OR ((((b < 3)))))) GROUP BY a, t.b;
  select * from (
 select 1 from dual
@@ -351,6 +355,24 @@ sub plsql2pg::append_el_1_3 {
     push(@{$nodes}, @{$node});
 
     return $nodes;
+}
+
+sub plsql2pg::make_concat {
+    my (undef, $left, $op, $right) = @_;
+    my $concat = make_node('concat');
+
+    $concat->{left} = $left;
+    $concat->{op} = $op;
+    $concat->{right} = $right;
+
+    return to_array($concat);
+}
+
+sub format_concat {
+    my ($concat) = @_;
+
+    return format_node($concat->{left}) . ' ' . format_node($concat->{op})
+         . ' ' . format_node($concat->{right}) . format_alias($concat->{alias});
 }
 
 sub plsql2pg::make_number {
