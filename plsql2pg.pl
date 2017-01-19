@@ -341,7 +341,7 @@ select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d C
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
 SELECT val, rank() over (partition by id) rank, lead(val) over (order by val rows CURRENT ROW), lag(val) over (partition by id,val order by val range between 2 preceding and unbounded following) as lag from t;
-WITH s1 as (select 1 from dual), s AS (SELECT * FROM s1 where rownum < 2) SELECT * From s, (with t as (select 3 from t) select * from t) cross join (with u as (select count(*) nb from dual) select nb from u union all (select 0 from dual)) where rownum < 2;
+WITH s1 as (with s3 as (select 1 from dual) select * from s3), s AS (SELECT * FROM s1 where rownum < 2) SELECT * From s, (with t as (select 3 from t) select * from t) cross join (with u as (select count(*) nb from dual) select nb from u union all (select 0 from dual)) where rownum < 2;
 SAMPLE_QUERIES
 
 
