@@ -25,12 +25,11 @@ stmtmulti ::=
     | stmt
 
 stmt ::=
-    CombinedSelectStmt action => print_stmts
-    | WithSelectStmt action => print_stmts
+    SelectStmt action => print_stmts
 
-CombinedSelectStmt ::=
-    CombinedSelectStmt combine_op '(' SelectStmt ')' action => combine_select
-    | SelectStmt
+SelectStmt ::=
+    SelectStmt combine_op '(' SingleSelectStmt ')' action => combine_select
+    | SingleSelectStmt
 
 combine_op ::=
     UNION
@@ -38,11 +37,8 @@ combine_op ::=
     | INTERSECT
     | MINUS
 
-WithSelectStmt ::=
-    with_clause SelectStmt action => add_withclause
-
-SelectStmt ::=
-    SELECT select_clause from_clause join_clause
+SingleSelectStmt ::=
+    with_clause SELECT select_clause from_clause join_clause
         where_clause group_clause having_clause
         order_clause action => make_select
 
@@ -55,6 +51,7 @@ EMPTY ::= action => ::undef
 
 with_clause ::=
     WITH with_list action => make_withclause
+    | EMPTY action => ::undef
 
 with_list ::=
     with_list ',' with_elem action => append_el_1_3
@@ -156,8 +153,12 @@ join_list ::=
     | join_elem
 
 join_elem ::=
-    join_type JOIN IDENT ALIAS_CLAUSE join_cond action => make_join
-    | special_join_type JOIN IDENT ALIAS_CLAUSE action => make_join
+    join_type JOIN join_ident ALIAS_CLAUSE join_cond action => make_join
+    | special_join_type JOIN join_ident ALIAS_CLAUSE action => make_join
+
+join_ident ::=
+    IDENT
+    | '(' SelectStmt ')' action => make_subquery
 
 join_type ::=
     INNER action => make_jointype
@@ -340,7 +341,7 @@ select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d C
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
 SELECT val, rank() over (partition by id) rank, lead(val) over (order by val rows CURRENT ROW), lag(val) over (partition by id,val order by val range between 2 preceding and unbounded following) as lag from t;
-WITH s1 as (select 1 from dual), s AS (SELECT * FROM s1 where rownum < 2) SELECT * From s;
+WITH s1 as (select 1 from dual), s AS (SELECT * FROM s1 where rownum < 2) SELECT * From s, (with t as (select 3 from t) select * from t) cross join (with u as (select count(*) nb from dual) select nb from u union all (select 0 from dual)) where rownum < 2;
 SAMPLE_QUERIES
 
 
@@ -540,16 +541,6 @@ sub plsql2pg::make_withclause {
     return make_clause('WITH', $list);
 }
 
-sub plsql2pg::add_withclause {
-    my (undef, $withclause, $selectclause) = @_;
-
-    assert_one_el($selectclause);
-
-    @{$selectclause}[0]->{WITH} = $withclause;
-
-    return $selectclause;
-}
-
 sub plsql2pg::make_with {
     my (undef, $alias, undef, undef, $select, undef) = @_;
     my $with = make_node('with');
@@ -569,9 +560,11 @@ sub format_with {
 }
 
 sub plsql2pg::make_select {
-    my (undef, undef, @args) = @_;
+    my (undef, $with, undef, @args) = @_;
     my $stmt = make_node('select');
     my $token;
+
+    $stmt->{WITH} = $with if defined($with);
 
     while (scalar @args > 0) {
         $token = shift(@args);
@@ -601,16 +594,15 @@ sub format_combine_op {
 }
 
 sub plsql2pg::make_subquery {
-    my (undef, undef, $stmt, undef, $alias) = @_;
+    my (undef, undef, $stmts, undef, $alias) = @_;
     my $clause;
+    my $node = make_node('subquery');
 
-    assert_one_el($stmt);
+    $node->{alias} = $alias;
+    $node->{stmts} = $stmts;
+    $clause = make_clause('SUBQUERY', $node);
 
-    @{$stmt}[0]->{alias} = $alias;
-    $clause = make_clause('subquery', $stmt);
-
-    #return $stmt;
-    return $clause;
+    return to_array($clause);
 }
 
 sub plsql2pg::alias_node {
@@ -1181,7 +1173,7 @@ sub format_join {
 
     $out = $join->{jointype} . " JOIN ";
 
-    $out .= format_ident($join->{ident});
+    $out .= format_node($join->{ident});
     $out .= ' ' . format_node($join->{cond}) if defined($join->{cond});
 
     return $out;
@@ -1257,14 +1249,15 @@ sub format_OFFSET {
     return "OFFSET " . format_node($offset->{content});
 }
 
-sub format_subquery {
+sub format_SUBQUERY {
     my ($query) = @_;
-    my $alias;
+    my $stmts = $ query->{content}->{stmts};
+    my $alias = $ query->{content}->{alias};
     my $out;
 
-    $out .= '( ' . format_standard_clause($query) . ' )';
+    $out .= '( ' . format_node($stmts) . ' )';
 
-    $alias = format_alias(@{$query->{content}}[0]->{alias});
+    $alias = format_alias($alias);
 
     # alias on subquery in mandatory in pg
     if ($alias eq '') {
@@ -1325,9 +1318,10 @@ sub isA {
 
 sub assert_one_el {
     my ($arr) = @_;
+    my $func = (caller(1))[3];
 
-    error('Element is not an array', $arr) if (ref($arr) ne 'ARRAY');
-    error('Array contains more than one element', $arr) if (scalar @{$arr} != 1);
+    error("Element is not an array in $func", $arr) if (ref($arr) ne 'ARRAY');
+    error("Array contains more than one element in $func", $arr) if (scalar @{$arr} != 1);
 }
 
 sub to_array {
