@@ -39,7 +39,7 @@ combine_op ::=
 
 SingleSelectStmt ::=
     with_clause SELECT select_clause from_clause join_clause
-        where_clause group_clause having_clause
+        where_clause hierarchical_clause group_clause having_clause
         order_clause action => make_select
 
 ALIAS_CLAUSE ::=
@@ -198,7 +198,6 @@ qual_list_with_parens ::=
 
 qual_list_no_parens ::=
     qual_list qual_op qual action => append_qual
-    #| '(' qual_list qual_op parens_qual ')' action => parens_qual
     | qual_no_parens
 
 qual_op ::=
@@ -211,8 +210,11 @@ IDENT ::=
     | ident '.' ident action => make_ident
     | ident action => make_ident
 
+# PRIOR is only legal in hierarchical clause, assume original query is valid
 qual_no_parens ::=
     target_el OPERATOR target_el join_op action => make_qual
+    | PRIOR target_el OPERATOR target_el join_op action => make_priorqual
+    | target_el OPERATOR PRIOR target_el join_op action => make_qualprior
 
 qual ::=
     qual_no_parens
@@ -221,6 +223,17 @@ qual ::=
 join_op ::=
     '(+)'
     | EMPTY action => ::undef
+
+hierarchical_clause ::=
+    startwith_clause connectby_clause action => make_hierarchicalclause
+    | connectby_clause action => make_hierarchicalclause
+    | EMPTY action => ::undef
+
+startwith_clause ::=
+    START WITH qual_list action => make_startwith
+
+connectby_clause ::=
+    CONNECT BY qual_list action => make_connectby
 
 group_clause ::=
     GROUP BY group_list action => make_groupbyclause
@@ -260,6 +273,7 @@ AS          ~ 'AS':ic
 ASC         ~ 'ASC':ic
 BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
+CONNECT     ~ 'CONNECT':ic
 CROSS       ~ 'CROSS':ic
 CURRENT     ~ 'CURRENT':ic
 DESC        ~ 'DESC':ic
@@ -284,12 +298,14 @@ OUTER       ~ 'OUTER':ic
 OVER        ~ 'OVER':ic
 PARTITION   ~ 'PARTITION':ic
 PRECEDING   ~ 'PRECEDING':ic
+PRIOR       ~ 'PRIOR':ic
 RANGE       ~ 'RANGE':ic
 RIGHT       ~ 'RIGHT':ic
 :lexeme     ~ RIGHT priority => 1
 ROW         ~ 'ROW':ic
 ROWS        ~ 'ROWS':ic
 SELECT      ~ 'SELECT':ic
+START       ~ 'START':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
 UNION       ~ 'UNION':ic
 USING       ~ 'USING':ic
@@ -342,6 +358,10 @@ select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
 SELECT val, rank() over (partition by id) rank, lead(val) over (order by val rows CURRENT ROW), lag(val) over (partition by id,val order by val range between 2 preceding and unbounded following) as lag from t;
 WITH s1 as (with s3 as (select 1 from dual) select * from s3), s AS (SELECT * FROM s1 where rownum < 2) SELECT * From s, (with t as (select 3 from t) select * from t) cross join (with u as (select count(*) nb from dual) select nb from u union all (select 0 from dual)) where rownum < 2;
+with s as (select 1 from dual) SELECT employee_id, last_name, manager_id
+FROM employees
+WHERE salary > 0
+start with employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manager_id;
 SAMPLE_QUERIES
 
 
@@ -526,6 +546,31 @@ sub plsql2pg::make_qual {
     return to_array($qual);
 }
 
+sub plsql2pg::make_priorqual {
+    my (undef, undef, $left, $op, $right, $join_op) = @_;
+    my $node = plsql2pg::make_qual(undef, $left, $op, $right, $join_op);
+
+    assert_one_el($node);
+
+    $node= pop(@{$node});
+
+    $node->{prior} = 'left';
+
+    return to_array($node);
+}
+
+sub plsql2pg::make_qualprior {
+    my (undef, $left, $op, undef, $right, $join_op) = @_;
+    my $node = plsql2pg::make_qual(undef, $left, $op, $right, $join_op);
+
+    assert_one_el($node);
+
+    $node = pop(@{$node});
+    $node->{prior} = 'right';
+
+    return to_array($node);
+}
+
 sub plsql2pg::append_qual {
     my (undef, $quals, $qualop, $qual) = @_;
 
@@ -677,6 +722,32 @@ sub plsql2pg::make_joinon {
     return $node;
 }
 
+sub plsql2pg::make_startwith {
+    my (undef, undef, undef, $quals) = @_;
+
+    return make_clause('STARTWITH', $quals);
+}
+
+sub plsql2pg::make_connectby {
+    my (undef, undef, undef, $quals) = @_;
+
+    return make_clause('CONNECTBY', $quals);
+}
+
+sub plsql2pg::make_hierarchicalclause {
+    my (undef, $clause1, $clause2) = @_;
+    my $node = make_node('connectby');
+
+    if (defined($clause2)) {
+        $node->{startwith} = $clause1;
+        $node->{connectby} = $clause2;
+    } else {
+        $node->{connectby} = $clause1;
+    }
+
+    return make_clause('HIERARCHICAL', $node);
+}
+
 sub plsql2pg::make_groupby {
     my (undef, $elem) = @_;
     my $groupby = make_node('groupby');
@@ -825,6 +896,8 @@ sub format_select {
 
     handle_rownum($stmt);
 
+    $stmt = handle_connectby($stmt);
+
     foreach my $current (@clauselist) {
         if (defined($stmt->{$current})) {
             my $format = format_node($stmt->{$current});
@@ -944,6 +1017,82 @@ sub handle_rownum {
             $stmt->{$clause->{type}} = $clause;
             }
         }
+}
+
+# This function will transform an oracle hierarchical query (CONNECT BY) to a
+# standard recursive query (WITH RECURSIVE).  A new statement is returned that
+# must replace the original one.
+sub handle_connectby {
+    my ($ori) = @_;
+    my $lhs = {};
+    my $rhs = {};
+    my $quals;
+    my $with = make_node('with');
+    my $select = make_node('ident');
+    my $from = make_node('ident');
+    my $stmt = make_node('select');
+    my $previous_with;
+    my $clause;
+
+    return $ori unless(defined($ori->{HIERARCHICAL}));
+    $clause = $ori->{HIERARCHICAL};
+    $stmt->{WITH} = $ori->{WITH} if (defined($ori->{WITH}));
+    $ori->{WITH} = undef;
+
+    # make two quick copies of the original statement to generate both sides of
+    # the UNION ALL part que the recursive query (LHS and RHS).
+    while (my ($k, $v) = each %$ori) {
+        next if ($k eq 'HIERARCHICAL');
+        $lhs->{$k} = $v;
+        $rhs->{$k} = $v;
+    }
+
+    # start constructing the WITH clause from scratch
+    $with->{alias} = 'recur';
+    $with->{recursive} = 1;
+
+    # if a START WITH clause was present, transfer it to the WHERE clause of
+    # the LHS
+    if (defined($clause->{content}->{startwith})) {
+        $quals = make_node('quallist');
+        $quals->{quallist} = $clause->{content}->{startwith}->{content};
+        $lhs->{WHERE} = make_clause('WHERE', $quals);
+    }
+
+    # add the LHS to the WITH clause
+    $with->{select} = to_array($lhs);
+    # add the UNION ALL to the WITH clause
+    push(@{$with->{select}}, 'UNION ALL');
+
+    # transfer the CONNECT BY clause to the RHS
+    $quals = make_node('quallist');
+    $quals->{quallist} = $clause->{content}->{connectby}->{content};
+
+    # if a qual's ident is tagged as PRIOR, qualify it with the recursion alias
+    foreach my $q (@{$quals->{quallist}}) {
+        next if (ref($q) ne 'HASH');
+        $q->{$q->{prior}}->{table} = 'recur' if (defined($q->{prior}));
+    }
+
+    $rhs->{WHERE} = make_clause('WHERE', $quals);
+    # and finally add the RHS to the WITH clause
+    push(@{$with->{select}}, to_array($rhs));
+
+    # create a dummy select statement to attach the WITH to
+    $select->{attribute} = '*';
+    $stmt->{SELECT} = make_clause('SELECT', to_array($select));
+    $from->{attribute} = 'recur';
+    $stmt->{FROM} = make_clause('FROM', to_array($from));
+    $stmt->{WHERE} = $ori->{WHERE} if (defined($ori->{WHERE}));
+    # append the recursive WITH to original one if present, otherwise create a
+    # new WITH clause
+    if (defined($stmt->{WITH})) {
+    push(@{$stmt->{WITH}->{content}}, $with);
+    } else {
+        $stmt->{WITH} = make_clause('WITH', to_array($with));
+    }
+
+    return $stmt;
 }
 
 sub parens_is_empty {
@@ -1181,8 +1330,17 @@ sub format_join {
 
 sub format_WITH {
     my ($with) = @_;
+    my $recursive = '';
 
-    return "WITH " . format_standard_clause($with, ', ');
+    # Make the WITH recursive if any of the elem is recursive
+    foreach my $w (@{$with->{content}}) {
+        if (defined($w->{recursive})) {
+            $recursive = 'RECURSIVE ';
+            last;
+        }
+    }
+
+    return "WITH " . $recursive . format_standard_clause($with, ', ');
 }
 
 sub format_SELECT {
