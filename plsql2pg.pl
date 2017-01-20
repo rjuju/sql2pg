@@ -80,10 +80,22 @@ alias_target_el ::=
 # to allow function in quals without ambiguity (having function in a_expr is
 # ambiguous)
 target_el ::=
-    target_el '||' simple_target_el action => make_concat
-    | simple_target_el
+    target_el_no_parens
+    | target_el_with_parens
+
+target_el_with_parens ::=
+    '(' target_el_no_parens ')' action => parens_node
+    | '(' target_el_with_parens ')' action => parens_node
+
+target_el_no_parens ::=
+    target_el OPERATOR simple_target_el action => make_opexpr
+    | simple_target_el_no_parens
 
 simple_target_el ::=
+    simple_target_el_no_parens
+    | '(' target_el ')' action => parens_node
+
+simple_target_el_no_parens ::=
     a_expr
     | function
 
@@ -209,8 +221,8 @@ qual_list ::=
     | qual_list_with_parens
 
 qual_list_with_parens ::=
-    '(' qual_list_no_parens ')' action => parens_qual
-    | '(' qual_list_with_parens ')' action => parens_qual
+    '(' qual_list_no_parens ')' action => parens_node
+    | '(' qual_list_with_parens ')' action => parens_node
 
 qual_list_no_parens ::=
     qual_list qual_op qual action => append_qual
@@ -234,7 +246,7 @@ qual_no_parens ::=
 
 qual ::=
     qual_no_parens
-    | '(' qual_list ')' action => parens_qual
+    | '(' qual_list ')' action => parens_node
 
 join_op ::=
     '(+)'
@@ -361,6 +373,7 @@ literal_delim   ~ [']
 literal_chars   ~ [^']*
 
 OPERATOR    ~ '=' | '<' | '<=' | '>' | '>=' | '%' | IS | IS NOT
+            | '+' | '-' | '*' | '/' | '||'
 
 :discard ~ whitespace
 whitespace ~ [\s]+
@@ -374,8 +387,8 @@ my $grammar = Marpa::R2::Scanless::G->new( {
 
 my $input = <<'SAMPLE_QUERIES';
 SElect 1 nb from DUAL WHERE rownum < 2; SELECT DISTINCT * from TBL t order by a nulls last, b desc, tbl.c asc;
-SELECT nvl(val, 'null') || ' '|| nvl(val2, 'empty') "vAl",1, abc, "DEF" from "toto" as "TATA;";
- SELECT 1, 'test me', t.* from tbl t WHERE (((((a > 2)) and (rownum < 10)) OR ((((b < 3)))))) GROUP BY a, t.b;
+SELECT (1), nvl(val, 'null') || ' '|| nvl(val2, 'empty') "vAl",1, abc, "DEF" from "toto" as "TATA;";
+ SELECT 1 + 2 * ((t.v) - 2) % 4 meh, 'test me', t.* from tbl t WHERE (((((a > 2)) and (rownum < 10)) OR ((((b < 3)))))) GROUP BY a, t.b;
  select * from (
 select 1 from dual
 ) union (select 2 from dual) minus (select 3 from dual) interSECT (select 4 from dual) union all (select 5 from dual);
@@ -421,9 +434,9 @@ sub plsql2pg::append_el_1_3 {
     return $nodes;
 }
 
-sub plsql2pg::make_concat {
+sub plsql2pg::make_opexpr {
     my (undef, $left, $op, $right) = @_;
-    my $concat = make_node('concat');
+    my $concat = make_node('opexpr');
 
     $concat->{left} = $left;
     $concat->{op} = $op;
@@ -432,7 +445,7 @@ sub plsql2pg::make_concat {
     return to_array($concat);
 }
 
-sub format_concat {
+sub format_opexpr {
     my ($concat) = @_;
 
     return format_node($concat->{left}) . format_node($concat->{op})
@@ -713,7 +726,7 @@ sub plsql2pg::tag_only_node {
     return $ident;
 }
 
-sub plsql2pg::parens_qual {
+sub plsql2pg::parens_node {
     my (undef, undef, $node, undef) = @_;
     my $parens = make_node('parens');
 
