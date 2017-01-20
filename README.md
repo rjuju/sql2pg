@@ -11,7 +11,7 @@ Some references:
 Original:
 ---------
 ```sql
-SElect 1 nb from DUAL WHERE rownum < 2; SELECT * from TBL t order by a nulls last, b desc, tbl.c asc;
+SElect 1 nb from DUAL WHERE rownum < 2; SELECT DISTINCT * from TBL t order by a nulls last, b desc, tbl.c asc;
 SELECT nvl(val, 'null') || ' '|| nvl(val2, 'empty') "vAl",1, abc, "DEF" from "toto" as "TATA;";
  SELECT 1, 'test me', t.* from tbl t WHERE (((((a > 2)) and (rownum < 10)) OR ((((b < 3)))))) GROUP BY a, t.b;
  select * from (
@@ -33,7 +33,7 @@ Converted:
 ----------
 ```sql
 SELECT 1 AS nb LIMIT 1 ;
-SELECT * FROM tbl AS t ORDER BY a ASC NULLS LAST, b DESC, tbl.c ASC ;
+SELECT DISTINCT * FROM tbl AS t ORDER BY a ASC NULLS LAST, b DESC, tbl.c ASC ;
 SELECT COALESCE(val, 'null') || ' ' || COALESCE(val2, 'empty') AS "vAl", 1, abc, "DEF" FROM toto AS "TATA;" ;
 SELECT 1, 'test me', t.* FROM tbl AS t WHERE (((a > 2)) OR (b < 3)) GROUP BY a, t.b LIMIT 9 ;
 SELECT * FROM ( SELECT 1 ) AS subquery1 UNION ( SELECT 2 ) EXCEPT ( SELECT 3 ) INTERSECT ( SELECT 4 ) UNION ALL ( SELECT 5 ) ;

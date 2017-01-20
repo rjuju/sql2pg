@@ -60,8 +60,14 @@ with_list ::=
 with_elem ::=
     ident AS '(' SelectStmt ')' action => make_with
 
+distinct_elem ::=
+    ALL
+    | UNIQUE
+    | DISTINCT
+
 select_clause ::=
-    target_list action => make_selectclause
+    distinct_elem target_list action => make_distinct_selectclause
+    | target_list action => make_selectclause
 
 target_list ::=
     target_list ',' alias_target_el action => append_el_1_3
@@ -282,6 +288,7 @@ CONNECT     ~ 'CONNECT':ic
 CROSS       ~ 'CROSS':ic
 CURRENT     ~ 'CURRENT':ic
 DESC        ~ 'DESC':ic
+DISTINCT    ~ 'DISTINCT':ic
 FIRST       ~ 'FIRST':ic
 INNER       ~ 'INNER':ic
 INTERSECT   ~ 'INTERSECT':ic
@@ -315,6 +322,7 @@ ROWS        ~ 'ROWS':ic
 SELECT      ~ 'SELECT':ic
 START       ~ 'START':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
+UNIQUE      ~ 'UNIQUE':ic
 UNION       ~ 'UNION':ic
 USING       ~ 'USING':ic
 WHERE       ~ 'WHERE':ic
@@ -354,7 +362,7 @@ my $grammar = Marpa::R2::Scanless::G->new( {
 } );
 
 my $input = <<'SAMPLE_QUERIES';
-SElect 1 nb from DUAL WHERE rownum < 2; SELECT * from TBL t order by a nulls last, b desc, tbl.c asc;
+SElect 1 nb from DUAL WHERE rownum < 2; SELECT DISTINCT * from TBL t order by a nulls last, b desc, tbl.c asc;
 SELECT nvl(val, 'null') || ' '|| nvl(val2, 'empty') "vAl",1, abc, "DEF" from "toto" as "TATA;";
  SELECT 1, 'test me', t.* from tbl t WHERE (((((a > 2)) and (rownum < 10)) OR ((((b < 3)))))) GROUP BY a, t.b;
  select * from (
@@ -521,10 +529,22 @@ sub plsql2pg::make_partitionclause {
     return make_clause('PARTITIONBY', $partitionbys);
 }
 
+sub plsql2pg::make_distinct_selectclause {
+    my (undef, $distinct, $tlist) = @_;
+    my $node = make_node('target_list');
+
+    $node->{tlist} = $tlist;
+    $node->{distinct} = uc($distinct);
+
+    return make_clause('SELECT', $node);
+}
+
 sub plsql2pg::make_selectclause {
     my (undef, $tlist) = @_;
+    my $node = make_node('target_list');
 
-    return make_clause('SELECT', $tlist);
+    $node->{tlist} = $tlist;
+    return make_clause('SELECT', $node);
 }
 
 sub plsql2pg::make_fromclause {
@@ -1370,10 +1390,24 @@ sub format_WITH {
     return "WITH " . $recursive . format_standard_clause($with, ', ');
 }
 
+sub format_target_list {
+    my ($tlist) = @_;
+    my $out = '';
+
+    foreach my $elem (@{$tlist->{tlist}}) {
+        $out .= ', ' if ($out ne '');
+        $out .= format_node($elem);
+    }
+
+    $out = $tlist->{distinct} . ' ' . $out if (defined($tlist->{distinct}));
+
+    return $out;
+
+}
 sub format_SELECT {
     my ($select) = @_;
 
-    return "SELECT " . format_standard_clause($select, ', ');
+    return "SELECT " . format_node($select->{content}, ', ');
 }
 
 sub format_FROM {
