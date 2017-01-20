@@ -171,16 +171,22 @@ join_ident ::=
     | '(' SelectStmt ')' action => make_subquery
 
 join_type ::=
+    normal_join_type
+    | special_join_type
+    | EMPTY action => make_jointype
+
+normal_join_type ::=
     INNER action => make_jointype
     | LEFT action => make_jointype
     | LEFT OUTER action => make_jointype
     | RIGHT action => make_jointype
     | RIGHT OUTER action => make_jointype
+    | FULL action => make_jointype
     | FULL OUTER action => make_jointype
-    | EMPTY action => make_jointype
 
 special_join_type ::=
     NATURAL action => make_jointype
+    | NATURAL normal_join_type action => concat
     | CROSS action => make_jointype
 
 join_cond ::=
@@ -374,7 +380,7 @@ SELECT nvl(val, 'null') || ' '|| nvl(val2, 'empty') "vAl",1, abc, "DEF" from "to
 select 1 from dual
 ) union (select 2 from dual) minus (select 3 from dual) interSECT (select 4 from dual) union all (select 5 from dual);
 select * from a,only (c) join b using (id,id2) left join d using (id) WHERE rownum >10 and rownum <= 20;
-select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d CROSS JOIN e cj;
+select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d CROSS JOIN e cj natural left outer join f natural full outer join g;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
 SELECT val, rank() over (partition by id) rank, lead(val) over (order by val rows CURRENT ROW), lag(val) over (partition by id,val order by val range between 2 preceding and unbounded following) as lag from t;
@@ -749,7 +755,8 @@ sub plsql2pg::make_jointype {
     $kw1 = uc($kw1);
     $kw2 = uc($kw2);
 
-    return 'FULL OUTER' if ($kw1 eq 'FULL') and ($kw2 eq 'OUTER');
+    # just a personal preference
+    return 'FULL OUTER' if ($kw1 eq 'FULL');
     return $kw1;
 }
 
