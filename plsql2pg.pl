@@ -113,7 +113,7 @@ partition_list ::=
 partition_elem ::=
     a_expr action => make_partitionby
 
-# should only be legal with an order_clause
+# should only be legal if an order_clause is present in the OVER clause
 frame_clause ::=
     RANGE_ROWS frame_start action => make_frame_simple
     | RANGE_ROWS BETWEEN frame_start AND frame_end action => make_frame_between
@@ -259,11 +259,16 @@ order_list ::=
     | order_elem
 
 order_elem ::=
-    a_expr ordering action => make_orderby
+    a_expr ordering nulls_pos action => make_orderby
 
 ordering ::=
     ASC
     | DESC
+    | EMPTY action => ::undef
+
+nulls_pos ::=
+    NULLS FIRST action => concat
+    | NULLS LAST action => concat
     | EMPTY action => ::undef
 
 # keywords
@@ -277,6 +282,7 @@ CONNECT     ~ 'CONNECT':ic
 CROSS       ~ 'CROSS':ic
 CURRENT     ~ 'CURRENT':ic
 DESC        ~ 'DESC':ic
+FIRST       ~ 'FIRST':ic
 INNER       ~ 'INNER':ic
 INTERSECT   ~ 'INTERSECT':ic
 IS          ~ 'IS':ic
@@ -286,11 +292,13 @@ FROM        ~ 'FROM':ic
 GROUP       ~ 'GROUP':ic
 HAVING      ~ 'HAVING':ic
 JOIN        ~ 'JOIN':ic
+LAST        ~ 'LAST':ic
 LEFT        ~ 'LEFT':ic
 :lexeme     ~ LEFT priority => 1
 MINUS       ~ 'MINUS':ic
 NATURAL     ~ 'NATURAL':ic
 NOT         ~ 'NOT':ic
+NULLS       ~ 'NULLS':ic
 OR          ~ 'OR':ic
 ORDER       ~ 'ORDER':ic
 ON          ~ 'ON':ic
@@ -346,7 +354,7 @@ my $grammar = Marpa::R2::Scanless::G->new( {
 } );
 
 my $input = <<'SAMPLE_QUERIES';
-SElect 1 nb from DUAL WHERE rownum < 2; SELECT * from TBL t order by a, b desc, tbl.c asc;
+SElect 1 nb from DUAL WHERE rownum < 2; SELECT * from TBL t order by a nulls last, b desc, tbl.c asc;
 SELECT nvl(val, 'null') || ' '|| nvl(val2, 'empty') "vAl",1, abc, "DEF" from "toto" as "TATA;";
  SELECT 1, 'test me', t.* from tbl t WHERE (((((a > 2)) and (rownum < 10)) OR ((((b < 3)))))) GROUP BY a, t.b;
  select * from (
@@ -839,8 +847,10 @@ sub format_frame {
 }
 
 sub plsql2pg::make_orderby {
-    my (undef, $elem, $order) = @_;
+    my (undef, $elem, $order, $nulls) = @_;
     my $orderby = make_node('orderby');
+
+    assert_one_el($elem);
 
     if (not defined($order)) {
         $order = 'ASC' unless defined($order);
@@ -848,8 +858,9 @@ sub plsql2pg::make_orderby {
         $order = uc($order);
     }
 
-    $orderby->{elem} = $elem;
+    $orderby->{elem} = pop(@{$elem});
     $orderby->{order} = $order;
+    $orderby->{nulls} = $nulls;
 
     return to_array($orderby);
 }
@@ -864,7 +875,10 @@ sub format_orderby {
     my ($orderby) = @_;
     my $out;
 
-    return format_node(@{$orderby->{elem}}[0]) . ' ' . $orderby->{order};
+    $out = format_node($orderby->{elem}) . ' ' . $orderby->{order};
+    $out .= ' ' . $orderby->{nulls} if (defined ($orderby->{nulls}));
+
+    return $out;
 }
 
 sub make_clause {
