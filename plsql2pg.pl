@@ -148,7 +148,11 @@ from_list ::=
 
 from_elem ::=
     IDENT ALIAS_CLAUSE action => alias_node
+    | ONLY_IDENT ALIAS_CLAUSE action => alias_node
     | '(' SelectStmt ')' ALIAS_CLAUSE action => make_subquery
+
+ONLY_IDENT ::=
+    ONLY '(' IDENT ')' action => tag_only_node
 
 join_clause ::=
     join_list action => make_joinclause
@@ -306,6 +310,7 @@ MINUS       ~ 'MINUS':ic
 NATURAL     ~ 'NATURAL':ic
 NOT         ~ 'NOT':ic
 NULLS       ~ 'NULLS':ic
+ONLY        ~ 'ONLY':ic
 OR          ~ 'OR':ic
 ORDER       ~ 'ORDER':ic
 ON          ~ 'ON':ic
@@ -368,7 +373,7 @@ SELECT nvl(val, 'null') || ' '|| nvl(val2, 'empty') "vAl",1, abc, "DEF" from "to
  select * from (
 select 1 from dual
 ) union (select 2 from dual) minus (select 3 from dual) interSECT (select 4 from dual) union all (select 5 from dual);
-select * from a,c join b using (id,id2) left join d using (id) WHERE rownum >10 and rownum <= 20;
+select * from a,only (c) join b using (id,id2) left join d using (id) WHERE rownum >10 and rownum <= 20;
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d CROSS JOIN e cj;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
 SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
@@ -690,6 +695,16 @@ sub plsql2pg::alias_node {
     @{$node}[0]->{alias} = $alias;
 
     return $node;
+}
+
+sub plsql2pg::tag_only_node {
+    my (undef, undef, undef, $ident, undef) = @_;
+
+    assert_one_el($ident);
+
+    @{$ident}[0]->{only} = 1;
+
+    return $ident;
 }
 
 sub plsql2pg::parens_qual {
@@ -1330,6 +1345,10 @@ sub format_ident {
     }
 
     $out .= format_alias($ident->{alias});
+
+    if (defined($ident->{only})) {
+        $out = 'ONLY (' . $out . ')';
+    }
 
     return $out;
 }
