@@ -408,8 +408,8 @@ sub plsql2pg::make_concat {
 sub format_concat {
     my ($concat) = @_;
 
-    return format_node($concat->{left}) . ' ' . format_node($concat->{op})
-         . ' ' . format_node($concat->{right}) . format_alias($concat->{alias});
+    return format_node($concat->{left}) . format_node($concat->{op})
+         . format_node($concat->{right}) . format_alias($concat->{alias});
 }
 
 sub plsql2pg::make_number {
@@ -600,8 +600,8 @@ sub format_with {
     my ($with) = @_;
 
     return quote_ident($with->{alias})
-           . ' AS (' . format_node($with->{select})
-           . ')';
+           . ' AS ( ' . format_node($with->{select})
+           . ' )';
 }
 
 sub plsql2pg::make_select {
@@ -623,6 +623,10 @@ sub plsql2pg::combine_select {
     my (undef, $nodes, $raw_op, undef, $stmt, undef) = @_;
     my $op = make_node('combine_op');
 
+    assert_one_el($stmt);
+
+    @{$stmt}[0]->{combined} = 1;
+
     $op->{op} = $raw_op;
 
     push(@{$nodes}, $op);
@@ -634,8 +638,8 @@ sub plsql2pg::combine_select {
 sub format_combine_op {
     my ($op) = @_;
 
-    return 'EXCEPT' if (uc($op->{op}) eq 'MINUS');
-    return uc($op->{op});
+    return ' EXCEPT ' if (uc($op->{op}) eq 'MINUS');
+    return ' ' . uc($op->{op}) . ' ';
 }
 
 sub plsql2pg::make_subquery {
@@ -887,6 +891,8 @@ sub format_select {
     my $nodes;
     my $out = '';
 
+    $out .= '(' if ($stmt->{combined});
+
     $nodes = handle_nonsqljoin($stmt->{FROM}, $stmt->{WHERE});
 
     if (defined($nodes)) {
@@ -908,6 +914,8 @@ sub format_select {
             }
         }
     }
+
+    $out .= ' )' if ($stmt->{combined});
 
     return $out;
 }
@@ -1026,6 +1034,7 @@ sub handle_connectby {
     my ($ori) = @_;
     my $lhs = {};
     my $rhs = {};
+    my $combine;
     my $quals;
     my $with = make_node('with');
     my $select = make_node('ident');
@@ -1061,8 +1070,11 @@ sub handle_connectby {
 
     # add the LHS to the WITH clause
     $with->{select} = to_array($lhs);
+
     # add the UNION ALL to the WITH clause
-    push(@{$with->{select}}, 'UNION ALL');
+    $combine = make_node('combine_op');
+    $combine->{op} = 'UNION ALL';
+    push(@{$with->{select}}, $combine);
 
     # transfer the CONNECT BY clause to the RHS
     $quals = make_node('quallist');
@@ -1075,6 +1087,7 @@ sub handle_connectby {
     }
 
     $rhs->{WHERE} = make_clause('WHERE', $quals);
+    $rhs->{combined} = 1;
     # and finally add the RHS to the WITH clause
     push(@{$with->{select}}, to_array($rhs));
 
@@ -1212,7 +1225,6 @@ sub plsql2pg::print_stmts {
     my $first = 1;
 
     foreach my $stmt (@{$stmts}) {
-        print "\n" if (not $first);
         $first = 0;
         print format_node($stmt);
     }
@@ -1249,18 +1261,19 @@ sub format_node {
     my ($node) = @_;
     my $func;
 
+    return '' unless (defined($node));
+
     if (ref($node) eq 'ARRAY') {
         my $out = undef;
         foreach my $n (@{$node}) {
             next unless defined($n);
-            $out .= " " if defined($out);
             $out .= format_node($n);
         }
 
         return $out;
     }
 
-    return $node if (not ref($node));
+    return ' ' . $node . ' ' if (not ref($node));
 
     prune_parens($node);
     $func = "format_" . $node->{type};
