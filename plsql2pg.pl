@@ -273,6 +273,9 @@ group_list ::=
 
 group_elem ::=
     IDENT action => make_groupby
+    | ROLLUP '(' target_list ')' action => make_rollupcube
+    | CUBE '(' target_list ')' action => make_rollupcube
+    | GROUPING SETS '(' group_list ')' action => make_groupingsetsclause
 
 having_clause ::=
     HAVING qual_list action => make_havingclause
@@ -308,6 +311,7 @@ BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
 CONNECT     ~ 'CONNECT':ic
 CROSS       ~ 'CROSS':ic
+CUBE        ~ 'CUBE':ic
 CURRENT     ~ 'CURRENT':ic
 DESC        ~ 'DESC':ic
 DISTINCT    ~ 'DISTINCT':ic
@@ -319,6 +323,7 @@ FOLLOWING   ~ 'FOLLOWING':ic
 FULL        ~ 'FULL':ic
 FROM        ~ 'FROM':ic
 GROUP       ~ 'GROUP':ic
+GROUPING    ~ 'GROUPING':ic
 HAVING      ~ 'HAVING':ic
 JOIN        ~ 'JOIN':ic
 LAST        ~ 'LAST':ic
@@ -340,9 +345,11 @@ PRIOR       ~ 'PRIOR':ic
 RANGE       ~ 'RANGE':ic
 RIGHT       ~ 'RIGHT':ic
 :lexeme     ~ RIGHT priority => 1
+ROLLUP      ~ 'ROLLUP':ic
 ROW         ~ 'ROW':ic
 ROWS        ~ 'ROWS':ic
 SELECT      ~ 'SELECT':ic
+SETS        ~ 'SETS':ic
 START       ~ 'START':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
 UNIQUE      ~ 'UNIQUE':ic
@@ -402,6 +409,7 @@ with s as (select 1 from dual) SELECT employee_id, last_name, manager_id
 FROM employees
 WHERE salary > 0
 start with employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manager_id;
+SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
 SAMPLE_QUERIES
 
 
@@ -824,6 +832,22 @@ sub plsql2pg::make_groupby {
     return to_array($groupby);
 }
 
+sub plsql2pg::make_rollupcube {
+    my (undef, $keyword, undef, $tlist, undef) = @_;
+    my $rollbupcube = make_node('rollupcube');
+
+    $rollbupcube->{keyword} = uc($keyword);
+    $rollbupcube->{tlist} = $tlist;
+
+    return to_array($rollbupcube);
+}
+
+sub plsql2pg::make_groupingsetsclause {
+    my (undef, undef, undef, undef, $group_list, undef) = @_;
+
+    return to_array(make_clause('GROUPINGSETS', $group_list));
+}
+
 sub plsql2pg::make_groupbyclause {
     my (undef, undef, undef, $groupbys) = @_;
 
@@ -835,6 +859,12 @@ sub format_groupby {
     my $out;
 
     return format_node(@{$groupby->{elem}}[0]);
+}
+
+sub format_rollupcube {
+    my ($node) = @_;
+
+    return $node->{keyword} . ' (' . format_target_list($node) . ')';
 }
 
 sub plsql2pg::make_havingclause {
@@ -1446,7 +1476,7 @@ sub format_target_list {
 sub format_SELECT {
     my ($select) = @_;
 
-    return "SELECT " . format_node($select->{content}, ', ');
+    return "SELECT " . format_node($select->{content});
 }
 
 sub format_FROM {
@@ -1469,6 +1499,12 @@ sub format_JOIN {
     my ($join) = @_;
 
     return format_standard_clause($join, ' ');
+}
+
+sub format_GROUPINGSETS {
+    my ($node) = @_;
+
+    return 'GROUPING SETS (' . format_standard_clause($node, ', ') . ')';
 }
 
 sub format_GROUPBY {
