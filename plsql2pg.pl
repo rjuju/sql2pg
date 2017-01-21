@@ -27,6 +27,7 @@ stmtmulti ::=
 
 stmt ::=
     SelectStmt action => print_stmts
+    | UpdateStmt action => print_stmts
 
 SelectStmt ::=
     SelectStmt combine_op '(' SingleSelectStmt ')' action => combine_select
@@ -42,6 +43,10 @@ SingleSelectStmt ::=
     with_clause SELECT select_clause from_clause join_clause
         where_clause hierarchical_clause group_clause having_clause
         order_clause forupdate_clause action => make_select
+
+UpdateStmt ::=
+    UPDATE update_from_clause update_set_clause
+        where_clause action => make_update
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -320,6 +325,30 @@ forupdate_wait_clause ::=
     | WAIT integer action => make_forupdate_wait
     | EMPTY
 
+update_from_clause ::=
+    update_from_elem
+    | ONLY '(' update_from_elem ')' action => update_only
+
+update_from_elem ::=
+    IDENT ALIAS_CLAUSE action => alias_node
+    | '(' SelectStmt ')' ALIAS_CLAUSE action => make_subquery
+
+update_set_clause ::=
+    SET update_set_list action => make_update_set_clause
+
+update_set_list ::=
+    update_set_list ',' update_set_elem action => append_el_1_3
+    | update_set_elem
+
+update_set_elem ::=
+    IDENT '=' target_el action => make_opexpr
+    | '(' update_set_elems ')' '=' '(' SelectStmt ')' action => make_update_set_set
+    | IDENT '=' '(' SelectStmt ')' action => make_update_ident_set
+
+update_set_elems ::=
+    update_set_elems ',' IDENT action => append_el_1_3
+    | IDENT
+
 
 # keywords
 ALL         ~ 'ALL':ic
@@ -371,6 +400,7 @@ ROLLUP      ~ 'ROLLUP':ic
 ROW         ~ 'ROW':ic
 ROWS        ~ 'ROWS':ic
 SELECT      ~ 'SELECT':ic
+SET         ~ 'SET':ic
 SETS        ~ 'SETS':ic
 START       ~ 'START':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
@@ -436,6 +466,7 @@ WHERE salary > 0
 start with employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manager_id;
 SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
 SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
+update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from dual);
 SAMPLE_QUERIES
 
 
@@ -476,20 +507,15 @@ sub plsql2pg::append_el_1_3 {
 
 sub plsql2pg::make_opexpr {
     my (undef, $left, $op, $right) = @_;
-    my $concat = make_node('opexpr');
 
-    $concat->{left} = $left;
-    $concat->{op} = $op;
-    $concat->{right} = $right;
-
-    return to_array($concat);
+    return make_opexpr($left, $op, $right);
 }
 
 sub format_opexpr {
-    my ($concat) = @_;
+    my ($opexpr) = @_;
 
-    return format_node($concat->{left}) . format_node($concat->{op})
-         . format_node($concat->{right}) . format_alias($concat->{alias});
+    return format_node($opexpr->{left}) . format_node($opexpr->{op})
+         . format_node($opexpr->{right}) . format_alias($opexpr->{alias});
 }
 
 sub plsql2pg::make_number {
@@ -768,10 +794,8 @@ sub plsql2pg::tag_only_node {
 
 sub plsql2pg::parens_node {
     my (undef, undef, $node, undef) = @_;
-    my $parens = make_node('parens');
 
-    $parens->{node} = $node;
-    return to_array($parens);
+    return parens_node($node);
 }
 
 sub plsql2pg::make_joinclause {
@@ -864,6 +888,13 @@ sub plsql2pg::make_groupby {
     return to_array($groupby);
 }
 
+sub format_groupby {
+    my ($groupby) = @_;
+    my $out;
+
+    return format_node(@{$groupby->{elem}}[0]);
+}
+
 sub plsql2pg::make_rollupcube {
     my (undef, $keyword, undef, $tlist, undef) = @_;
     my $rollbupcube = make_node('rollupcube');
@@ -886,11 +917,56 @@ sub plsql2pg::make_groupbyclause {
     return make_clause('GROUPBY', $groupbys);
 }
 
-sub format_groupby {
-    my ($groupby) = @_;
-    my $out;
+sub plsql2pg::make_update {
+    my (undef, undef, $from, $set, $where) = @_;
+    my $stmt = make_node('update');
 
-    return format_node(@{$groupby->{elem}}[0]);
+    $stmt->{FROM} = $from;
+    $stmt->{SET} = $set;
+    $stmt->{WHERE} = $where;
+
+    return to_array($stmt);
+}
+
+sub format_update {
+    my ($stmt) = @_;
+    my $out = 'UPDATE ';
+
+    $out .= format_node($stmt->{FROM});
+    $out .= ' SET ';
+    $out .= format_standard_clause($stmt->{SET}, ', ');
+
+    return $out;
+}
+
+sub plsql2pg::update_only {
+    my (undef, undef, undef, $node, undef) = @_;
+    my $only = make_node('update_ony');
+
+    $only->{node} = $node;
+
+    return $node;
+}
+
+sub plsql2pg::make_update_set_set {
+    my (undef, undef, $left, undef, $op, undef, $right, undef) = @_;
+    my $tlist = make_node('target_list');
+
+    $tlist->{tlist} = $left;
+
+    return make_opexpr(parens_node($tlist), $op, parens_node($right));
+}
+
+sub plsql2pg::make_update_ident_set {
+    my (undef, $left, $op, undef, $right) = @_;
+
+    return make_opexpr($left, $op, parens_node($right));
+}
+
+sub plsql2pg::make_update_set_clause {
+    my (undef, undef, $set) = @_;
+
+    return make_clause('UPDATESET', $set);
 }
 
 sub format_rollupcube {
@@ -1709,6 +1785,25 @@ sub generate_alias {
     $alias_gen++;
 
     return "subquery$alias_gen";
+}
+
+sub parens_node {
+    my ($node) = @_;
+    my $parens = make_node('parens');
+
+    $parens->{node} = $node;
+    return to_array($parens);
+}
+
+sub make_opexpr {
+    my ($left, $op, $right) = @_;
+    my $opexpr = make_node('opexpr');
+
+    $opexpr->{left} = $left;
+    $opexpr->{op} = $op;
+    $opexpr->{right} = $right;
+
+    return to_array($opexpr);
 }
 
 sub translate_function_name {
