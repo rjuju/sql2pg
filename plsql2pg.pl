@@ -466,7 +466,7 @@ WHERE salary > 0
 start with employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manager_id;
 SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
 SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
-update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from dual);
+update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from dual) where (a < 10);
 SAMPLE_QUERIES
 
 
@@ -935,6 +935,7 @@ sub format_update {
     $out .= format_node($stmt->{FROM});
     $out .= ' SET ';
     $out .= format_standard_clause($stmt->{SET}, ', ');
+    $out .= ' ' . format_node($stmt->{WHERE}) if (defined($stmt->{WHERE}));
 
     return $out;
 }
