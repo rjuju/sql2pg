@@ -28,6 +28,7 @@ FROM employees
 WHERE salary > 0
 start with employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manager_id;
 SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
+SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
 ```
 
 Converted:
@@ -46,5 +47,8 @@ SELECT val, rank() OVER (PARTITION BY id) AS rank, lead(val) OVER (ORDER BY val 
 WITH s1 AS ( WITH s3 AS ( SELECT 1 ) SELECT * FROM s3 ), s AS ( SELECT * FROM s1 LIMIT 1 ) SELECT * FROM s, ( WITH t AS ( SELECT 3 FROM t ) SELECT * FROM t ) AS subquery2 CROSS JOIN ( WITH u AS ( SELECT count(*) AS nb ) SELECT nb FROM u UNION ALL ( SELECT 0 ) ) AS subquery3 LIMIT 1 ;
 WITH RECURSIVE s AS ( SELECT 1 ), recur AS ( SELECT employee_id, last_name, manager_id FROM employees WHERE employee_id = 1 UNION ALL ( SELECT employee_id, last_name, manager_id FROM employees WHERE isvalid = 1 AND recur.employee_id = manager_id ) ) SELECT * FROM recur WHERE salary > 0 ;
 SELECT a, b, c FROM foo AS bar GROUP BY GROUPING SETS (a, CUBE (a, b), ROLLUP (c, a), CUBE (rollup(a, b, c))) ;
+SELECT * FROM tbl AS t, t2 NATURAL JOIN t3 FOR UPDATE OF t2, col NOWAIT ;
+-- FIXME: Clause "WAIT 1" converted to "NOWAIT"
+-- FIXME: FOR UPDATE OF col must be changed ot its table name/alias
 ```
 

@@ -13,6 +13,7 @@ use Marpa::R2;
 # need at least Marpa::R2 2.076000 for case insensitive L0 rules
 
 my $alias_gen = 0;
+my @fixme;
 
 use Data::Dumper;
 
@@ -40,7 +41,7 @@ combine_op ::=
 SingleSelectStmt ::=
     with_clause SELECT select_clause from_clause join_clause
         where_clause hierarchical_clause group_clause having_clause
-        order_clause action => make_select
+        order_clause forupdate_clause action => make_select
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -302,6 +303,24 @@ nulls_pos ::=
     | NULLS LAST action => concat
     | EMPTY action => ::undef
 
+forupdate_clause ::=
+    FOR UPDATE forupdate_content forupdate_wait_clause action => make_forupdateclause
+    | EMPTY
+
+forupdate_content ::=
+    OF forupdate_list action => second
+    | EMPTY
+
+forupdate_list ::=
+    forupdate_list ',' IDENT action => append_el_1_3
+    | IDENT
+
+forupdate_wait_clause ::=
+    NOWAIT action => make_forupdate_wait
+    | WAIT integer action => make_forupdate_wait
+    | EMPTY
+
+
 # keywords
 ALL         ~ 'ALL':ic
 AND         ~ 'AND':ic
@@ -320,6 +339,7 @@ INNER       ~ 'INNER':ic
 INTERSECT   ~ 'INTERSECT':ic
 IS          ~ 'IS':ic
 FOLLOWING   ~ 'FOLLOWING':ic
+FOR         ~ 'FOR':ic
 FULL        ~ 'FULL':ic
 FROM        ~ 'FROM':ic
 GROUP       ~ 'GROUP':ic
@@ -331,8 +351,10 @@ LEFT        ~ 'LEFT':ic
 :lexeme     ~ LEFT priority => 1
 MINUS       ~ 'MINUS':ic
 NATURAL     ~ 'NATURAL':ic
+NOWAIT      ~ 'NOWAIT':ic
 NOT         ~ 'NOT':ic
 NULLS       ~ 'NULLS':ic
+OF          ~ 'OF':ic
 ONLY        ~ 'ONLY':ic
 OR          ~ 'OR':ic
 ORDER       ~ 'ORDER':ic
@@ -354,13 +376,16 @@ START       ~ 'START':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
 UNIQUE      ~ 'UNIQUE':ic
 UNION       ~ 'UNION':ic
+UPDATE      ~ 'UPDATE':ic
 USING       ~ 'USING':ic
 WHERE       ~ 'WHERE':ic
+WAIT        ~ 'WAIT':ic
 WITH        ~ 'WITH':ic
 
 # everything else
 number  ~ digits | float
-digits  ~ [0-9]+
+integer ~ digits
+digits ~ [0-9]+
 float   ~ digits '.' digits
         | '.' digits
 
@@ -410,6 +435,7 @@ FROM employees
 WHERE salary > 0
 start with employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manager_id;
 SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
+SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
 SAMPLE_QUERIES
 
 
@@ -432,6 +458,12 @@ sub plsql2pg::upper {
     my (undef, $a) = @_;
 
     return uc($a);
+}
+
+sub plsql2pg::second {
+    my (undef, undef, $node) = @_;
+
+    return $node;
 }
 
 sub plsql2pg::append_el_1_3 {
@@ -966,6 +998,34 @@ sub format_orderby {
     return $out;
 }
 
+sub plsql2pg::make_forupdate_wait {
+    my (undef, $kw, $delay) = @_;
+
+    return undef if ($kw eq 'NOWAIT');
+    add_fixme("Clause \"WAIT $delay\" converted to \"NOWAIT\"");
+}
+
+sub plsql2pg::make_forupdateclause {
+    my (undef, undef, undef, $tlist, $wait) = @_;
+    my $forupdate = make_node('forupdate');
+
+    $forupdate->{tlist} = $tlist;
+    $forupdate->{nowait} = $wait;
+
+    return make_clause('FORUPDATE', $forupdate);
+}
+
+sub format_FORUPDATE {
+    my ($clause) = @_;
+    my $out = 'FOR UPDATE';
+    my $content = $clause->{content};
+
+    $out .= ' OF ' . format_target_list($content) if (defined($content->{tlist}));
+    $out .= ' NOWAIT' if (defined($content->{nowait}));
+
+    return $out;
+}
+
 sub make_clause {
     my ($type, $content) = @_;
     my $clause = make_node($type);
@@ -986,7 +1046,7 @@ sub get_alias {
 sub format_select {
     my ($stmt) = @_;
     my @clauselist = ('WITH', 'SELECT', 'FROM', 'JOIN', 'WHERE', 'GROUPBY',
-        'HAVING', 'ORDERBY', 'LIMIT', 'OFFSET');
+        'HAVING', 'ORDERBY', 'FORUPDATE', 'LIMIT', 'OFFSET');
     my $nodes;
     my $out = '';
 
@@ -1002,6 +1062,8 @@ sub format_select {
     handle_rownum($stmt);
 
     $stmt = handle_connectby($stmt);
+
+    handle_forupdate_clause($stmt);
 
     foreach my $current (@clauselist) {
         if (defined($stmt->{$current})) {
@@ -1207,6 +1269,58 @@ sub handle_connectby {
     return $stmt;
 }
 
+# Oracle wants column name, pg wants table name, try to figure it out.  It's
+# done here just in case original query only provided column name without
+# reference to column and there was only one table ref.
+sub handle_forupdate_clause {
+    my ($stmt) = @_;
+    my $forupdate = $stmt->{FORUPDATE};
+    my $from = $stmt->{FROM};
+    my $join = $stmt->{JOIN};
+    my $tbl_count = 0;
+    my $tbl_name;
+
+    return if (not defined($forupdate));
+    return if (not defined($forupdate->{content}->{tlist}));
+
+    # get the number of table reference
+    foreach my $w (@{$from->{content}}) {
+        next unless defined($w);
+        $tbl_count++;
+        # no need to check other tables if already more than 1 found
+        last if ($tbl_count > 1);
+        if (defined($w->{alias})) {
+            $tbl_name = $w->{alias}
+        } else {
+            $tbl_name = $w->{attribute}
+        }
+    }
+
+    # no need to check other tables if already more than 1 found
+    if (defined($join) and $tbl_count eq 1) {
+        foreach my $w (@{$join->{content}}) {
+            next unless defined($w);
+            $tbl_count++;
+            last if ($tbl_count > 1);
+        }
+    }
+    foreach my $ident (@{$forupdate->{content}->{tlist}}) {
+        if (not defined($ident->{table})) {
+            if ($tbl_count == 1) {
+                $ident->{attribute} = $tbl_name;
+            } else {
+                add_fixme("FOR UPDATE OF $ident->{attribute} must be changed ot its table name/alias");
+            }
+        } else {
+            # remove column reference
+            $ident->{attribute} = $ident->{table};
+            $ident->{table} = $ident->{schema};
+            $ident->{schema} = $ident->{database};
+            $ident->{database} = undef;
+        }
+    }
+}
+
 sub parens_is_empty {
     my ($parens) = @_;
 
@@ -1328,6 +1442,10 @@ sub plsql2pg::print_stmts {
         print format_node($stmt);
     }
     print " ;\n";
+    foreach my $f (@fixme) {
+        print "-- FIXME: $f\n";
+    }
+    undef(@fixme);
 }
 
 # Handle ident conversion from oracle to pg
@@ -1624,6 +1742,12 @@ sub to_array {
 
     push(@{$nodes}, $node);
     return $nodes;
+}
+
+sub add_fixme {
+    my ($msg) = @_;
+
+    push(@fixme, $msg);
 }
 
 sub error {
