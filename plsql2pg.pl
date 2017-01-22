@@ -375,6 +375,7 @@ insert_data ::=
 flashback_clause ::=
     VERSIONS BETWEEN flashback_kind flashback_start AND flashback_end
         action => make_flashback_clause
+    | AS OF flashback_kind target_el action => make_flashback_clause
     | EMPTY
 
 flashback_kind ::=
@@ -1904,26 +1905,35 @@ sub plsql2pg::add_flashback {
 }
 
 sub plsql2pg::make_flashback_clause {
-    my (undef, undef, undef, $kind, $start, undef, $end) = @_;
+    my (undef, @args) = @_;
     my $node = make_node('FLASHBACK');
+    my $msg = splice(@args, 0, 1);
 
-    $node->{kind} = $kind;
-    $node->{start} = $start;
-    $node->{end} = $end;
+    print "$msg \n";
+    if ($msg eq 'VERSIONS') {
+        $msg .= ' ' . format_node(splice(@args, 0, 1)); # BETWEEN
+        $msg .= ' ' . format_node(splice(@args, 0, 1)); # kind
+        $msg .= ' ' . format_node(splice(@args, 0, 1)); # start
+        $msg .= ' ' . format_node(splice(@args, 0, 1)); # AND
+        $msg .= ' ' . format_node(splice(@args, 0, 1)); # end
+    } else {
+        $msg .= ' ' . splice(@args, 0, 1); # OF
+        $msg .= ' ' . format_node(splice(@args, 0, 1)); # kind
+        $msg .= ' ' . splice(@args, 0, 1); # expr
+    }
+
+    # keyword handling will add many spaces
+    $msg =~ s/\s+/ /g;
+
+    $node->{deparse} = $msg;
 
     return $node;
 }
 
 sub format_FLASHBACK {
     my ($node) = @_;
-    my $err = 'VERSIONS BETWEEN';
 
-    $err .= ' ' . $node->{type};
-    $err .= ' ' . format_node($node->{start});
-    $err .= ' AND';
-    $err .= ' ' . format_node($node->{end});
-
-    return $err;
+    return $node->{deparse};
 }
 
 sub format_standard_clause {

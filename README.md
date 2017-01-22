@@ -65,6 +65,6 @@ INSERT INTO public.t AS ins (a, b) VALUES (2 + 1, 'tt') ;
 INSERT INTO public.t AS ins (a, b) SELECT id, count(*) FROM t GROUP BY 1 ;
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement
--- FIXME: Flashback clause ignored for table "t1": "VERSIONS BETWEEN FLASHBACK  MINVALUE  AND current_timestamp"
+-- FIXME: Flashback clause ignored for table "t1": "VERSIONS BETWEEN TIMESTAMP MINVALUE AND current_timestamp"
 ```
 
