@@ -1539,6 +1539,8 @@ sub plsql2pg::print_stmts {
         print format_node($stmt);
     }
     print " ;\n";
+
+    print '-- ' . (scalar @fixme) ." FIXME for this statement\n" if ((scalar @fixme) > 0);
     foreach my $f (@fixme) {
         print "-- FIXME: $f\n";
     }
