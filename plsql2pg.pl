@@ -165,12 +165,12 @@ from_list ::=
     | from_elem
 
 from_elem ::=
-    IDENT ALIAS_CLAUSE action => alias_node
-    | ONLY_IDENT ALIAS_CLAUSE action => alias_node
-    | '(' SelectStmt ')' ALIAS_CLAUSE action => make_subquery
+    simple_from_elem ALIAS_CLAUSE action => alias_node
 
-ONLY_IDENT ::=
-    ONLY '(' IDENT ')' action => tag_only_node
+simple_from_elem ::=
+    IDENT
+    | '(' SelectStmt ')' action => make_subquery
+    | ONLY '(' simple_from_elem ')' action => make_fromonly
 
 join_clause ::=
     join_list action => make_joinclause
@@ -326,12 +326,7 @@ forupdate_wait_clause ::=
     | EMPTY
 
 update_from_clause ::=
-    update_from_elem
-    | ONLY '(' update_from_elem ')' action => update_only
-
-update_from_elem ::=
-    IDENT ALIAS_CLAUSE action => alias_node
-    | '(' SelectStmt ')' ALIAS_CLAUSE action => make_subquery
+    from_elem
 
 update_set_clause ::=
     SET update_set_list action => make_update_set_clause
@@ -643,6 +638,21 @@ sub plsql2pg::make_fromclause {
     return make_clause('FROM', $froms);
 }
 
+sub plsql2pg::make_fromonly {
+    my (undef, undef, undef, $node, undef) = @_;
+    my $only = make_node('from_only');
+
+    $only->{node} = $node;
+
+    return to_array($only);
+}
+
+sub format_from_only {
+    my ($only) = @_;
+
+    return 'ONLY (' . format_node($only->{node}) . ')';
+}
+
 sub plsql2pg::make_whereclause {
     my (undef, undef, $quals) = @_;
     my $quallist = make_node('quallist');
@@ -780,16 +790,6 @@ sub plsql2pg::alias_node {
     @{$node}[0]->{alias} = $alias;
 
     return $node;
-}
-
-sub plsql2pg::tag_only_node {
-    my (undef, undef, undef, $ident, undef) = @_;
-
-    assert_one_el($ident);
-
-    @{$ident}[0]->{only} = 1;
-
-    return $ident;
 }
 
 sub plsql2pg::parens_node {
@@ -938,15 +938,6 @@ sub format_update {
     $out .= ' ' . format_node($stmt->{WHERE}) if (defined($stmt->{WHERE}));
 
     return $out;
-}
-
-sub plsql2pg::update_only {
-    my (undef, undef, undef, $node, undef) = @_;
-    my $only = make_node('update_ony');
-
-    $only->{node} = $node;
-
-    return $node;
 }
 
 sub plsql2pg::make_update_set_set {
@@ -1590,10 +1581,6 @@ sub format_ident {
     }
 
     $out .= format_alias($ident->{alias});
-
-    if (defined($ident->{only})) {
-        $out = 'ONLY (' . $out . ')';
-    }
 
     return $out;
 }
