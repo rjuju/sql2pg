@@ -28,7 +28,8 @@ stmtmulti ::=
 stmt ::=
     SelectStmt action => print_stmts
     | UpdateStmt action => print_stmts
-    | DeleteeStmt action => print_stmts
+    | DeleteStmt action => print_stmts
+    | InsertStmt action => print_stmts
 
 SelectStmt ::=
     SelectStmt combine_op '(' SingleSelectStmt ')' action => combine_select
@@ -49,8 +50,12 @@ UpdateStmt ::=
     UPDATE update_from_clause update_set_clause
         where_clause action => make_update
 
-DeleteeStmt ::=
+DeleteStmt ::=
     DELETE delete_from_clause  where_clause action => make_delete
+
+InsertStmt ::=
+    # parens_column_list should only allow single col name, not FQN ident
+    INSERT INTO from_elem parens_column_list insert_data action => make_insert
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -174,6 +179,7 @@ from_elem ::=
 simple_from_elem ::=
     IDENT
     | '(' SelectStmt ')' action => make_subquery
+    # ONLY is not valid for DELETE, assume input query is valid
     | ONLY '(' simple_from_elem ')' action => make_fromonly
 
 join_clause ::=
@@ -351,6 +357,18 @@ update_set_elems ::=
 delete_from_clause ::=
     FROM from_elem action => second
 
+parens_column_list ::=
+    '(' column_list ')' action => make_parens_column_list
+    | EMPTY
+
+column_list ::=
+    column_list ',' IDENT action => append_el_1_3
+    | IDENT
+
+insert_data ::=
+    VALUES '(' target_list ')' action => make_values
+    | SelectStmt
+
 
 # keywords
 ALL         ~ 'ALL':ic
@@ -368,7 +386,9 @@ DESC        ~ 'DESC':ic
 DISTINCT    ~ 'DISTINCT':ic
 FIRST       ~ 'FIRST':ic
 INNER       ~ 'INNER':ic
+INSERT      ~ 'INSERT':ic
 INTERSECT   ~ 'INTERSECT':ic
+INTO        ~ 'INTO':ic
 IS          ~ 'IS':ic
 FOLLOWING   ~ 'FOLLOWING':ic
 FOR         ~ 'FOR':ic
@@ -411,6 +431,7 @@ UNIQUE      ~ 'UNIQUE':ic
 UNION       ~ 'UNION':ic
 UPDATE      ~ 'UPDATE':ic
 USING       ~ 'USING':ic
+VALUES      ~ 'VALUES':ic
 WHERE       ~ 'WHERE':ic
 WAIT        ~ 'WAIT':ic
 WITH        ~ 'WITH':ic
@@ -471,6 +492,9 @@ SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube
 SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
 update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from dual) where (a < 10);
 delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
+insert into public.t ins values (2+1, 'tt');
+insert into public.t ins (a,b) values (2+1, 'tt');
+insert into public.t ins (a,b) select id, count(*) from t group by id;
 SAMPLE_QUERIES
 
 
@@ -994,6 +1018,52 @@ sub format_delete {
     $out .= ' ' . format_node($stmt->{WHERE}) if (defined($stmt->{WHERE}));
 
     return $out;
+}
+
+sub plsql2pg::make_insert {
+    my (undef, undef, undef, $from, $cols, $data) = @_;
+    my $stmt = make_node('insert');
+
+    $stmt->{from} = $from;
+    $stmt->{cols} = $cols;
+    $stmt->{data} = $data;
+
+    return to_array($stmt);
+}
+
+sub format_insert {
+    my ($stmt) = @_;
+    my $out = 'INSERT INTO';
+
+    $out .= ' ' . format_node($stmt->{from});
+    $out .= ' ' . format_node($stmt->{cols}) if defined($stmt->{cols});
+    $out .= ' ' . format_node($stmt->{data});
+
+    return $out;
+}
+
+sub plsql2pg::make_values {
+    my (undef, undef, undef, $tlist, undef) = @_;
+    my $values = make_node('values');
+
+    $values->{tlist} = $tlist;
+
+    return $values;
+}
+
+sub format_values {
+    my ($values) = @_;
+
+    return 'VALUES (' . format_target_list($values) . ')';
+}
+
+sub plsql2pg::make_parens_column_list {
+    my (undef, undef, $cols, undef) = @_;
+    my $clist = make_node('target_list');
+
+    $clist->{tlist} = $cols;
+
+    return parens_node($clist);
 }
 
 sub plsql2pg::make_havingclause {

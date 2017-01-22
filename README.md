@@ -31,6 +31,9 @@ SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube
 SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
 update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from dual) where (a < 10);
 delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
+insert into public.t ins values (2+1, 'tt');
+insert into public.t ins (a,b) values (2+1, 'tt');
+insert into public.t ins (a,b) select id, count(*) from t group by id;
 ```
 
 Converted:
@@ -55,5 +58,8 @@ SELECT * FROM tbl AS t, t2 NATURAL JOIN t3 FOR UPDATE OF t2, col NOWAIT ;
 -- FIXME: FOR UPDATE OF col must be changed ot its table name/alias
 UPDATE t SET a = 1, (b, c) = (SELECT * FROM t2 WHERE id = 1), d = (SELECT 1) WHERE (a < 10) ;
 DELETE FROM public.t AS tbl WHERE COALESCE(tbl.col, 'todel') = 'todel' ;
+INSERT INTO public.t AS ins VALUES (2 + 1, 'tt') ;
+INSERT INTO public.t AS ins (a, b) VALUES (2 + 1, 'tt') ;
+INSERT INTO public.t AS ins (a, b) SELECT id, count(*) FROM t GROUP BY id ;
 ```
 
