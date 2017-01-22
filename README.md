@@ -33,7 +33,7 @@ update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from 
 delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
 insert into public.t ins values (2+1, 'tt');
 insert into public.t ins (a,b) values (2+1, 'tt');
-insert into public.t ins (a,b) select id, count(*) from t group by id;
+insert into public.t ins (a,b) select id, count(*) from t group by 1;
 ```
 
 Converted:
@@ -60,6 +60,6 @@ UPDATE t SET a = 1, (b, c) = (SELECT * FROM t2 WHERE id = 1), d = (SELECT 1) WHE
 DELETE FROM public.t AS tbl WHERE COALESCE(tbl.col, 'todel') = 'todel' ;
 INSERT INTO public.t AS ins VALUES (2 + 1, 'tt') ;
 INSERT INTO public.t AS ins (a, b) VALUES (2 + 1, 'tt') ;
-INSERT INTO public.t AS ins (a, b) SELECT id, count(*) FROM t GROUP BY id ;
+INSERT INTO public.t AS ins (a, b) SELECT id, count(*) FROM t GROUP BY 1 ;
 ```
 

@@ -288,7 +288,7 @@ group_list ::=
     | group_elem
 
 group_elem ::=
-    IDENT action => make_groupby
+    a_expr action => make_groupby
     | ROLLUP '(' target_list ')' action => make_rollupcube
     | CUBE '(' target_list ')' action => make_rollupcube
     | GROUPING SETS '(' group_list ')' action => make_groupingsetsclause
@@ -494,7 +494,7 @@ update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from 
 delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
 insert into public.t ins values (2+1, 'tt');
 insert into public.t ins (a,b) values (2+1, 'tt');
-insert into public.t ins (a,b) select id, count(*) from t group by id;
+insert into public.t ins (a,b) select id, count(*) from t group by 1;
 SAMPLE_QUERIES
 
 
