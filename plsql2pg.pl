@@ -174,7 +174,10 @@ from_list ::=
     | from_elem
 
 from_elem ::=
-    simple_from_elem ALIAS_CLAUSE action => alias_node
+    flashback_from_elem ALIAS_CLAUSE action => alias_node
+
+flashback_from_elem ::=
+    simple_from_elem flashback_clause action => add_flashback
 
 simple_from_elem ::=
     IDENT
@@ -369,6 +372,23 @@ insert_data ::=
     VALUES '(' target_list ')' action => make_values
     | SelectStmt
 
+flashback_clause ::=
+    VERSIONS BETWEEN flashback_kind flashback_start AND flashback_end
+        action => make_flashback_clause
+    | EMPTY
+
+flashback_kind ::=
+    SCN action => upper
+    | TIMESTAMP action => upper
+
+flashback_start ::=
+    target_el
+    | MINVALUE action => upper
+
+flashback_end ::=
+    target_el
+    | MAXVALUE action => upper
+
 
 # keywords
 ALL         ~ 'ALL':ic
@@ -401,7 +421,11 @@ JOIN        ~ 'JOIN':ic
 LAST        ~ 'LAST':ic
 LEFT        ~ 'LEFT':ic
 :lexeme     ~ LEFT priority => 1
+MAXVALUE    ~ 'MAXVALUE':ic
+:lexeme     ~ MAXVALUE priority => 1
 MINUS       ~ 'MINUS':ic
+MINVALUE    ~ 'MINVALUE':ic
+:lexeme     ~ MINVALUE priority => 1
 NATURAL     ~ 'NATURAL':ic
 NOWAIT      ~ 'NOWAIT':ic
 NOT         ~ 'NOT':ic
@@ -422,16 +446,19 @@ RIGHT       ~ 'RIGHT':ic
 ROLLUP      ~ 'ROLLUP':ic
 ROW         ~ 'ROW':ic
 ROWS        ~ 'ROWS':ic
+SCN         ~ 'SCN':ic
 SELECT      ~ 'SELECT':ic
 SET         ~ 'SET':ic
 SETS        ~ 'SETS':ic
 START       ~ 'START':ic
+TIMESTAMP   ~ 'TIMESTAMP':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
 UNIQUE      ~ 'UNIQUE':ic
 UNION       ~ 'UNION':ic
 UPDATE      ~ 'UPDATE':ic
 USING       ~ 'USING':ic
 VALUES      ~ 'VALUES':ic
+VERSIONS    ~ 'VERSIONS':ic
 WHERE       ~ 'WHERE':ic
 WAIT        ~ 'WAIT':ic
 WITH        ~ 'WITH':ic
@@ -509,6 +536,8 @@ delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
 insert into public.t ins values (2+1, 'tt');
 insert   into public.t ins (a,b) values (2+1, 'tt');
 insert into public.t ins (a,b) select id, count(*) from t group by 1;
+-- now unsupported stuff
+SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 SAMPLE_QUERIES
 
 
@@ -1858,6 +1887,43 @@ sub format_SUBQUERY {
     $out .= $alias;
 
     return $out;
+}
+
+sub plsql2pg::add_flashback {
+    my (undef, $node, $flashback) = @_;
+
+    return $node unless (defined($flashback));
+    my $info = 'Flashback clause ignored for table "'
+             . format_node($node) . '"';
+
+    $info .= ': "' . format_node($flashback) . '"';
+
+    add_fixme($info);
+
+    return $node;
+}
+
+sub plsql2pg::make_flashback_clause {
+    my (undef, undef, undef, $kind, $start, undef, $end) = @_;
+    my $node = make_node('FLASHBACK');
+
+    $node->{kind} = $kind;
+    $node->{start} = $start;
+    $node->{end} = $end;
+
+    return $node;
+}
+
+sub format_FLASHBACK {
+    my ($node) = @_;
+    my $err = 'VERSIONS BETWEEN';
+
+    $err .= ' ' . $node->{type};
+    $err .= ' ' . format_node($node->{start});
+    $err .= ' AND';
+    $err .= ' ' . format_node($node->{end});
+
+    return $err;
 }
 
 sub format_standard_clause {
