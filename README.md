@@ -30,6 +30,7 @@ start with employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manage
 SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
 SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
 update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from dual) where (a < 10);
+delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
 ```
 
 Converted:
@@ -52,5 +53,6 @@ SELECT * FROM tbl AS t, t2 NATURAL JOIN t3 FOR UPDATE OF t2, col NOWAIT ;
 -- FIXME: Clause "WAIT 1" converted to "NOWAIT"
 -- FIXME: FOR UPDATE OF col must be changed ot its table name/alias
 UPDATE t SET a = 1, (b, c) = (SELECT * FROM t2 WHERE id = 1), d = (SELECT 1) WHERE (a < 10) ;
+DELETE FROM public.t AS tbl WHERE COALESCE(tbl.col, 'todel') = 'todel' ;
 ```
 

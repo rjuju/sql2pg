@@ -28,6 +28,7 @@ stmtmulti ::=
 stmt ::=
     SelectStmt action => print_stmts
     | UpdateStmt action => print_stmts
+    | DeleteeStmt action => print_stmts
 
 SelectStmt ::=
     SelectStmt combine_op '(' SingleSelectStmt ')' action => combine_select
@@ -47,6 +48,9 @@ SingleSelectStmt ::=
 UpdateStmt ::=
     UPDATE update_from_clause update_set_clause
         where_clause action => make_update
+
+DeleteeStmt ::=
+    DELETE delete_from_clause  where_clause action => make_delete
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -344,6 +348,9 @@ update_set_elems ::=
     update_set_elems ',' IDENT action => append_el_1_3
     | IDENT
 
+delete_from_clause ::=
+    FROM from_elem action => second
+
 
 # keywords
 ALL         ~ 'ALL':ic
@@ -356,6 +363,7 @@ CONNECT     ~ 'CONNECT':ic
 CROSS       ~ 'CROSS':ic
 CUBE        ~ 'CUBE':ic
 CURRENT     ~ 'CURRENT':ic
+DELETE      ~ 'DELETE':ic
 DESC        ~ 'DESC':ic
 DISTINCT    ~ 'DISTINCT':ic
 FIRST       ~ 'FIRST':ic
@@ -462,6 +470,7 @@ start with employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manage
 SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
 SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
 update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from dual) where (a < 10);
+delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
 SAMPLE_QUERIES
 
 
@@ -905,6 +914,12 @@ sub plsql2pg::make_rollupcube {
     return to_array($rollbupcube);
 }
 
+sub format_rollupcube {
+    my ($node) = @_;
+
+    return $node->{keyword} . ' (' . format_target_list($node) . ')';
+}
+
 sub plsql2pg::make_groupingsetsclause {
     my (undef, undef, undef, undef, $group_list, undef) = @_;
 
@@ -961,10 +976,24 @@ sub plsql2pg::make_update_set_clause {
     return make_clause('UPDATESET', $set);
 }
 
-sub format_rollupcube {
-    my ($node) = @_;
+sub plsql2pg::make_delete {
+    my (undef, undef, $from, $where) = @_;
+    my $stmt = make_node('delete');
 
-    return $node->{keyword} . ' (' . format_target_list($node) . ')';
+    $stmt->{FROM} = $from;
+    $stmt->{WHERE} = $where;
+
+    return to_array($stmt);
+}
+
+sub format_delete {
+    my ($stmt) = @_;
+    my $out = 'DELETE FROM ';
+
+    $out .= format_node($stmt->{FROM});
+    $out .= ' ' . format_node($stmt->{WHERE}) if (defined($stmt->{WHERE}));
+
+    return $out;
 }
 
 sub plsql2pg::make_havingclause {
