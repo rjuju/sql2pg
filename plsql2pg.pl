@@ -461,8 +461,22 @@ literal_chars   ~ [^']*
 OPERATOR    ~ '=' | '<' | '<=' | '>' | '>=' | '%' | IS | IS NOT
             | '+' | '-' | '*' | '/' | '||'
 
-:discard ~ whitespace
-whitespace ~ [\s]+
+:discard                    ~ discard
+discard                     ~ whitespace | comment
+whitespace                  ~ [\s]+
+comment                     ~ dash_comment | c_comment
+dash_comment                ~ '--' dash_chars
+dash_chars                  ~ [^\n]*
+# see https://gist.github.com/jeffreykegler/5011021
+c_comment                   ~ '/*' c_comment_interior '*/'
+c_comment_interior          ~ o_non_stars o_star_prefixed_segments o_pre_final_stars
+o_non_stars                 ~ [^*]*
+o_star_prefixed_segments    ~ star_prefixed_segment*
+star_prefixed_segment       ~ stars [^/*] o_star_free_text
+stars                       ~ [*]+
+o_star_free_text            ~ [^*]*
+o_pre_final_stars           ~ [*]*
+
 
 END_OF_DSL
 
@@ -485,15 +499,15 @@ SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
 SELECT val, rank() over (partition by id) rank, lead(val) over (order by val rows CURRENT ROW), lag(val) over (partition by id,val order by val range between 2 preceding and unbounded following) as lag from t;
 WITH s1 as (with s3 as (select 1 from dual) select * from s3), s AS (SELECT * FROM s1 where rownum < 2) SELECT * From s, (with t as (select 3 from t) select * from t) cross join (with u as (select count(*) nb from dual) select nb from u union all (select 0 from dual)) where rownum < 2;
 with s as (select 1 from dual) SELECT employee_id, last_name, manager_id
-FROM employees
-WHERE salary > 0
-start with employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manager_id;
+FROM employees   -- this is the FROM clause
+WHERE salary > 0   --should not happend
+start with /* hard coded value */ employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manager_id;
 SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
 SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
 update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from dual) where (a < 10);
 delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
 insert into public.t ins values (2+1, 'tt');
-insert into public.t ins (a,b) values (2+1, 'tt');
+insert   into public.t ins (a,b) values (2+1, 'tt');
 insert into public.t ins (a,b) select id, count(*) from t group by 1;
 SAMPLE_QUERIES
 
