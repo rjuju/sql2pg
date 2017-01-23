@@ -551,7 +551,7 @@ select 1 from dual
 select * from a,only (c) join b using (id,id2) left join d using (id) WHERE rownum >10 and rownum <= 20;
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d CROSS JOIN e cj natural left outer join f natural full outer join g;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
-SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
+SELECT id, log2(id), log10(id), count(*) FROM a GROUP BY id HAVING count(*)< 10;
 SELECT val, rank() over (partition by id) rank, lead(val) over (order by val rows CURRENT ROW), lag(val) over (partition by id,val order by val range between 2 preceding and unbounded following) as lag from t;
 WITH s1 as (with s3 as (select 1 from dual) select * from s3), s AS (SELECT * FROM s1 where rownum < 2) SELECT * From s, (with t as (select 3 from t) select * from t) cross join (with u as (select count(*) nb from dual) select nb from u union all (select 0 from dual)) where rownum < 2;
 with s as (select 1 from dual) SELECT employee_id, last_name, manager_id
@@ -673,7 +673,8 @@ sub plsql2pg::make_function {
     my (undef, $ident, undef, $args, undef, $windowclause) = @_;
     my $func = make_node('function');
 
-    $func->{ident} = $ident;
+    assert_one_el($ident);
+    $func->{ident} = pop(@{$ident});
     $func->{args} = $args;
     $func->{window} = $windowclause;
 
@@ -685,6 +686,9 @@ sub format_function {
     my $out = undef;
     my $ident;
 
+    # first transform function to pg compatible if needed
+    handle_function($func);
+
     foreach my $arg (@{$func->{args}}) {
         $out .= ', ' if defined($out);
         $out .= format_node($arg);
@@ -692,9 +696,7 @@ sub format_function {
     # arguments are optional
     $out = '' unless defined($out);
 
-    $ident = pop(@{$func->{ident}});
-    $ident->{attribute} = translate_function_name($ident->{attribute});
-    $out = format_ident($ident) . '(' . $out . ')';
+    $out = format_ident($func->{ident}) . '(' . $out . ')';
 
     $out .= format_node($func->{window}) if defined($func->{window});
     $out .= format_alias($func->{alias});
@@ -1304,6 +1306,28 @@ sub format_select {
     $out .= ' )' if ($stmt->{combined});
 
     return $out;
+}
+
+sub handle_function {
+    my ($func) = @_;
+    # FIXME handle packages overloading default funcs?
+    my $funcname = $func->{ident}->{attribute};
+
+    if ($funcname eq 'nvl') {
+        $func->{ident}->{attribute} = 'COALESCE';
+    } elsif (($funcname eq 'log10') or ($funcname eq 'log2')) {
+        my $arg = make_node('number');
+
+        assert_one_el($func->{args});
+
+        $arg->{val} = 2;
+        $arg->{val} = 10 if ($funcname eq 'log10');
+
+        $func->{ident}->{attribute} = 'log';
+        unshift(@{$func->{args}}, $arg);
+    }
+
+    return $func;
 }
 
 sub handle_nonsqljoin {
@@ -2041,14 +2065,6 @@ sub make_opexpr {
     $opexpr->{right} = $right;
 
     return to_array($opexpr);
-}
-
-sub translate_function_name {
-    my ($name) = @_;
-
-    return 'COALESCE' if ($name eq 'nvl');
-
-    return $name;
 }
 
 sub isA {

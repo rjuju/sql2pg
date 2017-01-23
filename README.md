@@ -20,7 +20,7 @@ select 1 from dual
 select * from a,only (c) join b using (id,id2) left join d using (id) WHERE rownum >10 and rownum <= 20;
 select * from a,c right join b on a.id = b.id AND a.id2 = b.id2 naturaL join d CROSS JOIN e cj natural left outer join f natural full outer join g;
 select round(sum(count(*)), 2), 1 from a,b t1 where a.id = t1.id(+);
-SELECT id, count(*) FROM a GROUP BY id HAVING count(*)< 10;
+SELECT id, log2(id), log10(id), count(*) FROM a GROUP BY id HAVING count(*)< 10;
 SELECT val, rank() over (partition by id) rank, lead(val) over (order by val rows CURRENT ROW), lag(val) over (partition by id,val order by val range between 2 preceding and unbounded following) as lag from t;
 WITH s1 as (with s3 as (select 1 from dual) select * from s3), s AS (SELECT * FROM s1 where rownum < 2) SELECT * From s, (with t as (select 3 from t) select * from t) cross join (with u as (select count(*) nb from dual) select nb from u union all (select 0 from dual)) where rownum < 2;
 with s as (select 1 from dual) SELECT employee_id, last_name, manager_id
@@ -51,7 +51,7 @@ SELECT * FROM ( SELECT 1 ) AS subquery1 UNION ( SELECT 2 ) EXCEPT ( SELECT 3 ) I
 SELECT * FROM a, ONLY (c) INNER JOIN b USING (id, id2) LEFT JOIN d USING (id) LIMIT 20 OFFSET 10 ;
 SELECT * FROM a, c RIGHT JOIN b ON a.id = b.id AND a.id2 = b.id2 NATURAL JOIN d CROSS JOIN e AS cj NATURAL LEFT JOIN f NATURAL FULL OUTER JOIN g ;
 SELECT round(sum(count(*)), 2), 1 FROM a LEFT JOIN b AS t1 ON a.id = t1.id ;
-SELECT id, count(*) FROM a GROUP BY id HAVING count(*) < 10 ;
+SELECT id, log(2, id), log(10, id), count(*) FROM a GROUP BY id HAVING count(*) < 10 ;
 SELECT val, rank() OVER (PARTITION BY id) AS rank, lead(val) OVER (ORDER BY val ASC ROWS CURRENT ROW), lag(val) OVER (PARTITION BY id, val ORDER BY val ASC RANGE BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING) AS lag FROM t ;
 WITH s1 AS ( WITH s3 AS ( SELECT 1 ) SELECT * FROM s3 ), s AS ( SELECT * FROM s1 LIMIT 1 ) SELECT * FROM s, ( WITH t AS ( SELECT 3 FROM t ) SELECT * FROM t ) AS subquery2 CROSS JOIN ( WITH u AS ( SELECT count(*) AS nb ) SELECT nb FROM u UNION ALL ( SELECT 0 ) ) AS subquery3 LIMIT 1 ;
 WITH RECURSIVE s AS ( SELECT 1 ), recur AS ( SELECT employee_id, last_name, manager_id FROM employees WHERE employee_id = 1 UNION ALL ( SELECT employee_id, last_name, manager_id FROM employees WHERE isvalid = 1 AND recur.employee_id = manager_id ) ) SELECT * FROM recur WHERE salary > 0 ;
