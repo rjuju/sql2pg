@@ -992,7 +992,8 @@ sub plsql2pg::make_groupby {
     my (undef, $elem) = @_;
     my $groupby = make_node('groupby');
 
-    $groupby->{elem} = $elem;
+    assert_one_el($elem);
+    $groupby->{elem} = pop(@{$elem});
 
     return to_array($groupby);
 }
@@ -1001,7 +1002,7 @@ sub format_groupby {
     my ($groupby) = @_;
     my $out;
 
-    return format_node(@{$groupby->{elem}}[0]);
+    return format_node($groupby->{elem});
 }
 
 sub plsql2pg::make_rollupcube {
