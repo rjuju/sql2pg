@@ -1958,18 +1958,18 @@ sub plsql2pg::add_flashback {
 sub plsql2pg::make_flashback_clause {
     my (undef, @args) = @_;
     my $node = make_node('deparse');
-    my $msg = splice(@args, 0, 1);
+    my $msg = shift(@args);
 
     if ($msg eq 'VERSIONS') {
-        $msg .= ' ' . format_node(splice(@args, 0, 1)); # BETWEEN
-        $msg .= ' ' . format_node(splice(@args, 0, 1)); # kind
-        $msg .= ' ' . format_node(splice(@args, 0, 1)); # start
-        $msg .= ' ' . format_node(splice(@args, 0, 1)); # AND
-        $msg .= ' ' . format_node(splice(@args, 0, 1)); # end
+        $msg .= ' ' . format_node(shift(@args)); # BETWEEN
+        $msg .= ' ' . format_node(shift(@args)); # kind
+        $msg .= ' ' . format_node(shift(@args)); # start
+        $msg .= ' ' . format_node(shift(@args)); # AND
+        $msg .= ' ' . format_node(shift(@args)); # end
     } else {
-        $msg .= ' ' . splice(@args, 0, 1); # OF
-        $msg .= ' ' . format_node(splice(@args, 0, 1)); # kind
-        $msg .= ' ' . splice(@args, 0, 1); # expr
+        $msg .= ' ' . shift(@args); # OF
+        $msg .= ' ' . format_node(shift(@args)); # kind
+        $msg .= ' ' . shift(@args); # expr
     }
 
     # keyword handling will add many spaces
