@@ -954,7 +954,7 @@ sub plsql2pg::make_joinusing {
 
 sub plsql2pg::make_joinon {
     my (undef, undef, $quallist) = @_;
-    my $node = make_node('on');
+    my $node = make_node('join_on');
 
     $node->{quallist} = $quallist;
     return $node;
@@ -1650,7 +1650,7 @@ sub format_using {
     return $out;
 }
 
-sub format_on {
+sub format_join_on {
     my ($node) = @_;
     my $out = undef;
 
