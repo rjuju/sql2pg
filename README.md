@@ -36,6 +36,8 @@ insert   into public.t ins (a,b) values (2+1, 'tt');
 insert into public.t ins (a,b) select id, count(*) from t group by 1;
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
+UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
+UPDATE t1 SET val = 't' WHERE id = 1 REJECT LIMIT 3;
 ```
 
 Converted:
@@ -66,5 +68,11 @@ INSERT INTO public.t AS ins (a, b) SELECT id, count(*) FROM t GROUP BY 1 ;
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement
 -- FIXME: Flashback clause ignored for table "t1": "VERSIONS BETWEEN TIMESTAMP MINVALUE AND current_timestamp"
+UPDATE t1 SET val = 't' WHERE id = 1 ;
+-- 1 FIXME for this statement
+-- FIXME: Error logging clause ignored: "LOG ERRORS INTO err.log (to_char(sysdate), id)"
+UPDATE t1 SET val = 't' WHERE id = 1 ;
+-- 1 FIXME for this statement
+-- FIXME: Error logging clause ignored: "REJECT LIMIT 3"
 ```
 

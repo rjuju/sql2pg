@@ -48,14 +48,16 @@ SingleSelectStmt ::=
 
 UpdateStmt ::=
     UPDATE update_from_clause update_set_clause
-        where_clause action => make_update
+        where_clause error_logging_clause action => make_update
 
 DeleteStmt ::=
-    DELETE delete_from_clause  where_clause action => make_delete
+    DELETE delete_from_clause  where_clause error_logging_clause
+        action => make_delete
 
 InsertStmt ::=
     # parens_column_list should only allow single col name, not FQN ident
-    INSERT INTO from_elem parens_column_list insert_data action => make_insert
+    INSERT INTO from_elem parens_column_list insert_data error_logging_clause
+        action => make_insert
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -384,6 +386,20 @@ flashback_end ::=
     target_el
     | MAXVALUE action => upper
 
+error_logging_clause ::=
+    LOG ERRORS err_log_into err_log_list action => make_errlog_clause1
+    | REJECT LIMIT number action => make_errlog_clause2
+    | REJECT LIMIT UNLIMITED action => make_errlog_clause2
+    | EMPTY
+
+err_log_into ::=
+    INTO IDENT action => second
+    | EMPTY
+
+err_log_list ::=
+    '(' target_list ')' action => second
+    | EMPTY
+
 
 # keywords
 ALL         ~ 'ALL':ic
@@ -399,12 +415,8 @@ CURRENT     ~ 'CURRENT':ic
 DELETE      ~ 'DELETE':ic
 DESC        ~ 'DESC':ic
 DISTINCT    ~ 'DISTINCT':ic
+ERRORS      ~ 'ERRORS':ic
 FIRST       ~ 'FIRST':ic
-INNER       ~ 'INNER':ic
-INSERT      ~ 'INSERT':ic
-INTERSECT   ~ 'INTERSECT':ic
-INTO        ~ 'INTO':ic
-IS          ~ 'IS':ic
 FOLLOWING   ~ 'FOLLOWING':ic
 FOR         ~ 'FOR':ic
 FULL        ~ 'FULL':ic
@@ -412,10 +424,17 @@ FROM        ~ 'FROM':ic
 GROUP       ~ 'GROUP':ic
 GROUPING    ~ 'GROUPING':ic
 HAVING      ~ 'HAVING':ic
+INNER       ~ 'INNER':ic
+INSERT      ~ 'INSERT':ic
+INTERSECT   ~ 'INTERSECT':ic
+INTO        ~ 'INTO':ic
+IS          ~ 'IS':ic
 JOIN        ~ 'JOIN':ic
 LAST        ~ 'LAST':ic
 LEFT        ~ 'LEFT':ic
 :lexeme     ~ LEFT priority => 1
+LIMIT       ~ 'LIMIT':ic
+LOG         ~ 'LOG':ic
 MAXVALUE    ~ 'MAXVALUE':ic
 :lexeme     ~ MAXVALUE priority => 1
 MINUS       ~ 'MINUS':ic
@@ -436,6 +455,7 @@ PARTITION   ~ 'PARTITION':ic
 PRECEDING   ~ 'PRECEDING':ic
 PRIOR       ~ 'PRIOR':ic
 RANGE       ~ 'RANGE':ic
+REJECT      ~ 'REJECT':ic
 RIGHT       ~ 'RIGHT':ic
 :lexeme     ~ RIGHT priority => 1
 ROLLUP      ~ 'ROLLUP':ic
@@ -450,6 +470,7 @@ TIMESTAMP   ~ 'TIMESTAMP':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
 UNIQUE      ~ 'UNIQUE':ic
 UNION       ~ 'UNION':ic
+UNLIMITED   ~ 'UNLIMITED':ic
 UPDATE      ~ 'UPDATE':ic
 USING       ~ 'USING':ic
 VALUES      ~ 'VALUES':ic
@@ -533,6 +554,8 @@ insert   into public.t ins (a,b) values (2+1, 'tt');
 insert into public.t ins (a,b) select id, count(*) from t group by 1;
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
+UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
+UPDATE t1 SET val = 't' WHERE id = 1 REJECT LIMIT 3;
 SAMPLE_QUERIES
 
 
@@ -1884,7 +1907,7 @@ sub plsql2pg::add_flashback {
 
 sub plsql2pg::make_flashback_clause {
     my (undef, @args) = @_;
-    my $node = make_node('FLASHBACK');
+    my $node = make_node('deparse');
     my $msg = splice(@args, 0, 1);
 
     if ($msg eq 'VERSIONS') {
@@ -1904,13 +1927,40 @@ sub plsql2pg::make_flashback_clause {
 
     $node->{deparse} = $msg;
 
-    return $node;
+    return make_clause('FLASHBACK', $node);
 }
 
 sub format_FLASHBACK {
     my ($node) = @_;
 
-    return $node->{deparse};
+    return format_node($node->{content});
+}
+
+sub plsql2pg::make_errlog_clause1 {
+    my (undef, undef, undef, $into, $list) = @_;
+    my $tlist = make_node('target_list');
+    my $msg = 'LOG ERRORS';
+
+    # quick hack
+    $tlist->{tlist} = $list;
+
+    $msg .= ' INTO ' . format_node($into) if (defined($into));
+    $msg .= ' (' . format_node($tlist) . ')' if (defined($tlist));
+
+    add_fixme('Error logging clause ignored: "' . $msg . '"');
+
+    # only add a fixme
+    return undef;
+}
+
+sub plsql2pg::make_errlog_clause2 {
+    my (undef, undef, undef, $limit) = @_;
+    my $msg = 'REJECT LIMIT ' . uc($limit);
+
+    add_fixme('Error logging clause ignored: "' . $msg . '"');
+
+    # only add a fixme
+    return undef;
 }
 
 sub format_standard_clause {
@@ -1928,6 +1978,12 @@ sub format_standard_clause {
     }
 
     return $out;
+}
+
+sub format_deparse {
+    my ($deparse) = @_;
+
+    return $deparse->{deparse};
 }
 
 sub format_alias {
