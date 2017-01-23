@@ -1018,7 +1018,7 @@ sub plsql2pg::make_groupbyclause {
 }
 
 sub plsql2pg::make_update {
-    my (undef, undef, $from, $set, $where) = @_;
+    my (undef, undef, $from, $set, $where, $error_logging) = @_;
     my $stmt = make_node('update');
 
     $stmt->{FROM} = $from;
@@ -1062,7 +1062,7 @@ sub plsql2pg::make_update_set_clause {
 }
 
 sub plsql2pg::make_delete {
-    my (undef, undef, $from, $where) = @_;
+    my (undef, undef, $from, $where, $error_logging) = @_;
     my $stmt = make_node('delete');
 
     $stmt->{FROM} = $from;
@@ -1082,7 +1082,7 @@ sub format_delete {
 }
 
 sub plsql2pg::make_insert {
-    my (undef, undef, undef, $from, $cols, $data) = @_;
+    my (undef, undef, undef, $from, $cols, $data, $error_logging) = @_;
     my $stmt = make_node('insert');
 
     $stmt->{from} = $from;
