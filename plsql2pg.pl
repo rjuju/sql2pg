@@ -136,15 +136,9 @@ window_clause ::=
     | EMPTY
 
 partition_clause ::=
-    PARTITION BY partition_list action => make_partitionclause
+    # AS not legal here, assume origina query is correct
+    PARTITION BY target_list action => make_partitionclause
     | EMPTY action => ::undef
-
-partition_list ::=
-    partition_list ',' partition_elem action => append_el_1_3
-    | partition_elem
-
-partition_elem ::=
-    a_expr action => make_partitionby
 
 # should only be legal if an order_clause is present in the OVER clause
 frame_clause ::=
@@ -182,7 +176,7 @@ flashback_from_elem ::=
 simple_from_elem ::=
     IDENT
     | '(' SelectStmt ')' action => make_subquery
-    # ONLY is not valid for DELETE, assume input query is valid
+    # ONLY is not valid for DELETE, assume original query is valid
     | ONLY '(' simple_from_elem ')' action => make_fromonly
 
 join_clause ::=
@@ -686,9 +680,9 @@ sub plsql2pg::make_overclause {
 }
 
 sub plsql2pg::make_partitionclause {
-    my (undef, undef, undef, $partitionbys) = @_;
+    my (undef, undef, undef, $tlist) = @_;
 
-    return make_clause('PARTITIONBY', $partitionbys);
+    return make_clause('PARTITIONBY', $tlist);
 }
 
 sub plsql2pg::make_distinct_selectclause {
@@ -1124,22 +1118,6 @@ sub format_HAVING {
     my $out;
 
     return "HAVING " . format_quallist($having->{content}->{quallist});
-}
-
-sub plsql2pg::make_partitionby {
-    my (undef, $elem) = @_;
-    my $partitionby = make_node('partitionby');
-
-    $partitionby->{elem} = $elem;
-
-    return to_array($partitionby);
-}
-
-sub format_partitionby {
-    my ($partitionby) = @_;
-    my $out;
-
-    return format_node(@{$partitionby->{elem}}[0]);
 }
 
 sub plsql2pg::make_frame_simple {
@@ -1909,7 +1887,6 @@ sub plsql2pg::make_flashback_clause {
     my $node = make_node('FLASHBACK');
     my $msg = splice(@args, 0, 1);
 
-    print "$msg \n";
     if ($msg eq 'VERSIONS') {
         $msg .= ' ' . format_node(splice(@args, 0, 1)); # BETWEEN
         $msg .= ' ' . format_node(splice(@args, 0, 1)); # kind
