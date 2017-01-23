@@ -1627,22 +1627,27 @@ sub prune_parens {
 
 sub splice_table_from_fromlist {
     my ($from, $name) = @_;
-    my $elem = undef;
     my $i;
 
+    # first, check if a table has the wanted name as alias to avoid returning
+    # the wrong one
     for ($i=0; $i<(scalar @{$from}); $i++) {
         my $t = @{$from}[$i];
-        if (
-            (defined($t->{alias}) and $t->{alias} eq $name)
-            or
-            ($t->{attribute} eq $name)
-        ) {
-            $elem = splice(@{$from}, $i, 1);
-            last;
+        if (defined($t->{alias}) and $t->{alias} eq $name) {
+            return(splice(@{$from}, $i, 1));
         }
     }
 
-    return $elem;
+    # no, then look for real table name
+    for ($i=0; $i<(scalar @{$from}); $i++) {
+        my $t = @{$from}[$i];
+        if ($t->{attribute} eq $name) {
+            return(splice(@{$from}, $i, 1));
+        }
+    }
+
+    # not found, say it to caller
+    return undef;
 }
 
 sub format_quallist {
