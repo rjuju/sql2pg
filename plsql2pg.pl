@@ -47,12 +47,12 @@ SingleSelectStmt ::=
         order_clause forupdate_clause action => make_select
 
 UpdateStmt ::=
-    UPDATE update_from_clause update_set_clause
-        where_clause error_logging_clause action => make_update
+    UPDATE update_from_clause update_set_clause where_clause
+        returning_clause error_logging_clause action => make_update
 
 DeleteStmt ::=
-    DELETE delete_from_clause  where_clause error_logging_clause
-        action => make_delete
+    DELETE delete_from_clause  where_clause returning_clause
+        error_logging_clause action => make_delete
 
 InsertStmt ::=
     # parens_column_list should only allow single col name, not FQN ident
@@ -365,7 +365,7 @@ column_list ::=
     | IDENT
 
 insert_data ::=
-    VALUES '(' target_list ')' action => make_values
+    VALUES '(' target_list ')' returning_clause action => make_values
     | SelectStmt
 
 flashback_clause ::=
@@ -385,6 +385,18 @@ flashback_start ::=
 flashback_end ::=
     target_el
     | MAXVALUE action => upper
+
+returning_clause ::=
+    RETURNING target_list INTO data_items action => make_returning_clause
+    | EMPTY
+
+data_items ::=
+    data_items ',' data_item action => append_el_1_3
+    | data_item
+
+data_item ::=
+    # not sure yet
+    IDENT
 
 error_logging_clause ::=
     LOG ERRORS err_log_into err_log_list action => make_errlog_clause1
@@ -456,6 +468,7 @@ PRECEDING   ~ 'PRECEDING':ic
 PRIOR       ~ 'PRIOR':ic
 RANGE       ~ 'RANGE':ic
 REJECT      ~ 'REJECT':ic
+RETURNING   ~ 'RETURNING':ic
 RIGHT       ~ 'RIGHT':ic
 :lexeme     ~ RIGHT priority => 1
 ROLLUP      ~ 'ROLLUP':ic
@@ -555,7 +568,7 @@ insert into public.t ins (a,b) select id, count(*) from t group by 1;
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
-UPDATE t1 SET val = 't' WHERE id = 1 REJECT LIMIT 3;
+UPDATE t1 SET val = 't' WHERE id = 1 RETURNING (id%2), * INTO a,b REJECT LIMIT 3;
 SAMPLE_QUERIES
 
 
@@ -1018,7 +1031,7 @@ sub plsql2pg::make_groupbyclause {
 }
 
 sub plsql2pg::make_update {
-    my (undef, undef, $from, $set, $where, $error_logging) = @_;
+    my (undef, undef, $from, $set, $where, $returning, $error_logging) = @_;
     my $stmt = make_node('update');
 
     $stmt->{FROM} = $from;
@@ -1062,7 +1075,7 @@ sub plsql2pg::make_update_set_clause {
 }
 
 sub plsql2pg::make_delete {
-    my (undef, undef, $from, $where, $error_logging) = @_;
+    my (undef, undef, $from, $where, $returning, $error_logging) = @_;
     my $stmt = make_node('delete');
 
     $stmt->{FROM} = $from;
@@ -1104,7 +1117,7 @@ sub format_insert {
 }
 
 sub plsql2pg::make_values {
-    my (undef, undef, undef, $tlist, undef) = @_;
+    my (undef, undef, undef, $tlist, undef, $returning) = @_;
     my $values = make_node('values');
 
     $values->{tlist} = $tlist;
@@ -1791,15 +1804,22 @@ sub format_target_list {
     my ($tlist) = @_;
     my $out = '';
 
-    foreach my $elem (@{$tlist->{tlist}}) {
-        $out .= ', ' if ($out ne '');
+    $out = $tlist->{distinct} . ' ' if (defined($tlist->{distinct}));
+    $out .= format_array($tlist->{tlist}, ', ');
+
+    return $out;
+}
+
+sub format_array {
+    my ($arr, $delim) = @_;
+    my $out = '';
+
+    foreach my $elem (@{$arr}) {
+        $out .= $delim if ($out ne '');
         $out .= format_node($elem);
     }
 
-    $out = $tlist->{distinct} . ' ' . $out if (defined($tlist->{distinct}));
-
     return $out;
-
 }
 sub format_SELECT {
     my ($select) = @_;
@@ -1936,16 +1956,21 @@ sub format_FLASHBACK {
     return format_node($node->{content});
 }
 
+sub plsql2pg::make_returning_clause {
+    my (undef, undef, $list, undef, $items) = @_;
+    my $msg = 'RETURNING ';
+
+    $msg .= format_array($list, ', ') . ' INTO ' . format_array($items, ', ');
+
+    add_fixme('Returning clause ignored: "' . $msg . '"');
+}
+
 sub plsql2pg::make_errlog_clause1 {
     my (undef, undef, undef, $into, $list) = @_;
-    my $tlist = make_node('target_list');
     my $msg = 'LOG ERRORS';
 
-    # quick hack
-    $tlist->{tlist} = $list;
-
     $msg .= ' INTO ' . format_node($into) if (defined($into));
-    $msg .= ' (' . format_node($tlist) . ')' if (defined($tlist));
+    $msg .= ' (' . format_array($list, ', ') . ')' if (defined($list));
 
     add_fixme('Error logging clause ignored: "' . $msg . '"');
 

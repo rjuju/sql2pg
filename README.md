@@ -37,7 +37,7 @@ insert into public.t ins (a,b) select id, count(*) from t group by 1;
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
-UPDATE t1 SET val = 't' WHERE id = 1 REJECT LIMIT 3;
+UPDATE t1 SET val = 't' WHERE id = 1 RETURNING (id%2), * INTO a,b REJECT LIMIT 3;
 ```
 
 Converted:
@@ -72,7 +72,8 @@ UPDATE t1 SET val = 't' WHERE id = 1 ;
 -- 1 FIXME for this statement
 -- FIXME: Error logging clause ignored: "LOG ERRORS INTO err.log (to_char(sysdate), id)"
 UPDATE t1 SET val = 't' WHERE id = 1 ;
--- 1 FIXME for this statement
+-- 2 FIXME for this statement
+-- FIXME: Returning clause ignored: "RETURNING (id % 2), * INTO a, b"
 -- FIXME: Error logging clause ignored: "REJECT LIMIT 3"
 ```
 
