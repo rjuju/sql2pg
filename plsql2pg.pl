@@ -21,9 +21,7 @@ my $dsl = <<'END_OF_DSL';
 lexeme default = latm => 1
 
 stmtmulti ::=
-    stmtmulti ';' stmt
-    | stmtmulti ';' # handle terminal ; FIXME
-    | stmt
+    stmt* separator => SEMICOLON
 
 stmt ::=
     SelectStmt action => print_stmts
@@ -492,6 +490,9 @@ WHERE       ~ 'WHERE':ic
 WAIT        ~ 'WAIT':ic
 WITH        ~ 'WITH':ic
 
+SEMICOLON   ~ ';'
+:lexeme     ~ SEMICOLON pause => after event => new_query
+
 # everything else
 number  ~ digits | float
 integer ~ digits
@@ -518,8 +519,9 @@ OPERATOR    ~ '=' | '<' | '<=' | '>' | '>=' | '%' | IS | IS NOT
             | '+' | '-' | '*' | '/' | '||'
 
 :discard                    ~ discard
-discard                     ~ whitespace | comment
+discard                     ~ whitespace
 whitespace                  ~ [\s]+
+:discard                     ~ comment event => add_comment
 comment                     ~ dash_comment | c_comment
 dash_comment                ~ '--' dash_chars
 dash_chars                  ~ [^\n]*
@@ -535,11 +537,6 @@ o_pre_final_stars           ~ [*]*
 
 
 END_OF_DSL
-
-my $grammar = Marpa::R2::Scanless::G->new( {
-    default_action => '::first',
-    source => \$dsl
-} );
 
 my $input = <<'SAMPLE_QUERIES';
 SElect 1 nb from DUAL WHERE rownum < 2; SELECT DISTINCT * from TBL t order by a nulls last, b desc, tbl.c asc;
@@ -573,7 +570,54 @@ SAMPLE_QUERIES
 
 
 print "Original:\n---------\n" . $input . "\n\nConverted:\n----------\n";
-my $value_ref = $grammar->parse( \$input, 'plsql2pg' );
+
+my $grammar = Marpa::R2::Scanless::G->new( {
+    default_action => '::first',
+    source => \$dsl
+} );
+#
+my $slr = Marpa::R2::Scanless::R->new(
+        { grammar => $grammar, semantics_package => 'plsql2pg' } );
+
+my $length = length $input;
+my $pos = $slr->read( \$input );
+
+
+# Ugly way to try to preserve comments: keep track of statement count, and push
+# all found comments in the according hash element.
+my %comments;
+my $stmtno = 1;
+
+$comments{1} = [];
+
+READ: while(1) {
+    for my $event ( @{ $slr->events() } ) {
+        my ($name, $start, $end, undef) = @{$event};
+
+        if ($name eq 'new_query') {
+            $stmtno++;
+        } else {
+            push(@{$comments{$stmtno}}, $event);
+        }
+    }
+
+    if ($pos < $length) {
+        $pos = $slr->resume();
+        next READ;
+    }
+    last READ;
+}
+
+# set the counter to 0, print_stmt() will increment it at its beginning
+$stmtno = 0;
+
+if ( my $ambiguous_status = $slr->ambiguous() ) {
+    chomp $ambiguous_status;
+    die "Parse is ambiguous\n", $ambiguous_status;
+}
+
+my $value_ref = $slr->value;
+my $value = ${$value_ref};
 
 sub plsql2pg::make_alias {
     my (undef, $as, $alias) = @_;
@@ -1692,6 +1736,8 @@ sub plsql2pg::print_stmts {
     my (undef, $stmts) = @_;
     my $first = 1;
 
+    $stmtno++;
+
     foreach my $stmt (@{$stmts}) {
         $first = 0;
         print format_node($stmt);
@@ -1703,6 +1749,15 @@ sub plsql2pg::print_stmts {
         print "-- FIXME: $f\n";
     }
     undef(@fixme);
+
+    if (defined($comments{$stmtno}) and (scalar(@{$comments{$stmtno}}) > 0)) {
+        print '-- ' . (scalar @{$comments{$stmtno}})
+            . " comments for this statement must be replaced\n";
+    }
+    foreach my $event (@{$comments{$stmtno}}) {
+        my ($name, $start, $end, undef) = @{$event};
+        print substr($input, $start, $end - $start) . "\n";
+    }
 }
 
 # Handle ident conversion from oracle to pg
