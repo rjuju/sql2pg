@@ -1764,7 +1764,6 @@ sub format_join_on {
 sub plsql2pg::print_stmts {
     my (undef, $stmts) = @_;
     my $nbfix = 0;
-    my $first = 1;
 
     $stmtno++;
 
@@ -1772,7 +1771,6 @@ sub plsql2pg::print_stmts {
         if (defined($comments{$stmtno}{ok}));
 
     foreach my $stmt (@{$stmts}) {
-        $first = 0;
         print format_node($stmt);
     }
     print " ;\n";
