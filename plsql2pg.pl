@@ -423,6 +423,7 @@ CROSS       ~ 'CROSS':ic
 CUBE        ~ 'CUBE':ic
 CURRENT     ~ 'CURRENT':ic
 DELETE      ~ 'DELETE':ic
+:lexeme     ~ DELETE pause => after event => keyword
 DESC        ~ 'DESC':ic
 DISTINCT    ~ 'DISTINCT':ic
 ERRORS      ~ 'ERRORS':ic
@@ -436,6 +437,7 @@ GROUPING    ~ 'GROUPING':ic
 HAVING      ~ 'HAVING':ic
 INNER       ~ 'INNER':ic
 INSERT      ~ 'INSERT':ic
+:lexeme     ~ INSERT pause => after event => keyword
 INTERSECT   ~ 'INTERSECT':ic
 INTO        ~ 'INTO':ic
 IS          ~ 'IS':ic
@@ -474,6 +476,7 @@ ROW         ~ 'ROW':ic
 ROWS        ~ 'ROWS':ic
 SCN         ~ 'SCN':ic
 SELECT      ~ 'SELECT':ic
+:lexeme     ~ SELECT pause => after event => keyword
 SET         ~ 'SET':ic
 SETS        ~ 'SETS':ic
 START       ~ 'START':ic
@@ -483,12 +486,14 @@ UNIQUE      ~ 'UNIQUE':ic
 UNION       ~ 'UNION':ic
 UNLIMITED   ~ 'UNLIMITED':ic
 UPDATE      ~ 'UPDATE':ic
+:lexeme     ~ UPDATE pause => after event => keyword
 USING       ~ 'USING':ic
 VALUES      ~ 'VALUES':ic
 VERSIONS    ~ 'VERSIONS':ic
 WHERE       ~ 'WHERE':ic
 WAIT        ~ 'WAIT':ic
 WITH        ~ 'WITH':ic
+:lexeme     ~ WITH pause => after event => keyword
 
 SEMICOLON   ~ ';'
 :lexeme     ~ SEMICOLON pause => after event => new_query
@@ -553,7 +558,7 @@ SELECT val, rank() over (partition by id) rank, lead(val) over (order by val row
 WITH s1 as (with s3 as (select 1 from dual) select * from s3), s AS (SELECT * FROM s1 where rownum < 2) SELECT * From s, (with t as (select 3 from t) select * from t) cross join (with u as (select count(*) nb from dual) select nb from u union all (select 0 from dual)) where rownum < 2;
 with s as (select 1 from dual) SELECT employee_id, last_name, manager_id
 FROM employees   -- this is the FROM clause
-WHERE salary > 0   --should not happend
+WHERE salary > 0   --should not happen
 start with /* hard coded value */ employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manager_id;
 SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
 SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
@@ -566,6 +571,7 @@ insert into public.t ins (a,b) select id, count(*) from t group by 1;
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
 UPDATE t1 SET val = 't' WHERE id = 1 RETURNING (id%2), * INTO a,b REJECT LIMIT 3;
+-- I don't belong to any query
 SAMPLE_QUERIES
 
 
@@ -588,16 +594,22 @@ my $pos = $slr->read( \$input );
 my %comments;
 my $stmtno = 1;
 
-$comments{1} = [];
-
+my $query_started = 0;
 READ: while(1) {
     for my $event ( @{ $slr->events() } ) {
         my ($name, $start, $end, undef) = @{$event};
 
         if ($name eq 'new_query') {
             $stmtno++;
+            $query_started = 0;
+        } elsif ($name eq 'keyword') {
+            $query_started = 1;
         } else {
-            push(@{$comments{$stmtno}}, $event);
+            if ($query_started) {
+                push(@{$comments{$stmtno}{fixme}}, $event);
+            } else {
+                push(@{$comments{$stmtno}{ok}}, $event);
+            }
         }
     }
 
@@ -618,6 +630,11 @@ if ( my $ambiguous_status = $slr->ambiguous() ) {
 
 my $value_ref = $slr->value;
 my $value = ${$value_ref};
+
+# FIXME change here when real output will be added
+$stmtno++;
+print format_comment($comments{$stmtno}{ok}) if defined($comments{$stmtno}{ok});
+
 
 sub plsql2pg::make_alias {
     my (undef, $as, $alias) = @_;
@@ -641,6 +658,18 @@ sub plsql2pg::second {
     my (undef, undef, $node) = @_;
 
     return $node;
+}
+
+sub format_comment {
+    my ($comments) = @_;
+    my $out = '';
+
+    foreach my $event (@{$comments}) {
+        my ($name, $start, $end, undef) = @{$event};
+        $out .= substr($input, $start, $end - $start) . "\n";
+    }
+
+    return $out;
 }
 
 sub plsql2pg::append_el_1_3 {
@@ -1734,9 +1763,13 @@ sub format_join_on {
 
 sub plsql2pg::print_stmts {
     my (undef, $stmts) = @_;
+    my $nbfix = 0;
     my $first = 1;
 
     $stmtno++;
+
+    print format_comment($comments{$stmtno}{ok})
+        if (defined($comments{$stmtno}{ok}));
 
     foreach my $stmt (@{$stmts}) {
         $first = 0;
@@ -1744,19 +1777,20 @@ sub plsql2pg::print_stmts {
     }
     print " ;\n";
 
-    print '-- ' . (scalar @fixme) ." FIXME for this statement\n" if ((scalar @fixme) > 0);
+    $nbfix += (scalar(@fixme)) if (scalar(@fixme > 0));
+    $nbfix += (scalar(@{$comments{$stmtno}{fixme}}))
+        if (defined($comments{$stmtno}{fixme}));
+
+    print '-- ' . $nbfix ." FIXME for this statement\n" if ($nbfix > 0);
     foreach my $f (@fixme) {
         print "-- FIXME: $f\n";
     }
     undef(@fixme);
 
-    if (defined($comments{$stmtno}) and (scalar(@{$comments{$stmtno}}) > 0)) {
-        print '-- ' . (scalar @{$comments{$stmtno}})
-            . " comments for this statement must be replaced\n";
-    }
-    foreach my $event (@{$comments{$stmtno}}) {
-        my ($name, $start, $end, undef) = @{$event};
-        print substr($input, $start, $end - $start) . "\n";
+    if (defined($comments{$stmtno}{fixme})) {
+        print '-- ' . (scalar @{$comments{$stmtno}{fixme}})
+            . " comments for this statement must be replaced:\n";
+        print format_comment($comments{$stmtno}{fixme});
     }
 }
 
