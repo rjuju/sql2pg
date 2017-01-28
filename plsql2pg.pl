@@ -1669,23 +1669,37 @@ sub handle_forupdate_clause {
     }
 }
 
+# Return if the given parens node is empty, meaning only contains empty array,
+# or array of undefined or empty parens
 sub parens_is_empty {
     my ($parens) = @_;
 
+    # Can't be empty if the parens content isn't an array
     return 0 unless (ref($parens->{node}) eq 'ARRAY');
 
     foreach my $node (@{$parens->{node}}) {
         if (defined($node)) {
+            # Check if this node is an empty parens
             if ((ref($node) eq 'HASH') and (isA($node, 'parens'))) {
                 my $rc = parens_is_empty($node);
+                # Parens wasn't empty, stop now and say parens isn't empty
                 return $rc if (not $rc);
             }
         }
+        # The content wasn't empty, stop now and say parens isn't empty
         return 0 if (defined($node));
     }
+
+    # We didn't find any content, so the parens is empty
     return 1;
 }
 
+# Remove a redundant parens level:
+#
+# - iif the parens content is an array only containing a single parens (any other
+#   undef value in the array of ignored), return this inner parens.
+#
+# - otherwise return undef.
 sub parens_get_new_node {
     my ($parens) = @_;
     my $node = undef;
@@ -1702,22 +1716,28 @@ sub parens_get_new_node {
     }
 
     return undef if ($cpt != 1);
+    # The array was only containing a parens, return this parens
     return $node;
 }
 
+# Walk through possibly nested parens node and remove redundant parens node
 sub prune_parens {
     my ($parens) = @_;
     my $node;
 
+    # Sanity check
     return if (not isA($parens, 'parens'));
 
+    # Remove the parens content if the parens is empty
     if (parens_is_empty($parens)) {
         $parens->{node} = undef;
         return;
     }
 
+    # Check for redundant parens level
     $node = parens_get_new_node($parens);
     if (defined($node)) {
+        # There was, remove this extraneous level and start pruning again
         $parens->{node} = $node;
         prune_parens($parens);
     }
