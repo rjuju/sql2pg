@@ -577,6 +577,11 @@ SAMPLE_QUERIES
 
 print "Original:\n---------\n" . $input . "\n\nConverted:\n----------\n";
 
+my %walker_actions = (
+    joinop  => \&qual_is_join_op,
+    rownum  => \&qual_is_rownum
+);
+
 my $grammar = Marpa::R2::Scanless::G->new( {
     default_action => '::first',
     source => \$dsl
@@ -634,7 +639,6 @@ my $value = ${$value_ref};
 # FIXME change here when real output will be added
 $stmtno++;
 print format_comment($comments{$stmtno}{ok}) if defined($comments{$stmtno}{ok});
-
 
 sub plsql2pg::make_alias {
     my (undef, $as, $alias) = @_;
@@ -1353,13 +1357,10 @@ sub format_select {
 
     $out .= '(' if ($stmt->{combined});
 
-    $nodes = handle_nonsqljoin($stmt->{FROM}, $stmt->{WHERE});
+    # transform (+) qual to LEFT JOIN
+    handle_nonsqljoin($stmt);
 
-    if (defined($nodes)) {
-        $stmt->{join} = [] unless defined($stmt->{JOIN});
-        push(@{$stmt->{JOIN}}, @{$nodes});
-    }
-
+    # transform ROWNUM where clauses to LIMIT/OFFSET
     handle_rownum($stmt);
 
     $stmt = handle_connectby($stmt);
@@ -1404,55 +1405,24 @@ sub handle_function {
     return $func;
 }
 
-sub handle_nonsqljoin {
-    my ($from, $where) = @_;
-    my $joinlist = undef;
-    my $i;
-
-    return if not defined($where->{content});
-
-    for ($i=0; $i<(scalar @{$where->{content}->{quallist}}); $i++) {
-        if ((ref @{$where->{content}->{quallist}}[$i] eq 'HASH') and
-            defined(@{$where->{content}->{quallist}}[$i]->{join_op})
-        ) {
-            my $node;
-            my $w = splice(@{$where->{content}->{quallist}}, $i, 1);
-            my $t;
-            my $ident = [];
-            my $cond = [];
-
-            $joinlist = [] unless defined($joinlist);
-            push(@{$cond}, $w);
-
-            $t = splice_table_from_fromlist($from->{content}, $w->{right}->{table});
-            push(@{$ident}, $t);
-
-            $node = plsql2pg::make_join(undef, 'LEFT', undef, $ident,
-                $t->{alias}, plsql2pg::make_joinon(undef, undef, $cond));
-
-            push(@{$joinlist}, @{$node});
-        }
-    }
-
-    return $joinlist;
-}
-
-# This function will transform any rownum OPERATOR number to a LIMIT/OFFSET
-# clause.  No effort is done to make sure OR-ed or overlapping rownum
-# expressions will have expected result, such query would be stupid anyway.
-# This grammar also allows a float number, but as everywhere else I assume
-# original query is valid to keep the grammar simple.
-sub handle_rownum {
-    my ($node, $stmt) = @_;
+# Iterate through a given where_clause or select node, undef any qual matching
+# the given function and return all these quals in an array, possibly undef but
+# not empty.
+sub whereclause_walker {
+    my ($func, $node, $stmt) = @_;
+    my $quals = [];
     my $i;
 
     return undef if (not defined($node));
+
     if (isA($node, 'select')) {
-        return handle_rownum($node->{WHERE}->{content}, $node) if (defined($node->{WHERE}));
+        return whereclause_walker($func, $node->{WHERE}->{content}, $node)
+            if (defined($node->{WHERE}));
         return undef;
         }
-    return handle_rownum($node->{node}, $stmt) if isA($node, 'parens');
-    return handle_rownum($node->{quallist}, $stmt) if isA($node, 'quallist');
+
+    return whereclause_walker($func, $node->{node}, $stmt) if isA($node, 'parens');
+    return whereclause_walker($func, $node->{quallist}, $stmt) if isA($node, 'quallist');
 
     for ($i=0; $i<(scalar @{$node}); $i++) {
         my $qual = @{$node}[$i];
@@ -1463,52 +1433,107 @@ sub handle_rownum {
         # el), too bad if it was an OR
         $todel = $i+1 if ($i == 0);
 
+        # Recurse the walker if it's a parens node
         if (isA($qual, 'parens')) {
-            handle_rownum($qual, $stmt);
-            if ((parens_is_empty($qual)) and (ref(@{$node}[$todel])) ne 'HASH') {
-                @{$node}[$todel] = undef;
+            my $res = whereclause_walker($func, $qual, $stmt);
+
+            # We found matching quals in the parens node
+            if (defined($res)) {
+                push(@{$quals}, @{$res});
+
+                # Remove the parens node if previous walker call removed all of
+                # its content
+                if ((parens_is_empty($qual)) and (ref(@{$node}[$todel])) ne 'HASH') {
+                    @{$node}[$todel] = undef;
+                }
             }
             next;
         }
-        if ((
-                (isA($qual->{left}, 'number') and isA($qual->{right}, 'ident')
-                and ($qual->{right}->{attribute} eq 'rownum')
-                and not defined($qual->{right}->{table}))
-            ) or (
-                (isA($qual->{right}, 'number') and isA($qual->{left}, 'ident')
-                and ($qual->{left}->{attribute} eq 'rownum')
-                and not defined($qual->{left}->{table}))
-            )
-        ){
-            my $number;
-            my $clause;
-
+        # Otherwise check if the node match the given condition
+        elsif ($walker_actions{$func}->($qual)) {
+            # Remove extraneous QUAL_OP, this is probably really buggy
             if (ref(@{$node}[$todel]) ne 'HASH') {
                 @{$node}[$todel] = undef;
             }
 
-            if (isA($qual->{left}, 'ident')) {
-                $number = $qual->{right};
-            } else {
-                $number = $qual->{left};
-            }
-
-            if (($qual->{op} eq '<') or ($qual->{op} eq '<=')) {
-                $number->{val} -= 1 if ($qual->{op} eq '<');
-                $clause = make_clause('LIMIT', $number);
-
-            } else {
-                $number->{val} -= 1 if ($qual->{op} eq '>=');
-                $clause = make_clause('OFFSET', $number);
-            }
-
-            # Finally remove the qual
+            # Save the matchingqual
+            push(@{$quals}, $qual);
+            # And remove it from the quallist
             @{$node}[$i] = undef;
-
-            # XXX Should I handle stupid queries with multiple rownum clauses?
-            $stmt->{$clause->{type}} = $clause;
-            }
         }
+    }
+
+    return undef unless(scalar @{$quals} > 0);
+    return $quals;
+}
+
+# This function will remove any "joinop" qual (ident op ident(+)), and will add
+# a LEFT JOIN clause corresponding to this qual.  The left-join-ed table will
+# also be removed from the where clause.
+sub handle_nonsqljoin {
+    my ($stmt) = @_;
+    my $quals;
+
+    $quals = whereclause_walker('joinop', $stmt, undef);
+
+    return unless (defined($quals));
+
+    foreach my $qual (@{$quals}) {
+        my $join;
+        my $t;
+        my $ident;
+        my $cond;
+
+        $t = splice_table_from_fromlist($stmt->{FROM}->{content},
+                                        $qual->{right}->{table});
+        $ident = to_array($t);
+
+        $join = plsql2pg::make_join(
+                    undef, 'LEFT', undef, $ident,
+                    $t->{alias},
+                    plsql2pg::make_joinon(undef, undef, to_array($qual))
+        );
+
+        $stmt->{JOIN} = [] unless defined($stmt->{JOIN});
+        push(@{$stmt->{JOIN}}, $join);
+    }
+}
+
+# This function will transform any rownum OPERATOR number to a LIMIT/OFFSET
+# clause.  No effort is done to make sure OR-ed or overlapping rownum
+# expressions will have expected result, such query would be stupid anyway.
+# This grammar also allows a float number, but as everywhere else I assume
+# original query is valid to keep the grammar simple.
+sub handle_rownum {
+    my ($stmt) = @_;
+    my $quals;
+
+    $quals = whereclause_walker('rownum', $stmt, undef);
+
+    return unless (defined($quals));
+
+    foreach my $qual (@{$quals}) {
+        my $number;
+        my $clause;
+
+        if (isA($qual->{left}, 'ident')) {
+            $number = $qual->{right};
+        } else {
+            $number = $qual->{left};
+        }
+
+        if (($qual->{op} eq '<') or ($qual->{op} eq '<=')) {
+            $number->{val} -= 1 if ($qual->{op} eq '<');
+            $clause = make_clause('LIMIT', $number);
+
+        } else {
+            $number->{val} -= 1 if ($qual->{op} eq '>=');
+            $clause = make_clause('OFFSET', $number);
+        }
+
+        # XXX Should I handle queries with conflicting rownum clauses?
+        $stmt->{$clause->{type}} = $clause;
+    }
 }
 
 # This function will transform an oracle hierarchical query (CONNECT BY) to a
@@ -2167,6 +2192,26 @@ sub isA {
     return 0 if (ref $node ne 'HASH');
 
     return ($node->{type} eq $type);
+}
+
+sub qual_is_join_op {
+    my ($qual) = @_;
+
+    return (isA($qual,'qual') and defined($qual->{join_op}));
+}
+
+sub qual_is_rownum {
+    my ($qual) = @_;
+
+    return ((
+            (isA($qual->{left}, 'number') and isA($qual->{right}, 'ident')
+            and ($qual->{right}->{attribute} eq 'rownum')
+            and not defined($qual->{right}->{table}))
+        ) or (
+            (isA($qual->{right}, 'number') and isA($qual->{left}, 'ident')
+            and ($qual->{left}->{attribute} eq 'rownum')
+            and not defined($qual->{left}->{table}))
+        ));
 }
 
 sub assert_one_el {
