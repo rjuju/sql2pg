@@ -1524,6 +1524,7 @@ sub whereclause_walker {
 # also be removed from the where clause.
 sub handle_nonsqljoin {
     my ($stmt) = @_;
+    my $joins = [];
     my $quals;
 
     $quals = whereclause_walker('joinop', $stmt, undef);
@@ -1547,8 +1548,10 @@ sub handle_nonsqljoin {
         );
 
         $stmt->{JOIN} = [] unless defined($stmt->{JOIN});
-        push(@{$stmt->{JOIN}}, $join);
+        push(@{$joins}, $join);
     }
+
+    $stmt->{JOIN} = make_clause('JOIN', $joins);
 }
 
 # This function will transform any rownum OPERATOR number to a LIMIT/OFFSET
@@ -1934,6 +1937,7 @@ sub format_node {
     return ' ' . $node . ' ' if (not ref($node));
 
     prune_parens($node);
+
     $func = "format_" . $node->{type};
 
     # XXX should I handle every node type explicitely instead?
