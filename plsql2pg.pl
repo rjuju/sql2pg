@@ -1548,7 +1548,7 @@ sub handle_nonsqljoin {
         );
 
         $stmt->{JOIN} = [] unless defined($stmt->{JOIN});
-        push(@{$joins}, $join);
+        push(@{$joins}, @{$join});
     }
 
     $stmt->{JOIN} = make_clause('JOIN', $joins);
