@@ -254,6 +254,7 @@ IDENT ::=
 # PRIOR is only legal in hierarchical clause, assume original query is valid
 qual_no_parens ::=
     target_el OPERATOR target_el join_op action => make_qual
+    | target_el BETWEEN target_el AND target_el action => make_betweenqual
     | PRIOR target_el OPERATOR target_el join_op action => make_priorqual
     | target_el OPERATOR PRIOR target_el join_op action => make_qualprior
 
@@ -856,6 +857,19 @@ sub plsql2pg::make_qual {
     $qual->{op} = $op;
     $qual->{right} = pop(@{$right});
     $qual->{join_op} = $join_op;
+
+    return to_array($qual);
+}
+
+sub plsql2pg::make_betweenqual {
+    my (undef, $left, undef, $right, $right2) = @_;
+    my $qual = make_node('qual');
+
+    $qual->{left} = pop(@{$left});
+    $qual->{op} = 'BETWEEN';
+    $qual->{right} = pop(@{$right});
+    $qual->{op2} = 'BETWEEN';
+    $qual->{right2} = pop(@{$right2});
 
     return to_array($qual);
 }
@@ -1969,6 +1983,9 @@ sub format_qual {
 
     $out = format_node($qual->{left}) . ' ' . $qual->{op} . ' '
          . format_node($qual->{right});
+
+    $out .= ' ' . $qual->{op2} . ' ' . format_node($qual->{right2})
+        if (defined($qual->{op2}));
 
     return $out;
 }
