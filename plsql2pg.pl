@@ -740,7 +740,7 @@ sub plsql2pg::make_literal {
     my (undef, $value, $alias) = @_;
     my $literal = make_node('literal');
 
-    $literal->{value} = $value;
+    $literal->{value} = substr($value, 1, -1); # remove the quotes
     $literal->{alias} = $alias;
 
     return to_array($literal);
@@ -1400,6 +1400,44 @@ sub handle_function {
 
         $func->{ident}->{attribute} = 'log';
         unshift(@{$func->{args}}, $arg);
+    } elsif ($funcname eq 'trunc') {
+        my $nb = (scalar @{$func->{args}});
+
+        if ( ($nb != 1) and ($nb != 2)) {
+            add_fixme('Function trunc with too many arguments');
+            return;
+        }
+
+        if ($nb == 1) {
+            my $arg = make_node('literal');
+
+            $arg->{values} = 'day';
+            unshift(@{$func->{args}}, $arg);
+        } else {
+            #swap arguments, replace MM with month
+            my $arg = pop(@{$func->{args}});
+            my $v;
+
+            assert(isA($arg, 'literal'), $arg, $func);
+
+            $v = $arg->{value};
+
+            if ($v eq 'Y' or $v eq 'YY' or $v eq 'YYYY' or $v eq 'YEAR') {
+                $arg->{value} = 'year';
+            } elsif ($v eq 'MM' or $v eq 'MONTH' or $v eq 'MON') {
+                $arg->{value} = 'month';
+            } elsif ($v eq 'HH' or $v eq 'HH12' or $v eq 'HH24') {
+                $arg->{value} = 'hour';
+            } elsif ($v eq 'MI') {
+                $arg->{value} = 'minute';
+            } else {
+                error("Cannot understand format $v in trunc function", $func);
+            }
+
+            unshift(@{$func->{args}}, $arg);
+        }
+
+        $func->{ident}->{attribute} = 'date_trunc';
     }
 
     return $func;
@@ -1910,7 +1948,7 @@ sub format_literal {
     my ($literal) = @_;
     my $out;
 
-    $out = $literal->{value};
+    $out = "'" . $literal->{value} . "'";
     $out .= format_alias($literal->{alias});
 
     return $out;
@@ -2234,6 +2272,13 @@ sub qual_is_rownum {
         ));
 }
 
+sub assert {
+    my ($ok, @args) = @_;
+    my $func = (caller(1))[3];
+
+    error("Assert error in $func", @args) if (not $ok);
+}
+
 sub assert_one_el {
     my ($arr) = @_;
     my $func = (caller(1))[3];
@@ -2257,9 +2302,11 @@ sub add_fixme {
 }
 
 sub error {
-    my ($msg, $node) = @_;
+    my ($msg, @args) = @_;
 
     print "ERROR: $msg\n";
-    print Dumper($node);
+    foreach my $node (@args) {
+        print Dumper($node);
+    }
     exit 1;
 }
