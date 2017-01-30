@@ -1030,7 +1030,7 @@ sub plsql2pg::make_jointype {
     return 'INNER' if (not defined($kw1));
 
     $kw1 = uc($kw1);
-    $kw2 = uc($kw2);
+    $kw2 = uc($kw2) if defined($kw2);
 
     # just a personal preference
     return 'FULL OUTER' if ($kw1 eq 'FULL');
