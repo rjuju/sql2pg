@@ -1432,7 +1432,7 @@ sub handle_function {
             my $arg = pop(@{$func->{args}});
             my $v;
 
-            assert(isA($arg, 'literal'), $arg, $func);
+            assert(isA($arg, 'literal'), 'Should be a literal', $arg, $func);
 
             $v = $arg->{value};
 
@@ -1539,6 +1539,13 @@ sub handle_nonsqljoin {
 
         $t = splice_table_from_fromlist($stmt->{FROM}->{content},
                                         $qual->{right}->{table});
+
+        $t = find_table_in_joinlist($joins, $qual->{right}->{table})
+            unless(defined($t));
+
+        assert((defined($t)), "could not find relation "
+            . $qual->{right}->{table}, $qual, $joins);
+
         $ident = to_array($t);
 
         $join = plsql2pg::make_join(
@@ -1547,7 +1554,6 @@ sub handle_nonsqljoin {
                     plsql2pg::make_joinon(undef, undef, to_array($qual))
         );
 
-        $stmt->{JOIN} = [] unless defined($stmt->{JOIN});
         push(@{$joins}, @{$join});
     }
 
@@ -1799,23 +1805,45 @@ sub prune_parens {
 }
 
 sub splice_table_from_fromlist {
-    my ($from, $name) = @_;
+    my ($froms, $name) = @_;
     my $i;
 
     # first, check if a table has the wanted name as alias to avoid returning
     # the wrong one
-    for ($i=0; $i<(scalar @{$from}); $i++) {
-        my $t = @{$from}[$i];
+    for ($i=0; $i<(scalar @{$froms}); $i++) {
+        my $t = @{$froms}[$i];
         if (defined($t->{alias}) and $t->{alias} eq $name) {
-            return(splice(@{$from}, $i, 1));
+            return(splice(@{$froms}, $i, 1));
         }
     }
 
     # no, then look for real table name
-    for ($i=0; $i<(scalar @{$from}); $i++) {
-        my $t = @{$from}[$i];
+    for ($i=0; $i<(scalar @{$froms}); $i++) {
+        my $t = @{$froms}[$i];
         if ($t->{attribute} eq $name) {
-            return(splice(@{$from}, $i, 1));
+            return(splice(@{$froms}, $i, 1));
+        }
+    }
+
+    # not found, say it to caller
+    return undef;
+}
+
+sub find_table_in_joinlist {
+    my ($joins, $name) = @_;
+
+    # first, check if a table has the wanted name as alias to avoid returning
+    # the wrong one
+    foreach my $t (@{$joins}) {
+        if (defined($t->{ident}->{alias}) and $t->{ident}->{alias} eq $name) {
+            return($t);
+        }
+    }
+
+    # no, then look for real table name
+    foreach my $t (@{$joins}) {
+        if ($t->{ident}->{attribute} eq $name) {
+            return($t);
         }
     }
 
@@ -2267,6 +2295,7 @@ sub make_opexpr {
 sub isA {
     my ($node, $type) = @_;
 
+    return 0 if (not defined($node));
     return 0 if (not ref($node));
     return 0 if (ref $node ne 'HASH');
 
@@ -2294,10 +2323,10 @@ sub qual_is_rownum {
 }
 
 sub assert {
-    my ($ok, @args) = @_;
+    my ($ok, $msg, @args) = @_;
     my $func = (caller(1))[3];
 
-    error("Assert error in $func", @args) if (not $ok);
+    error("Assert error in $func:" . "\n" . $msg, @args) if (not $ok);
 }
 
 sub assert_one_el {
