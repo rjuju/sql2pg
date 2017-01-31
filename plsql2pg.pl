@@ -1525,7 +1525,9 @@ sub whereclause_walker {
 sub handle_nonsqljoin {
     my ($stmt) = @_;
     my $joins = [];
+    my $finaljoins = [];
     my $quals;
+    my $last_fail = undef;
 
     $quals = whereclause_walker('joinop', $stmt, undef);
 
@@ -1537,10 +1539,10 @@ sub handle_nonsqljoin {
         my $ident;
         my $cond;
 
-        $t = splice_table_from_fromlist($stmt->{FROM}->{content},
-                                        $qual->{right}->{table});
+        $t = splice_table_from_fromlist($qual->{right}->{table},
+                                        $stmt->{FROM}->{content});
 
-        $t = find_table_in_joinlist($joins, $qual->{right}->{table})
+        $t = find_table_in_array($qual->{right}->{table}, $joins)
             unless(defined($t));
 
         assert((defined($t)), "could not find relation "
@@ -1557,7 +1559,46 @@ sub handle_nonsqljoin {
         push(@{$joins}, @{$join});
     }
 
-    $stmt->{JOIN} = make_clause('JOIN', $joins);
+    # Start to build the join_clause to be able to add joins in the right order
+    $stmt->{JOIN} = make_clause('JOIN', $finaljoins);
+
+    # We now have all the join node, make sure we add them in the right order
+    while (scalar(@{$joins}) > 0) {
+        # Take the last element
+        my $join = pop(@{$joins});
+        my $left;
+        my $right;
+
+        assert_one_el($join->{cond}->{quallist});
+
+        # left node is needed to check dependency
+        $left = @{$join->{cond}->{quallist}}[0]->{left};
+        assert((isA($left, 'ident')), "left node is not an ident", $left);
+
+        # right node is needed to prevent infinite loop
+        $right = @{$join->{cond}->{quallist}}[0]->{right};
+        assert((isA($right, 'ident')), "right node is not an ident", $right);
+
+        if (table_in_from_join($left->{table}, $stmt)) {
+            # We found the dependency, add the join and reset last_fail
+            push(@{$stmt->{JOIN}->{content}}, $join);
+            $last_fail = undef;
+        } else {
+            # dependency not found, check if we looped all pending join without
+            # sucess and error out in this case
+            if (defined($last_fail)) {
+                error("Coudln't resolve table dependencies for SQL89 JOIN, "
+                    . "orignal query is probably broken")
+                    if ($last_fail eq $right->{table});
+            } else {
+                # Initialise the last_fail with the first missed dependency
+                $last_fail = $right->{table};
+            }
+            # Dependency not found, put in first position to handle it after a
+            # full loop
+            unshift(@{$joins}, $join);
+        }
+    }
 }
 
 # This function will transform any rownum OPERATOR number to a LIMIT/OFFSET
@@ -1805,8 +1846,10 @@ sub prune_parens {
 }
 
 sub splice_table_from_fromlist {
-    my ($froms, $name) = @_;
+    my ($name, $froms) = @_;
     my $i;
+
+    return undef unless (defined($froms));
 
     # first, check if a table has the wanted name as alias to avoid returning
     # the wrong one
@@ -1829,26 +1872,59 @@ sub splice_table_from_fromlist {
     return undef;
 }
 
-sub find_table_in_joinlist {
-    my ($joins, $name) = @_;
+sub find_table_in_array {
+    my ($name, $array) = @_;
+
+    return undef unless (defined($array));
 
     # first, check if a table has the wanted name as alias to avoid returning
     # the wrong one
-    foreach my $t (@{$joins}) {
-        if (defined($t->{ident}->{alias}) and $t->{ident}->{alias} eq $name) {
-            return($t);
+    foreach my $t (@{$array}) {
+        if (isA($t, 'ident')) {
+            if (defined($t->{alias}) and $t->{alias} eq $name) {
+                return($t);
+            }
+        } elsif (isA($t, 'join')) {
+            if (defined($t->{ident}->{alias}) and $t->{ident}->{alias} eq $name) {
+                return($t);
+            }
+        } else {
+            error("Node unexpected", $t);
         }
     }
 
     # no, then look for real table name
-    foreach my $t (@{$joins}) {
-        if ($t->{ident}->{attribute} eq $name) {
-            return($t);
+    foreach my $t (@{$array}) {
+        if (isA($t, 'ident')) {
+            if ($t->{attribute} eq $name) {
+                return($t);
+            }
+        } elsif (isA($t, 'join')) {
+            if ($t->{ident}->{attribute} eq $name) {
+                return($t);
+            }
+        } else {
+            error("Node unexpected", $t);
         }
     }
 
     # not found, say it to caller
     return undef;
+}
+
+sub table_in_from_join {
+    my ($name, $stmt) = @_;
+    my $t;
+
+    assert((defined($name)), "No name provided");
+
+    # Check if the wanted table is in the join_clause
+    $t = find_table_in_array($name, $stmt->{JOIN}->{content});
+    return 1 if defined($t);
+
+    # No, check in the from_clause
+    $t = find_table_in_array($name, $stmt->{FROM}->{content});
+    return (defined($t));
 }
 
 sub format_quallist {
