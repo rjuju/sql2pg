@@ -461,6 +461,7 @@ KEEP        ~ 'KEEP':ic
 LAST        ~ 'LAST':ic
 LEFT        ~ 'LEFT':ic
 :lexeme     ~ LEFT priority => 1
+LIKE        ~ 'LIKE':ic
 LIMIT       ~ 'LIMIT':ic
 LOG         ~ 'LOG':ic
 MAXVALUE    ~ 'MAXVALUE':ic
@@ -536,7 +537,7 @@ LITERAL         ~ literal_delim literal_chars literal_delim
 literal_delim   ~ [']
 literal_chars   ~ [^']*
 
-OPERATOR    ~ '=' | '<' | '<=' | '>' | '>=' | '%' | IS | IS NOT
+OPERATOR    ~ '=' | '<' | '<=' | '>' | '>=' | '%' | IS | IS NOT | LIKE
             | '+' | '-' | '*' | '/' | '||'
 
 :discard                    ~ discard
