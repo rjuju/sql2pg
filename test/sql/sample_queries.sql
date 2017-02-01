@@ -21,6 +21,7 @@ delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
 insert into public.t ins values (2+1, 'tt');
 insert   into public.t ins (a,b) values (2+1, 'tt');
 insert into public.t ins (a,b) select id, count(*) from t group by 1;
+select a.id from a,d,b,c where b.id = c.id(+) and c.id = d.id (+) and a.id =b.id(+);
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
