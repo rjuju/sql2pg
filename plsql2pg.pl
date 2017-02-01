@@ -120,7 +120,7 @@ a_expr ::=
     | LITERAL action => make_literal
 
 function ::=
-    IDENT '(' function_args ')' window_clause action => make_function
+    IDENT '(' function_args ')' keep_clause window_clause action => make_function
 
 function_args ::=
     function_args ',' function_arg action => append_el_1_3
@@ -130,6 +130,15 @@ function_args ::=
 function_arg ::=
     a_expr
     | function
+
+keep_clause ::=
+    # order_clause is mandatory, assume original query is correct
+    KEEP '(' DENSE_RANK FIRST_LAST order_clause ')' action => make_keepclause
+    | EMPTY
+
+FIRST_LAST ::=
+    FIRST
+    | LAST
 
 window_clause ::=
     OVER '(' partition_clause order_clause frame_clause ')' action => make_overclause
@@ -300,7 +309,11 @@ order_clause ::=
     | EMPTY action => ::undef
 
 order_list ::=
-    order_list ',' order_elem action => append_el_1_3
+    simple_order_list
+    | '(' simple_order_list ')' action => second
+
+simple_order_list ::=
+    simple_order_list ',' order_elem action => append_el_1_3
     | order_elem
 
 order_elem ::=
@@ -425,6 +438,7 @@ CUBE        ~ 'CUBE':ic
 CURRENT     ~ 'CURRENT':ic
 DELETE      ~ 'DELETE':ic
 :lexeme     ~ DELETE pause => after event => keyword
+DENSE_RANK  ~ 'DENSE_RANK':ic
 DESC        ~ 'DESC':ic
 DISTINCT    ~ 'DISTINCT':ic
 ERRORS      ~ 'ERRORS':ic
@@ -443,6 +457,7 @@ INTERSECT   ~ 'INTERSECT':ic
 INTO        ~ 'INTO':ic
 IS          ~ 'IS':ic
 JOIN        ~ 'JOIN':ic
+KEEP        ~ 'KEEP':ic
 LAST        ~ 'LAST':ic
 LEFT        ~ 'LEFT':ic
 :lexeme     ~ LEFT priority => 1
@@ -725,7 +740,7 @@ sub plsql2pg::make_literal {
 }
 
 sub plsql2pg::make_function {
-    my (undef, $ident, undef, $args, undef, $windowclause) = @_;
+    my (undef, $ident, undef, $args, undef, undef, $windowclause) = @_;
     my $func = make_node('function');
 
     assert_one_el($ident);
@@ -757,6 +772,17 @@ sub format_function {
     $out .= format_alias($func->{alias});
 
     return $out;
+}
+
+sub plsql2pg::make_keepclause {
+    my (undef, undef, undef, undef, $firstlast, $order) = @_;
+    my $sql = "KEEP (DENSE_RANK $firstlast ";
+
+    $sql .= format_node($order);
+
+    add_fixme('KEEP clause ignored: "' . $sql . '"');
+
+    return undef;
 }
 
 sub plsql2pg::make_overclause {
