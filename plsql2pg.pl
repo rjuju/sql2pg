@@ -866,13 +866,13 @@ sub plsql2pg::make_qual {
 }
 
 sub plsql2pg::make_betweenqual {
-    my (undef, $left, undef, $right, $right2) = @_;
+    my (undef, $left, undef, $right, undef, $right2) = @_;
     my $qual = make_node('qual');
 
     $qual->{left} = pop(@{$left});
     $qual->{op} = 'BETWEEN';
     $qual->{right} = pop(@{$right});
-    $qual->{op2} = 'BETWEEN';
+    $qual->{op2} = 'AND';
     $qual->{right2} = pop(@{$right2});
 
     return to_array($qual);
