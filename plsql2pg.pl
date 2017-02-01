@@ -136,7 +136,7 @@ window_clause ::=
     | EMPTY
 
 partition_clause ::=
-    # AS not legal here, assume origina query is correct
+    # AS not legal here, assume original query is correct
     PARTITION BY target_list action => make_partitionclause
     | EMPTY action => ::undef
 
@@ -554,8 +554,6 @@ open(my $fh, $input) or die "FATAL: can not open file $input\n";
 $input = <$fh>;
 close($fh);
 $/ = $old_sep;
-
-print "Original:\n---------\n" . $input . "\n\nConverted:\n----------\n";
 
 my %walker_actions = (
     joinop  => \&qual_is_join_op,
