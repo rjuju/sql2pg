@@ -1,5 +1,6 @@
 SELECT 1 AS nb LIMIT 1 ;
 SELECT DISTINCT * FROM tbl AS t ORDER BY a ASC NULLS LAST, b DESC, tbl.c ASC ;
+SELECT -1, 1 - 1 FROM t ;
 SELECT (1), COALESCE(val, 'null') || ' ' || COALESCE(val2, 'empty') AS "vAl", 1, abc, "DEF" FROM toto AS "TATA;" ;
 SELECT 1 + 2 * ((t.v) - 2) % 4 AS meh, 'test me', t.* FROM tbl AS t WHERE (((a > 2)) OR (b < 3)) GROUP BY a, t.b LIMIT 9 ;
 SELECT * FROM ( SELECT 1 ) AS subquery1 UNION ( SELECT 2 ) EXCEPT ( SELECT 3 ) INTERSECT ( SELECT 4 ) UNION ALL ( SELECT 5 ) ;
@@ -40,7 +41,7 @@ UPDATE t1 SET val = 't' WHERE id = 1 ;
 SELECT first_value(val) OVER (PARTITION BY deptno ORDER BY val ASC) FROM t ;
 -- 1 FIXME for this statement
 -- FIXME: NULLS clause ignored: "IGNORE NULLS"
-SELECT lag(val, 1, 0) OVER () FROM t ;
+SELECT lag(val, 1, -1) OVER () FROM t ;
 -- 1 FIXME for this statement
 -- FIXME: NULLS clause ignored: "RESPECT NULLS"
 SELECT lag(val, 1) OVER () FROM t ;

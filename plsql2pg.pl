@@ -531,7 +531,7 @@ SEMICOLON   ~ ';'
 :lexeme     ~ SEMICOLON pause => after event => new_query
 
 # everything else
-number  ~ digits | float
+number  ~ digits | '-' digits | float | '-' float
 integer ~ digits
 digits ~ [0-9]+
 float   ~ digits '.' digits

@@ -1,4 +1,5 @@
 SElect 1 nb from DUAL WHERE rownum < 2; SELECT DISTINCT * from TBL t order by a nulls last, b desc, tbl.c asc;
+SELECT -1, 1-1 from t;
 SELECT (1), nvl(val, 'null') || ' '|| nvl(val2, 'empty') "vAl",1, abc, "DEF" from "toto" as "TATA;";
  SELECT 1 + 2 * ((t.v) - 2) % 4 meh, 'test me', t.* from tbl t WHERE (((((a > 2)) and (rownum < 10)) OR ((((b < 3)))))) GROUP BY a, t.b;
  select * from (
@@ -27,6 +28,6 @@ SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHE
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
 UPDATE t1 SET val = 't' WHERE id = 1 RETURNING (id%2), * INTO a,b REJECT LIMIT 3;
 SELECT first_value(val ignore nulls) over (partition by deptno order by val) from t;
-SELECT lag(val respect nulls, 1, 0) over () from t;
+SELECT lag(val respect nulls, 1, -1) over () from t;
 SELECT lag(val, 1) respect nulls over () from t;
 -- I don't belong to any query
