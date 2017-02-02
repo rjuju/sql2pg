@@ -115,12 +115,31 @@ simple_target_el ::=
 
 simple_target_el_no_parens ::=
     a_expr
+    | case_when
     | function
 
 a_expr ::=
     IDENT
     | number action => make_number
     | LITERAL action => make_literal
+
+case_when ::=
+    CASE when_expr else_expr END action => make_case_when
+
+when_expr ::=
+    when_list
+    | target_el when_list action => append_el_1_2
+
+when_list ::=
+    when_list when_elem action => append_el_1_2
+    | when_elem
+
+when_elem ::=
+    WHEN target_el THEN target_el action => make_when
+
+else_expr ::=
+    ELSE target_el action => make_else
+    | EMPTY
 
 function ::=
     IDENT '(' function_args ')' respect_ignore_nulls
@@ -447,6 +466,7 @@ AS          ~ 'AS':ic
 ASC         ~ 'ASC':ic
 BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
+CASE        ~ 'CASE':ic
 CONNECT     ~ 'CONNECT':ic
 CROSS       ~ 'CROSS':ic
 CUBE        ~ 'CUBE':ic
@@ -456,6 +476,8 @@ DELETE      ~ 'DELETE':ic
 DENSE_RANK  ~ 'DENSE_RANK':ic
 DESC        ~ 'DESC':ic
 DISTINCT    ~ 'DISTINCT':ic
+ELSE        ~ 'ELSE':ic
+END         ~ 'END':ic
 ERRORS      ~ 'ERRORS':ic
 FIRST       ~ 'FIRST':ic
 FOLLOWING   ~ 'FOLLOWING':ic
@@ -514,6 +536,7 @@ SELECT      ~ 'SELECT':ic
 SET         ~ 'SET':ic
 SETS        ~ 'SETS':ic
 START       ~ 'START':ic
+THEN        ~ 'THEN':ic
 TIMESTAMP   ~ 'TIMESTAMP':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
 UNIQUE      ~ 'UNIQUE':ic
@@ -524,6 +547,7 @@ UPDATE      ~ 'UPDATE':ic
 USING       ~ 'USING':ic
 VALUES      ~ 'VALUES':ic
 VERSIONS    ~ 'VERSIONS':ic
+WHEN        ~ 'WHEN':ic
 WHERE       ~ 'WHERE':ic
 WAIT        ~ 'WAIT':ic
 WITH        ~ 'WITH':ic
@@ -689,6 +713,14 @@ sub format_comment {
     return $out;
 }
 
+sub plsql2pg::append_el_1_2 {
+    my (undef, $nodes, $node) = @_;
+
+    push(@{$nodes}, @{$node});
+
+    return $nodes;
+}
+
 sub plsql2pg::append_el_1_3 {
     my (undef, $nodes, undef, $node) = @_;
 
@@ -757,6 +789,64 @@ sub plsql2pg::make_literal {
     $literal->{alias} = $alias;
 
     return to_array($literal);
+}
+
+sub plsql2pg::make_case_when {
+    my (undef, undef, $whens, $else, undef) = @_;
+    my $node = make_node('case_when');
+
+    $node->{whens} = $whens;
+    $node->{else} = $else;
+
+    return to_array($node);
+}
+
+sub format_case_when {
+    my ($node) = @_;
+    my $out = 'CASE';
+
+    foreach my $n (@{$node->{whens}}) {
+        $out .= ' ' . format_node($n);
+    }
+
+    $out .= ' ' . format_node($node->{else}) if (defined($node->{else}));
+
+    $out .= ' END' . format_alias($node->{alias});
+
+    return $out;
+}
+
+sub plsql2pg::make_when {
+    my (undef, undef, $el1, undef, $el2) = @_;
+    my $node = make_node('when');
+
+    $node->{el1} = $el1;
+    $node->{el2} = $el2;
+
+    return to_array($node);
+}
+
+sub format_when {
+    my ($node) = @_;
+
+    return 'WHEN ' . format_node($node->{el1})
+        . ' THEN ' . format_node($node->{el2});
+}
+
+sub plsql2pg::make_else {
+  my (undef, undef, $el) = @_;
+  my $node = make_node('else');
+
+  $node->{el} = $el;
+
+  # There can only be one else, so don't array it
+  return $node;
+}
+
+sub format_else {
+    my ($node) = @_;
+
+    return 'ELSE ' . format_node($node->{el});
 }
 
 sub plsql2pg::make_function {
