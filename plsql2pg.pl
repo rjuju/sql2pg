@@ -14,20 +14,23 @@ use Marpa::R2;
 
 my $alias_gen = 0;
 my @fixme;
+my $out_statements = '';
 
 use Data::Dumper;
 
 my $dsl = <<'END_OF_DSL';
 lexeme default = latm => 1
 
+:start ::= stmtmulti
+
 stmtmulti ::=
     stmt* separator => SEMICOLON
 
 stmt ::=
-    SelectStmt action => print_stmts
-    | UpdateStmt action => print_stmts
-    | DeleteStmt action => print_stmts
-    | InsertStmt action => print_stmts
+    SelectStmt action => format_stmts
+    | UpdateStmt action => format_stmts
+    | DeleteStmt action => format_stmts
+    | InsertStmt action => format_stmts
 
 SelectStmt ::=
     SelectStmt combine_op '(' SingleSelectStmt ')' action => combine_select
@@ -633,7 +636,7 @@ READ: while(1) {
     last READ;
 }
 
-# set the counter to 0, print_stmt() will increment it at its beginning
+# set the counter to 0, format_stmt() will increment it at its beginning
 $stmtno = 0;
 
 if ( my $ambiguous_status = $slr->ambiguous() ) {
@@ -644,9 +647,11 @@ if ( my $ambiguous_status = $slr->ambiguous() ) {
 my $value_ref = $slr->value;
 my $value = ${$value_ref};
 
-# FIXME change here when real output will be added
+# Append any comment found after final query
 $stmtno++;
-print format_comment($comments{$stmtno}{ok}) if defined($comments{$stmtno}{ok});
+$out_statements .= format_comment($comments{$stmtno}{ok}) if defined($comments{$stmtno}{ok});
+
+print $out_statements;
 
 sub plsql2pg::make_alias {
     my (undef, $as, $alias) = @_;
@@ -1992,34 +1997,34 @@ sub format_join_on {
     return $out;
 }
 
-sub plsql2pg::print_stmts {
+sub plsql2pg::format_stmts {
     my (undef, $stmts) = @_;
     my $nbfix = 0;
 
     $stmtno++;
 
-    print format_comment($comments{$stmtno}{ok})
+    $out_statements .= format_comment($comments{$stmtno}{ok})
         if (defined($comments{$stmtno}{ok}));
 
     foreach my $stmt (@{$stmts}) {
-        print format_node($stmt);
+        $out_statements .= format_node($stmt);
     }
-    print " ;\n";
+    $out_statements .= " ;\n";
 
     $nbfix += (scalar(@fixme)) if (scalar(@fixme > 0));
     $nbfix += (scalar(@{$comments{$stmtno}{fixme}}))
         if (defined($comments{$stmtno}{fixme}));
 
-    print '-- ' . $nbfix ." FIXME for this statement\n" if ($nbfix > 0);
+    $out_statements .= '-- ' . $nbfix ." FIXME for this statement\n" if ($nbfix > 0);
     foreach my $f (@fixme) {
-        print "-- FIXME: $f\n";
+        $out_statements .= "-- FIXME: $f\n";
     }
     undef(@fixme);
 
     if (defined($comments{$stmtno}{fixme})) {
-        print '-- ' . (scalar @{$comments{$stmtno}{fixme}})
+        $out_statements .= '-- ' . (scalar @{$comments{$stmtno}{fixme}})
             . " comments for this statement must be replaced:\n";
-        print format_comment($comments{$stmtno}{fixme});
+        $out_statements .= format_comment($comments{$stmtno}{fixme});
     }
 }
 
