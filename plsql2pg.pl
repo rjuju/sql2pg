@@ -133,8 +133,7 @@ function_arg ::=
     # allows further args of functions like lag which possibly have this clause
     # for the first argument to share simple grammar. Assume orignal query is
     # correct
-    a_expr respect_ignore_nulls
-    | function
+    target_el respect_ignore_nulls
 
 # this clause is only legal in some cases (LAG, FIRST_VALUE...), and the
 # RESPECT variant isn't legal in all cases, but I couldn't find any doc that

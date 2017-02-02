@@ -27,6 +27,7 @@ INSERT INTO public.t AS ins VALUES (2 + 1, 'tt') ;
 INSERT INTO public.t AS ins (a, b) VALUES (2 + 1, 'tt') ;
 INSERT INTO public.t AS ins (a, b) SELECT id, count(*) FROM t GROUP BY 1 ;
 SELECT a.id FROM a LEFT JOIN b ON a.id = b.id LEFT JOIN c ON b.id = c.id LEFT JOIN d ON c.id = d.id ;
+SELECT round(t.val / 100, 2) FROM t ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement
