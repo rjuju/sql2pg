@@ -120,7 +120,8 @@ a_expr ::=
     | LITERAL action => make_literal
 
 function ::=
-    IDENT '(' function_args ')' keep_clause window_clause action => make_function
+    IDENT '(' function_args ')' respect_ignore_nulls
+        keep_clause window_clause action => make_function
 
 function_args ::=
     function_args ',' function_arg action => append_el_1_3
@@ -128,11 +129,23 @@ function_args ::=
     | EMPTY action => ::undef
 
 function_arg ::=
-    a_expr
+    # the respect_ignore_nulls clause shouldn't appear multiple time, but this
+    # allows further args of functions like lag which possibly have this clause
+    # for the first argument to share simple grammar. Assume orignal query is
+    # correct
+    a_expr respect_ignore_nulls
     | function
 
+# this clause is only legal in some cases (LAG, FIRST_VALUE...), and the
+# RESPECT variant isn't legal in all cases, but I couldn't find any doc that
+# enumerates all the cases. Anyway, assume original query is correct
+respect_ignore_nulls ::=
+    RESPECT NULLS action => make_respect_ignore_nulls_clause
+    | IGNORE NULLS action => make_respect_ignore_nulls_clause
+    | EMPTY
+
 keep_clause ::=
-    # order_clause is mandatory, assume original query is correct
+    # order_clause is mandatory here, assume original query is correct
     KEEP '(' DENSE_RANK FIRST_LAST order_clause ')' action => make_keepclause
     | EMPTY
 
@@ -450,6 +463,7 @@ FROM        ~ 'FROM':ic
 GROUP       ~ 'GROUP':ic
 GROUPING    ~ 'GROUPING':ic
 HAVING      ~ 'HAVING':ic
+IGNORE      ~ 'IGNORE':ic
 INNER       ~ 'INNER':ic
 INSERT      ~ 'INSERT':ic
 :lexeme     ~ INSERT pause => after event => keyword
@@ -485,6 +499,7 @@ PRECEDING   ~ 'PRECEDING':ic
 PRIOR       ~ 'PRIOR':ic
 RANGE       ~ 'RANGE':ic
 REJECT      ~ 'REJECT':ic
+RESPECT     ~ 'RESPECT':ic
 RETURNING   ~ 'RETURNING':ic
 RIGHT       ~ 'RIGHT':ic
 :lexeme     ~ RIGHT priority => 1
@@ -741,7 +756,7 @@ sub plsql2pg::make_literal {
 }
 
 sub plsql2pg::make_function {
-    my (undef, $ident, undef, $args, undef, undef, $windowclause) = @_;
+    my (undef, $ident, undef, $args, undef, undef, undef, $windowclause) = @_;
     my $func = make_node('function');
 
     assert_one_el($ident);
@@ -773,6 +788,15 @@ sub format_function {
     $out .= format_alias($func->{alias});
 
     return $out;
+}
+
+sub plsql2pg::make_respect_ignore_nulls_clause {
+    my (undef, $kw1, $kw2) = @_;
+    my $sql = uc($kw1) . ' ' . uc($kw2);
+
+    add_fixme('NULLS clause ignored: "' . $sql . '"');
+
+    return undef;
 }
 
 sub plsql2pg::make_keepclause {
@@ -2198,8 +2222,9 @@ sub format_ORDERBY {
 
 sub format_OVERCLAUSE {
     my ($windowclause) = @_;
+    my $window = format_standard_clause($windowclause, ' ') || '';
 
-    return " OVER (" . format_standard_clause($windowclause, ' ') . ")";
+    return " OVER (" . $window . ")";
 }
 
 sub format_PARTITIONBY {

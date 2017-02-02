@@ -26,4 +26,7 @@ select a.id from a,d,b,c where b.id = c.id(+) and c.id = d.id (+) and a.id =b.id
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
 UPDATE t1 SET val = 't' WHERE id = 1 RETURNING (id%2), * INTO a,b REJECT LIMIT 3;
+SELECT first_value(val ignore nulls) over (partition by deptno order by val) from t;
+SELECT lag(val respect nulls, 1, 0) over () from t;
+SELECT lag(val, 1) respect nulls over () from t;
 -- I don't belong to any query
