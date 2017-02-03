@@ -289,8 +289,7 @@ qual_op ::=
     | OR action => upper
 
 IDENT ::=
-    ident '.' ident '.' ident '.' ident action => make_ident
-    | ident '.' ident '.' ident action => make_ident
+    ident '.' ident '.' ident action => make_ident
     | ident '.' ident action => make_ident
     | ident action => make_ident
 
@@ -758,8 +757,8 @@ sub format_number {
 }
 
 sub plsql2pg::make_ident {
-    my (undef, $db, undef, $table, undef, $schema, undef, $attribute) = @_;
-    my @atts = ('db', 'schema', 'table', 'attribute');
+    my (undef, $table, undef, $schema, undef, $attribute) = @_;
+    my @atts = ('schema', 'table', 'attribute');
     my $ident = make_node('ident');
 
     if (defined($attribute)) {
@@ -772,10 +771,6 @@ sub plsql2pg::make_ident {
 
     if (defined($table)) {
         $ident->{pop(@atts)} = quote_ident($table);
-    }
-
-    if (defined($db)) {
-        $ident->{pop(@atts)} = quote_ident($db);
     }
 
     return to_array($ident);
@@ -2173,7 +2168,7 @@ sub format_node {
 
 sub format_ident {
     my ($ident) = @_;
-    my @atts = ('attribute', 'table', 'schema', 'db');
+    my @atts = ('attribute', 'table', 'schema');
     my $out;
 
     while (my $elem = pop(@atts)) {
