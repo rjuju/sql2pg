@@ -179,7 +179,7 @@ window_clause ::=
     | EMPTY
 
 partition_clause ::=
-    # AS not legal here, assume original query is correct
+    # alias not legals in this target_list, assume original query is correct
     PARTITION BY target_list action => make_partitionclause
     | EMPTY action => ::undef
 
@@ -231,8 +231,10 @@ join_list ::=
     | join_elem
 
 join_elem ::=
-    join_type JOIN join_ident ALIAS_CLAUSE join_cond action => make_join
-    | special_join_type JOIN join_ident ALIAS_CLAUSE action => make_join
+    # partition_clause only legal if followed with an outer join, assume
+    # original query is correct
+    partition_clause join_type JOIN join_ident ALIAS_CLAUSE join_cond action => make_normaljoin
+    | special_join_type JOIN join_ident ALIAS_CLAUSE action => make_specialjoin
 
 join_ident ::=
     IDENT
@@ -1120,8 +1122,26 @@ sub plsql2pg::make_joinclause {
     return make_clause('JOIN', $joins);
 }
 
-sub plsql2pg::make_join {
+sub plsql2pg::make_normaljoin {
+    my (undef, $partitionby, $jointype, undef, $ident, $alias, $cond) = @_;
+
+    if (defined($partitionby)) {
+        add_fixme('Partition clause ignored for outer join on table '
+                 . format_node($ident)
+                 .': ' . format_node($partitionby));
+    }
+
+    return make_join($jointype, $ident, $alias, $cond);
+}
+
+sub plsql2pg::make_specialjoin {
     my (undef, $jointype, undef, $ident, $alias, $cond) = @_;
+
+    return make_join($jointype, $ident, $alias, $cond);
+}
+
+sub make_join {
+    my ($jointype, $ident, $alias, $cond) = @_;
     my $join = make_node('join');
 
     $join->{jointype} = $jointype;
@@ -1666,9 +1686,8 @@ sub handle_nonsqljoin {
 
         $ident = to_array($t);
 
-        $join = plsql2pg::make_join(
-                    undef, 'LEFT', undef, $ident,
-                    $t->{alias},
+        $join = make_join(
+                    'LEFT', $ident, $t->{alias},
                     plsql2pg::make_joinon(undef, undef, to_array($qual))
         );
 

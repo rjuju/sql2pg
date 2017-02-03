@@ -33,4 +33,5 @@ UPDATE t1 SET val = 't' WHERE id = 1 RETURNING (id%2), * INTO a,b REJECT LIMIT 3
 SELECT first_value(val ignore nulls) over (partition by deptno order by val) from t;
 SELECT lag(val respect nulls, 1, -1) over () from t;
 SELECT lag(val, 1) respect nulls over () from t;
+SELECT val from t partition by (dt) right outer join t2 on (t2.id = t.id);
 -- I don't belong to any query

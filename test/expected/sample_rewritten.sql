@@ -50,4 +50,7 @@ SELECT lag(val, 1, -1) OVER () FROM t ;
 SELECT lag(val, 1) OVER () FROM t ;
 -- 1 FIXME for this statement
 -- FIXME: NULLS clause ignored: "RESPECT NULLS"
+SELECT val FROM t RIGHT JOIN t2 ON (t2.id = t.id) ;
+-- 1 FIXME for this statement
+-- FIXME: Partition clause ignored for outer join on table t2: PARTITION BY (dt)
 -- I don't belong to any query
