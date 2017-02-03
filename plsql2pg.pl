@@ -1045,7 +1045,7 @@ sub plsql2pg::make_with {
 sub format_with {
     my ($with) = @_;
 
-    return quote_ident($with->{alias})
+    return $with->{alias}
            . ' AS ( ' . format_node($with->{select})
            . ' )';
 }
@@ -2137,14 +2137,21 @@ sub quote_ident {
 
     return undef if not defined($ident);
 
+    # original ident was quoted
     if (substr($ident, 0, 1) eq '"') {
-        if ((substr($ident, 1, -1) =~ /[a-zA-Z_]/) and (lc($ident) eq $ident)) {
+        if ((substr($ident, 1, -1) =~ /^[a-zA-Z_][a-zA-Z0-9_]*$/) and (lc($ident) eq $ident)) {
             return lc(substr($ident, 1, -1));
         } else {
             return $ident;
         }
-    } else {
-        return lc($ident);
+    }
+    # original ident wasn't quoted, check if we have to quote it
+    else {
+        if ($ident =~/[\$#]/) {
+            return '"' . lc($ident) . '"';
+        } else {
+            return lc($ident);
+        }
     }
 }
 
@@ -2475,7 +2482,7 @@ sub format_deparse {
 sub format_alias {
     my ($alias) = @_;
 
-    return ' AS ' . quote_ident($alias) if defined($alias);
+    return ' AS ' . $alias if defined($alias);
     return '';
 }
 
