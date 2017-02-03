@@ -240,7 +240,6 @@ join_ident ::=
 
 join_type ::=
     normal_join_type
-    | special_join_type
     | EMPTY action => make_jointype
 
 normal_join_type ::=
