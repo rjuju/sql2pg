@@ -568,8 +568,8 @@ ident   ~ unquoted_start unquoted_chars
         | '*'
 ALIAS   ~ unquoted_start unquoted_chars
         | quoted_ident
-unquoted_start ~ [a-zA-Z_]
-unquoted_chars ~ [a-zA-Z_0-9]*
+unquoted_start ~ [a-zA-Z]
+unquoted_chars ~ [a-zA-Z_0-9_$#]*
 quoted_ident ~ '"' quoted_chars '"'
 quoted_chars ~ [^"]+
 
