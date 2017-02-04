@@ -298,10 +298,14 @@ IDENT ::=
 
 # PRIOR is only legal in hierarchical clause, assume original query is valid
 qual_no_parens ::=
-    target_el OPERATOR target_el join_op action => make_qual
-    | target_el BETWEEN target_el AND target_el action => make_betweenqual
-    | PRIOR target_el OPERATOR target_el join_op action => make_priorqual
-    | target_el OPERATOR PRIOR target_el join_op action => make_qualprior
+    qual_elem OPERATOR qual_elem join_op action => make_qual
+    | qual_elem BETWEEN qual_elem AND qual_elem action => make_betweenqual
+    | PRIOR qual_elem OPERATOR qual_elem join_op action => make_priorqual
+    | qual_elem OPERATOR PRIOR qual_elem join_op action => make_qualprior
+
+qual_elem ::=
+    target_el
+    | '(' SelectStmt ')' action => parens_node
 
 qual ::=
     qual_no_parens
