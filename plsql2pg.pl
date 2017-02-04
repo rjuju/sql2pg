@@ -1617,6 +1617,8 @@ sub plsql2pg::append_orderbyclause {
 sub plsql2pg::make_forupdate_wait {
     my (undef, $kw, $delay) = @_;
 
+    $kw = uc($kw);
+
     return undef if ($kw eq 'NOWAIT');
     add_fixme("Clause \"WAIT $delay\" converted to \"NOWAIT\"");
 }
