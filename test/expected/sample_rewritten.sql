@@ -6,7 +6,7 @@ SELECT 1 + 2 * ((t.v) - 2) % 4 AS meh, 'test me', t.* FROM tbl AS t WHERE (((a >
 SELECT * FROM ((SELECT 1)) AS subquery1 UNION (SELECT 2) EXCEPT (SELECT 3) INTERSECT (SELECT 4) UNION ALL (SELECT 5) ORDER BY 1 ASC ;
 SELECT * FROM a, ONLY (c) INNER JOIN b USING (id, id2) LEFT JOIN d USING (id) LIMIT 20 OFFSET 10 ;
 SELECT * FROM a, c RIGHT JOIN b ON a.id = b.id AND a.id2 = b.id2 NATURAL JOIN d CROSS JOIN e AS cj NATURAL LEFT JOIN f NATURAL FULL OUTER JOIN g ;
-SELECT round(sum(count(*)), 2), 1 FROM a LEFT JOIN b AS t1 ON a.id = t1.id ;
+SELECT round(sum (count(*)), 2), 1 FROM a LEFT JOIN b AS t1 ON a.id = t1.id ;
 SELECT t2.* FROM t1 LEFT JOIN t2 ON t1.id <= t2.id ;
 SELECT id, log(2, id), log(10, id), count(*) FROM a GROUP BY id HAVING count(*) < 10 ;
 SELECT val, rank() OVER (PARTITION BY id) AS rank, lead(val) OVER (ORDER BY val ASC ROWS CURRENT ROW), lag(val) OVER (PARTITION BY id, val ORDER BY val ASC RANGE BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING) AS lag FROM t ;
@@ -33,6 +33,7 @@ SELECT id, CASE id WHEN 0 THEN 'blah' ELSE id % 3 > 1 END AS val FROM t ;
 SELECT id, CASE WHEN val = 0 THEN 'nothing' WHEN val < 100 THEN 'little' WHEN val >= 100 THEN 'lot' END FROM t ;
 SELECT trim(leading ' ' from v) FROM t WHERE id > (SELECT count(*) FROM t2) ;
 SELECT count(*) FROM t WHERE val LIKE '%the_val%' ESCAPE '\' ;
+WITH s (id, val) AS (SELECT 1, 'val') SELECT * FROM s ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement

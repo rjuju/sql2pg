@@ -80,7 +80,15 @@ with_list ::=
     | with_elem
 
 with_elem ::=
-    ident AS '(' SelectStmt ')' action => make_with
+    ident parens_field_list AS '(' SelectStmt ')' action => make_with
+
+parens_field_list ::=
+    '(' field_list ')' action => second
+    | EMPTY
+
+field_list ::=
+    field_list ',' IDENT action => append_el_1_3
+    | IDENT
 
 distinct_elem ::=
     ALL
@@ -160,7 +168,7 @@ function_args ::=
     | EMPTY action => ::undef
 
 function_arg ::=
-    # this is ambihuous for nested function call
+    # this is ambiguous for nested function call
     function_arg target_el action => append_function_arg
     | target_el action => make_function_arg
 
@@ -1157,10 +1165,12 @@ sub plsql2pg::make_withclause {
 }
 
 sub plsql2pg::make_with {
-    my (undef, $alias, undef, undef, $select, undef) = @_;
+    my (undef, $alias, $fields, undef, undef, $select, undef) = @_;
     my $with = make_node('with');
+    my $tlist;
 
     $with->{alias} = $alias;
+    $with->{fields} = $fields;
     $with->{select} = $select;
 
     return to_array($with);
@@ -1168,10 +1178,15 @@ sub plsql2pg::make_with {
 
 sub format_with {
     my ($with) = @_;
+    my $out;
 
-    return $with->{alias}
-           . ' AS (' . format_node($with->{select})
+    $out = $with->{alias};
+    $out .= ' (' . format_array($with->{fields}, ', ') . ')' if (defined($with->{fields}));
+
+    $out .= ' AS (' . format_node($with->{select})
            . ')';
+
+    return $out;
 }
 
 sub plsql2pg::make_select {
