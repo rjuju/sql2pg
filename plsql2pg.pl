@@ -111,7 +111,12 @@ target_el_with_parens ::=
 
 target_el_no_parens ::=
     target_el OPERATOR simple_target_el action => make_opexpr
+    | target_el like_clause action => make_likeexpr
     | simple_target_el_no_parens
+
+like_clause ::=
+    LIKE LITERAL action => make_like
+    | LIKE LITERAL ESCAPE LITERAL action => make_like
 
 simple_target_el ::=
     simple_target_el_no_parens
@@ -301,6 +306,7 @@ IDENT ::=
 # is valid
 qual_no_parens ::=
     qual_elem join_op OPERATOR qual_elem join_op action => make_qual
+    | qual_elem like_clause action => make_likeexpr
     | qual_elem BETWEEN qual_elem AND qual_elem action => make_betweenqual
     | PRIOR qual_elem OPERATOR qual_elem join_op action => make_priorqual
     | qual_elem OPERATOR PRIOR qual_elem join_op action => make_qualprior
@@ -487,6 +493,7 @@ DISTINCT    ~ 'DISTINCT':ic
 ELSE        ~ 'ELSE':ic
 END         ~ 'END':ic
 ERRORS      ~ 'ERRORS':ic
+ESCAPE      ~ 'ESCAPE':ic
 FIRST       ~ 'FIRST':ic
 FOLLOWING   ~ 'FOLLOWING':ic
 FOR         ~ 'FOR':ic
@@ -588,7 +595,7 @@ literal_delim   ~ [']
 literal_chars   ~ [^']*
 
 OPERATOR    ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
-            | '+' | '-' | '*' | '/' | '||' | IS | IS NOT | LIKE
+            | '+' | '-' | '*' | '/' | '||' | IS | IS NOT
 
 :discard                    ~ discard
 discard                     ~ whitespace
@@ -757,6 +764,31 @@ sub format_opexpr {
 
     return format_node($opexpr->{left}) . format_node($opexpr->{op})
          . format_node($opexpr->{right}) . format_alias($opexpr->{alias});
+}
+
+sub plsql2pg::make_likeexpr {
+    my (undef, $el, $like) = @_;
+    my $node = make_node('likeexpr');
+
+    $node->{el} = $el;
+    $node->{like} = $like;
+
+    return to_array($node);
+}
+
+sub format_likeexpr {
+    my ($node) = @_;
+
+    return format_node($node->{el}) . ' ' . $node->{like};
+}
+
+sub plsql2pg::make_like {
+    my (undef, undef, $like, undef, $escape) = @_;
+    my $out = 'LIKE ' . $like;
+
+    $out .= ' ESCAPE ' . $escape if (defined($escape));
+
+    return $out;
 }
 
 sub plsql2pg::make_number {

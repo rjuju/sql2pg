@@ -28,6 +28,7 @@ select round(t.val /100, 2) from t;
 select id, case id when 0 then 'blah' else id % 3 > 1 end as val from t;
 select id, case when val = 0 then 'nothing' when val < 100 then 'little' when val >=100 then 'lot' end from t;
 select trim(leading ' ' from v) from t where id > (select count(*) from t2);
+select count(*) from t where val like '%the_val%' escape '\';
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
