@@ -217,9 +217,13 @@ flashback_from_elem ::=
 
 simple_from_elem ::=
     IDENT
-    | '(' SelectStmt ')' action => make_subquery
+    | '(' subselect ')' action => make_subquery
     # ONLY is not valid for DELETE, assume original query is valid
     | ONLY '(' simple_from_elem ')' action => make_fromonly
+
+subselect ::=
+    SelectStmt
+    | '(' subselect ')' action => second
 
 join_clause ::=
     join_list action => make_joinclause
