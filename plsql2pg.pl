@@ -297,8 +297,10 @@ IDENT ::=
     | ident action => make_ident
 
 # PRIOR is only legal in hierarchical clause, assume original query is valid
+# join_op can't be on the LHS and RHS at the same time, assume original query
+# is valid
 qual_no_parens ::=
-    qual_elem OPERATOR qual_elem join_op action => make_qual
+    qual_elem join_op OPERATOR qual_elem join_op action => make_qual
     | qual_elem BETWEEN qual_elem AND qual_elem action => make_betweenqual
     | PRIOR qual_elem OPERATOR qual_elem join_op action => make_priorqual
     | qual_elem OPERATOR PRIOR qual_elem join_op action => make_qualprior
@@ -1048,13 +1050,21 @@ sub plsql2pg::make_whereclause {
 }
 
 sub plsql2pg::make_qual {
-    my (undef, $left, $op, $right, $join_op) = @_;
+    my (undef, $left, $join_op1, $op, $right, $join_op2) = @_;
     my $qual = make_node('qual');
 
-    $qual->{left} = pop(@{$left});
     $qual->{op} = $op;
-    $qual->{right} = pop(@{$right});
-    $qual->{join_op} = $join_op;
+    # if the join_op is on the LHS, permute args to simplify further code
+    if (defined($join_op1)) {
+        $qual->{left} = pop(@{$right});
+        $qual->{right} = pop(@{$left});
+        $qual->{join_op} = $join_op1;
+        $qual->{op} = inverse_operator($op);
+    } else {
+        $qual->{left} = pop(@{$left});
+        $qual->{right} = pop(@{$right});
+        $qual->{join_op} = $join_op2;
+    }
 
     return to_array($qual);
 }
@@ -1074,7 +1084,7 @@ sub plsql2pg::make_betweenqual {
 
 sub plsql2pg::make_priorqual {
     my (undef, undef, $left, $op, $right, $join_op) = @_;
-    my $node = plsql2pg::make_qual(undef, $left, $op, $right, $join_op);
+    my $node = plsql2pg::make_qual(undef, $left, undef, $op, $right, $join_op);
 
     assert_one_el($node);
 
@@ -1087,7 +1097,7 @@ sub plsql2pg::make_priorqual {
 
 sub plsql2pg::make_qualprior {
     my (undef, $left, $op, undef, $right, $join_op) = @_;
-    my $node = plsql2pg::make_qual(undef, $left, $op, $right, $join_op);
+    my $node = plsql2pg::make_qual(undef, $left, undef, $op, $right, $join_op);
 
     assert_one_el($node);
 
@@ -2591,6 +2601,18 @@ sub make_opexpr {
     $opexpr->{right} = $right;
 
     return to_array($opexpr);
+}
+
+sub inverse_operator {
+    my ($op) = @_;
+
+    return '<=' if ($op eq '>');
+    return '<' if ($op eq '>=');
+    return '>=' if ($op eq '<');
+    return '>' if ($op eq '<=');
+    return '=' if ($op eq '=');
+
+    error("Unexpected operator: $op");
 }
 
 sub isA {
