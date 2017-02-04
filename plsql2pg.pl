@@ -586,8 +586,8 @@ LITERAL         ~ literal_delim literal_chars literal_delim
 literal_delim   ~ [']
 literal_chars   ~ [^']*
 
-OPERATOR    ~ '=' | '<' | '<=' | '>' | '>=' | '%' | IS | IS NOT | LIKE
-            | '+' | '-' | '*' | '/' | '||'
+OPERATOR    ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
+            | '+' | '-' | '*' | '/' | '||' | IS | IS NOT | LIKE
 
 :discard                    ~ discard
 discard                     ~ whitespace
@@ -2611,6 +2611,8 @@ sub inverse_operator {
     return '>=' if ($op eq '<');
     return '>' if ($op eq '<=');
     return '=' if ($op eq '=');
+    return '!=' if ($op eq '!=');
+    return '<>' if ($op eq '<>');
 
     error("Unexpected operator: $op");
 }
