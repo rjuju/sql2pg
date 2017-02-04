@@ -410,8 +410,9 @@ forupdate_list ::=
     | IDENT
 
 forupdate_wait_clause ::=
-    NOWAIT action => make_forupdate_wait
+    NOWAIT action => upper
     | WAIT integer action => make_forupdate_wait
+    | SKIP LOCKED action => concat
     | EMPTY
 
 update_from_clause ::=
@@ -536,6 +537,7 @@ LEFT        ~ 'LEFT':ic
 :lexeme     ~ LEFT priority => 1
 LIKE        ~ 'LIKE':ic
 LIMIT       ~ 'LIMIT':ic
+LOCKED       ~ 'LOCKED':ic
 LOG         ~ 'LOG':ic
 MAXVALUE    ~ 'MAXVALUE':ic
 :lexeme     ~ MAXVALUE priority => 1
@@ -570,6 +572,7 @@ SELECT      ~ 'SELECT':ic
 :lexeme     ~ SELECT pause => after event => keyword
 SET         ~ 'SET':ic
 SETS        ~ 'SETS':ic
+SKIP        ~ 'SKIP':ic
 START       ~ 'START':ic
 THEN        ~ 'THEN':ic
 :lexeme     ~ THEN priority => 1
@@ -1617,10 +1620,9 @@ sub plsql2pg::append_orderbyclause {
 sub plsql2pg::make_forupdate_wait {
     my (undef, $kw, $delay) = @_;
 
-    $kw = uc($kw);
-
-    return undef if ($kw eq 'NOWAIT');
     add_fixme("Clause \"WAIT $delay\" converted to \"NOWAIT\"");
+
+    return 'NOWAIT';
 }
 
 sub plsql2pg::make_forupdateclause {
@@ -1628,7 +1630,7 @@ sub plsql2pg::make_forupdateclause {
     my $forupdate = make_node('forupdate');
 
     $forupdate->{tlist} = $tlist;
-    $forupdate->{nowait} = $wait;
+    $forupdate->{wait_clause} = $wait;
 
     return make_clause('FORUPDATE', $forupdate);
 }
@@ -1639,7 +1641,7 @@ sub format_FORUPDATE {
     my $content = $clause->{content};
 
     $out .= ' OF ' . format_target_list($content) if (defined($content->{tlist}));
-    $out .= ' NOWAIT' if (defined($content->{nowait}));
+    $out .= ' ' . $content->{wait_clause} if (defined($content->{wait_clause}));
 
     return $out;
 }
