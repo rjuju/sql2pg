@@ -27,10 +27,13 @@ stmtmulti ::=
     stmt* separator => SEMICOLON
 
 stmt ::=
-    SelectStmt action => format_stmts
+    CombinedSelectStmt action => format_stmts
     | UpdateStmt action => format_stmts
     | DeleteStmt action => format_stmts
     | InsertStmt action => format_stmts
+
+CombinedSelectStmt ::=
+    SelectStmt order_clause action => append_orderbyclause
 
 SelectStmt ::=
     '(' SelectStmt ')' action => parens_node
@@ -1557,6 +1560,13 @@ sub format_orderby {
     return $out;
 }
 
+sub plsql2pg::append_orderbyclause {
+    my (undef, $stmt, $clause) = @_;
+
+    push(@{$stmt}, $clause) if (defined($clause));
+    return $stmt;
+}
+
 sub plsql2pg::make_forupdate_wait {
     my (undef, $kw, $delay) = @_;
 
@@ -2206,6 +2216,9 @@ sub plsql2pg::format_stmts {
         if (defined($comments{$stmtno}{ok}));
 
     foreach my $stmt (@{$stmts}) {
+        # XXX special handling of combined statements with orderby here, should
+        # find a better way to deal with it
+        $out_statements .= ' ' if (isA($stmt, 'ORDERBY'));
         $out_statements .= format_node($stmt);
     }
     $out_statements .= " ;\n";
