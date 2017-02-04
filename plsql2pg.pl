@@ -33,8 +33,8 @@ stmt ::=
     | InsertStmt action => format_stmts
 
 SelectStmt ::=
-    SelectStmt combine_op '(' SingleSelectStmt ')' action => combine_parens_select
-    | SelectStmt combine_op SingleSelectStmt action => combine_select
+    '(' SelectStmt ')' action => parens_node
+    | SelectStmt combine_op SelectStmt action => combine_select
     | SingleSelectStmt
 
 combine_op ::=
@@ -217,13 +217,9 @@ flashback_from_elem ::=
 
 simple_from_elem ::=
     IDENT
-    | '(' subselect ')' action => make_subquery
+    | '(' SelectStmt ')' action => make_subquery
     # ONLY is not valid for DELETE, assume original query is valid
     | ONLY '(' simple_from_elem ')' action => make_fromonly
-
-subselect ::=
-    SelectStmt
-    | '(' subselect ')' action => second
 
 join_clause ::=
     join_list action => make_joinclause
@@ -1178,11 +1174,13 @@ sub combine_and_parens_select {
 
     $stmt = pop(@{$stmt});
     $stmt->{combined} = 1;
+    $stmt = parens_node($stmt);
+    prune_parens($stmt);
 
     $op->{op} = $raw_op;
 
     push(@{$nodes}, $op);
-    push(@{$nodes}, @{parens_node($stmt)});
+    push(@{$nodes}, @{$stmt});
 
     return $nodes;
 }
@@ -2028,8 +2026,10 @@ sub parens_is_empty {
 
 # Remove a redundant parens level:
 #
-# - iif the parens content is an array only containing a single parens (any other
+# - if the parens content is an array only containing a single parens (any other
 #   undef value in the array of ignored), return this inner parens.
+# - if the parens content is a parens node, return the inner parens
+# - otherwise return undef
 #
 # - otherwise return undef.
 sub parens_get_new_node {
@@ -2037,6 +2037,7 @@ sub parens_get_new_node {
     my $node = undef;
     my $cpt = 0;
 
+    return $parens->{node}->{node} if (isA($parens->{node}, 'parens'));
     return undef unless(ref($parens->{node}) eq 'ARRAY');
 
     foreach my $el (@{$parens->{node}}) {
@@ -2592,6 +2593,7 @@ sub parens_node {
     my $parens = make_node('parens');
 
     $parens->{node} = $node;
+    prune_parens($node);
     return to_array($parens);
 }
 
