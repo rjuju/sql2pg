@@ -33,7 +33,8 @@ stmt ::=
     | InsertStmt action => format_stmts
 
 SelectStmt ::=
-    SelectStmt combine_op '(' SingleSelectStmt ')' action => combine_select
+    SelectStmt combine_op '(' SingleSelectStmt ')' action => combine_parens_select
+    | SelectStmt combine_op SingleSelectStmt action => combine_select
     | SingleSelectStmt
 
 combine_op ::=
@@ -1121,8 +1122,8 @@ sub format_with {
     my ($with) = @_;
 
     return $with->{alias}
-           . ' AS ( ' . format_node($with->{select})
-           . ' )';
+           . ' AS (' . format_node($with->{select})
+           . ')';
 }
 
 sub plsql2pg::make_select {
@@ -1140,18 +1141,31 @@ sub plsql2pg::make_select {
     return to_array($stmt);
 }
 
-sub plsql2pg::combine_select {
+sub plsql2pg::combine_parens_select {
     my (undef, $nodes, $raw_op, undef, $stmt, undef) = @_;
+
+    return combine_and_parens_select($nodes, $raw_op, $stmt);
+}
+
+sub plsql2pg::combine_select {
+    my (undef, $nodes, $raw_op, $stmt) = @_;
+
+    return combine_and_parens_select($nodes, $raw_op, $stmt);
+}
+
+sub combine_and_parens_select {
+    my ($nodes, $raw_op, $stmt) = @_;
     my $op = make_node('combine_op');
 
     assert_one_el($stmt);
 
-    @{$stmt}[0]->{combined} = 1;
+    $stmt = pop(@{$stmt});
+    $stmt->{combined} = 1;
 
     $op->{op} = $raw_op;
 
     push(@{$nodes}, $op);
-    push(@{$nodes}, @{$stmt});
+    push(@{$nodes}, @{parens_node($stmt)});
 
     return $nodes;
 }
@@ -1580,8 +1594,6 @@ sub format_select {
     my $nodes;
     my $out = '';
 
-    $out .= '(' if ($stmt->{combined});
-
     # transform (+) qual to LEFT JOIN
     handle_nonsqljoin($stmt);
 
@@ -1602,8 +1614,6 @@ sub format_select {
             }
         }
     }
-
-    $out .= ' )' if ($stmt->{combined});
 
     return $out;
 }
@@ -1855,7 +1865,6 @@ sub handle_connectby {
     my ($ori) = @_;
     my $lhs = {};
     my $rhs = {};
-    my $combine;
     my $quals;
     my $with = make_node('with');
     my $select = make_node('ident');
@@ -1889,14 +1898,6 @@ sub handle_connectby {
         $lhs->{WHERE} = make_clause('WHERE', $quals);
     }
 
-    # add the LHS to the WITH clause
-    $with->{select} = to_array($lhs);
-
-    # add the UNION ALL to the WITH clause
-    $combine = make_node('combine_op');
-    $combine->{op} = 'UNION ALL';
-    push(@{$with->{select}}, $combine);
-
     # transfer the CONNECT BY clause to the RHS
     $quals = make_node('quallist');
     $quals->{quallist} = $clause->{content}->{connectby}->{content};
@@ -1907,10 +1908,12 @@ sub handle_connectby {
         $q->{$q->{prior}}->{table} = 'recur' if (defined($q->{prior}));
     }
 
+    # Add the WHERE clause to the RHS
     $rhs->{WHERE} = make_clause('WHERE', $quals);
-    $rhs->{combined} = 1;
-    # and finally add the RHS to the WITH clause
-    push(@{$with->{select}}, to_array($rhs));
+
+    # And finally make a combined statement with the LHS, UNION ALL and the RHS
+    $with->{select} = combine_and_parens_select(to_array($lhs), 'UNION ALL',
+                                                to_array($rhs));
 
     # create a dummy select statement to attach the WITH to
     $select->{attribute} = '*';
@@ -2440,7 +2443,7 @@ sub format_SUBQUERY {
     my $alias = $ query->{content}->{alias};
     my $out;
 
-    $out .= '( ' . format_node($stmts) . ' )';
+    $out .= '(' . format_node($stmts) . ')';
 
     $alias = format_alias($alias);
 

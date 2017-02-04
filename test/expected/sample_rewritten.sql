@@ -3,14 +3,14 @@ SELECT DISTINCT * FROM tbl AS t ORDER BY a ASC NULLS LAST, b DESC, tbl.c ASC ;
 SELECT -1, 1 - 1, aze AS "aze#", a AS "a$z#e" FROM t ;
 SELECT (1), COALESCE(val, 'null') || ' ' || COALESCE(val2, 'empty') AS "vAl", 1, abc, "DEF" FROM toto AS "TATA;" ;
 SELECT 1 + 2 * ((t.v) - 2) % 4 AS meh, 'test me', t.* FROM tbl AS t WHERE (((a > 2)) OR (b < 3)) GROUP BY a, t.b LIMIT 9 ;
-SELECT * FROM ( SELECT 1 ) AS subquery1 UNION ( SELECT 2 ) EXCEPT ( SELECT 3 ) INTERSECT ( SELECT 4 ) UNION ALL ( SELECT 5 ) ;
+SELECT * FROM (SELECT 1) AS subquery1 UNION (SELECT 2) EXCEPT (SELECT 3) INTERSECT (SELECT 4) UNION ALL (SELECT 5) ;
 SELECT * FROM a, ONLY (c) INNER JOIN b USING (id, id2) LEFT JOIN d USING (id) LIMIT 20 OFFSET 10 ;
 SELECT * FROM a, c RIGHT JOIN b ON a.id = b.id AND a.id2 = b.id2 NATURAL JOIN d CROSS JOIN e AS cj NATURAL LEFT JOIN f NATURAL FULL OUTER JOIN g ;
 SELECT round(sum(count(*)), 2), 1 FROM a LEFT JOIN b AS t1 ON a.id = t1.id ;
 SELECT id, log(2, id), log(10, id), count(*) FROM a GROUP BY id HAVING count(*) < 10 ;
 SELECT val, rank() OVER (PARTITION BY id) AS rank, lead(val) OVER (ORDER BY val ASC ROWS CURRENT ROW), lag(val) OVER (PARTITION BY id, val ORDER BY val ASC RANGE BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING) AS lag FROM t ;
-WITH s1 AS ( WITH s3 AS ( SELECT 1 ) SELECT * FROM s3 ), s AS ( SELECT * FROM s1 LIMIT 1 ) SELECT * FROM s, ( WITH t AS ( SELECT 3 FROM t ) SELECT * FROM t ) AS subquery2 CROSS JOIN ( WITH u AS ( SELECT count(*) AS nb ) SELECT nb FROM u UNION ALL ( SELECT 0 ) ) AS subquery3 LIMIT 1 ;
-WITH RECURSIVE s AS ( SELECT 1 ), recur AS ( SELECT employee_id, last_name, manager_id FROM employees WHERE employee_id = 1 UNION ALL ( SELECT employee_id, last_name, manager_id FROM employees WHERE isvalid = 1 AND recur.employee_id = manager_id ) ) SELECT * FROM recur WHERE salary > 0 ;
+WITH s1 AS (WITH s3 AS (SELECT 1) SELECT * FROM s3), s AS (SELECT * FROM s1 LIMIT 1) SELECT * FROM s, (WITH t AS (SELECT 3 FROM t) SELECT * FROM t) AS subquery2 CROSS JOIN (WITH u AS (SELECT count(*) AS nb) SELECT nb FROM u UNION ALL (SELECT 0)) AS subquery3 LIMIT 1 ;
+WITH RECURSIVE s AS (SELECT 1), recur AS (SELECT employee_id, last_name, manager_id FROM employees WHERE employee_id = 1 UNION ALL (SELECT employee_id, last_name, manager_id FROM employees WHERE isvalid = 1 AND recur.employee_id = manager_id)) SELECT * FROM recur WHERE salary > 0 ;
 -- 3 FIXME for this statement
 -- 3 comments for this statement must be replaced:
 -- this is the FROM clause
