@@ -129,14 +129,14 @@ case_when ::=
 
 when_expr ::=
     when_list
-    | target_el when_list action => append_el_1_2
+    | function_arg when_list action => append_el_1_2
 
 when_list ::=
     when_list when_elem action => append_el_1_2
     | when_elem
 
 when_elem ::=
-    WHEN target_el THEN target_el action => make_when
+    WHEN function_arg THEN function_arg action => make_when
 
 else_expr ::=
     ELSE target_el action => make_else
@@ -152,12 +152,9 @@ function_args ::=
     | EMPTY action => ::undef
 
 function_arg ::=
-    one_function_arg action => to_array
-
-one_function_arg ::=
     # this is ambihuous for nested function call
-    one_function_arg target_el action => append_one_function_arg
-    | target_el action => make_one_function_arg
+    function_arg target_el action => append_function_arg
+    | target_el action => make_function_arg
 
 # this clause is only legal in some cases (LAG, FIRST_VALUE...), and the
 # RESPECT variant isn't legal in all cases, but I couldn't find any doc that
@@ -545,6 +542,7 @@ SET         ~ 'SET':ic
 SETS        ~ 'SETS':ic
 START       ~ 'START':ic
 THEN        ~ 'THEN':ic
+:lexeme     ~ THEN priority => 1
 TIMESTAMP   ~ 'TIMESTAMP':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
 UNIQUE      ~ 'UNIQUE':ic
@@ -671,7 +669,7 @@ READ: while(1) {
 # set the counter to 0, format_stmt() will increment it at its beginning
 $stmtno = 0;
 
-# Grammar is ambiguous at least for one_function_arg rule and nested function
+# Grammar is ambiguous at least for function_arg rule and nested function
 # calls.  Don't complain before this is fixed
 #if ( my $ambiguous_status = $slr->ambiguous() ) {
 #    chomp $ambiguous_status;
@@ -896,28 +894,29 @@ sub format_function {
     return $out;
 }
 
-sub plsql2pg::make_one_function_arg {
+sub plsql2pg::make_function_arg {
     my (undef, $el) = @_;
-    my $node = make_node('one_function_arg');
+    my $node = make_node('function_arg');
 
     assert_one_el($el);
 
     $node->{arg} = $el;
 
-    return $node;
+    return to_array($node);
 }
 
-sub plsql2pg::append_one_function_arg {
-    my (undef, $node, $el) = @_;
+sub plsql2pg::append_function_arg {
+    my (undef, $nodes, $el) = @_;
 
-    assert_isA($node, 'one_function_arg');
+    assert_one_el($nodes);
+    assert_isA(@{$nodes}[0], 'function_arg');
 
-    push(@{$node->{arg}}, @{$el});
+    push(@{@{$nodes}[0]->{arg}}, @{$el});
 
-    return $node;
+    return $nodes;
 }
 
-sub format_one_function_arg {
+sub format_function_arg {
     my ($node) = @_;
     my $out = '';
 
@@ -937,7 +936,7 @@ sub handle_respect_ignore_nulls {
     my ($node) = @_;
     my $i = 0;
 
-    assert_isA($node, 'one_function_arg');
+    assert_isA($node, 'function_arg');
 
     while ( $i < scalar(@{$node->{arg}}) ) {
         my $cur;
