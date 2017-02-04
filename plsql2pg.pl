@@ -16,6 +16,18 @@ my $alias_gen = 0;
 my @fixme;
 my $out_statements = '';
 
+my %walker_actions = (
+    joinop  => \&qual_is_join_op,
+    rownum  => \&qual_is_rownum
+);
+
+# Ugly way to try to preserve comments: keep track of statement count, and push
+# all found comments in the according hash element.
+my %comments;
+my $stmtno = 1;
+
+my $query_started = 0;
+
 use Data::Dumper;
 
 my $dsl = <<'END_OF_DSL';
@@ -636,11 +648,6 @@ $input = <$fh>;
 close($fh);
 $/ = $old_sep;
 
-my %walker_actions = (
-    joinop  => \&qual_is_join_op,
-    rownum  => \&qual_is_rownum
-);
-
 my $grammar = Marpa::R2::Scanless::G->new( {
     default_action => '::first',
     source => \$dsl
@@ -652,13 +659,6 @@ my $slr = Marpa::R2::Scanless::R->new(
 my $length = length $input;
 my $pos = $slr->read( \$input );
 
-
-# Ugly way to try to preserve comments: keep track of statement count, and push
-# all found comments in the according hash element.
-my %comments;
-my $stmtno = 1;
-
-my $query_started = 0;
 READ: while(1) {
     for my $event ( @{ $slr->events() } ) {
         my ($name, $start, $end, undef) = @{$event};
