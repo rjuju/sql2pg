@@ -151,11 +151,12 @@ function_args ::=
     | EMPTY action => ::undef
 
 function_arg ::=
-    # the respect_ignore_nulls clause shouldn't appear multiple time, but this
-    # allows further args of functions like lag which possibly have this clause
-    # for the first argument to share simple grammar. Assume orignal query is
-    # correct
-    target_el respect_ignore_nulls
+    one_function_arg action => to_array
+
+one_function_arg ::=
+    # this is ambihuous for nested function call
+    one_function_arg target_el action => append_one_function_arg
+    | target_el action => make_one_function_arg
 
 # this clause is only legal in some cases (LAG, FIRST_VALUE...), and the
 # RESPECT variant isn't legal in all cases, but I couldn't find any doc that
@@ -663,10 +664,12 @@ READ: while(1) {
 # set the counter to 0, format_stmt() will increment it at its beginning
 $stmtno = 0;
 
-if ( my $ambiguous_status = $slr->ambiguous() ) {
-    chomp $ambiguous_status;
-    die "Parse is ambiguous\n", $ambiguous_status;
-}
+# Grammar is ambiguous at least for one_function_arg rule and nested function
+# calls.  Don't complain before this is fixed
+#if ( my $ambiguous_status = $slr->ambiguous() ) {
+#    chomp $ambiguous_status;
+#    die "Parse is ambiguous\n", $ambiguous_status;
+#}
 
 my $value_ref = $slr->value;
 my $value = ${$value_ref};
@@ -681,6 +684,12 @@ sub plsql2pg::make_alias {
     my (undef, $as, $alias) = @_;
 
     return get_alias($as, $alias);
+}
+
+sub plsql2pg::to_array {
+    my (undef, $node) = @_;
+
+    return to_array($node);
 }
 
 sub plsql2pg::concat {
@@ -878,6 +887,72 @@ sub format_function {
     $out .= format_alias($func->{alias});
 
     return $out;
+}
+
+sub plsql2pg::make_one_function_arg {
+    my (undef, $el) = @_;
+    my $node = make_node('one_function_arg');
+
+    assert_one_el($el);
+
+    $node->{arg} = $el;
+
+    return $node;
+}
+
+sub plsql2pg::append_one_function_arg {
+    my (undef, $node, $el) = @_;
+
+    assert_isA($node, 'one_function_arg');
+
+    push(@{$node->{arg}}, @{$el});
+
+    return $node;
+}
+
+sub format_one_function_arg {
+    my ($node) = @_;
+    my $out = '';
+
+    handle_respect_ignore_nulls($node);
+
+    foreach my $a (@{$node->{arg}}) {
+        $out .= ' ' unless($out eq '');
+        $out .= format_node($a);
+    }
+
+    return $out;
+}
+
+# If space-separated arguments is respect_ignore_nulls clause, remove it and
+# add a FIXME.  It's way easier to handle it here than in the grammar.
+sub handle_respect_ignore_nulls {
+    my ($node) = @_;
+    my $i = 0;
+
+    assert_isA($node, 'one_function_arg');
+
+    while ( $i < scalar(@{$node->{arg}}) ) {
+        my $cur;
+        my $next;
+
+        return if ($i >= (scalar(@{$node->{arg}})-1));
+
+        $cur = @{$node->{arg}}[$i];
+        $next = @{$node->{arg}}[$i+1];
+
+        $i++;
+
+        next unless (isA($cur, 'ident') and isA($next, 'ident'));
+
+        $cur = format_node($cur);
+        $next = format_node($next);
+
+        if (($cur eq 'respect' or $cur eq 'ignore') and ($next eq 'nulls')) {
+            plsql2pg::make_respect_ignore_nulls_clause(undef, $cur, $next);
+            splice(@{$node->{arg}}, $i-1, 2);
+        }
+    }
 }
 
 sub plsql2pg::make_respect_ignore_nulls_clause {
@@ -1568,7 +1643,7 @@ sub handle_function {
             my $arg = pop(@{$func->{args}});
             my $v;
 
-            assert(isA($arg, 'literal'), 'Should be a literal', $arg, $func);
+            assert_isA($arg, 'literal', $func);
 
             $v = $arg->{value};
 
@@ -2546,6 +2621,16 @@ sub assert {
     my $func = (caller(1))[3];
 
     error("Assert error in $func:" . "\n" . $msg, @args) if (not $ok);
+}
+
+sub assert_isA {
+    my ($node, $type, @args) = @_;
+    my $func = (caller(1))[3];
+
+    if (not isA($node, $type)) {
+        error("Unexpected node type " . $node->{type} . ", expected $type",
+            $node, @args);
+    }
 }
 
 sub assert_one_el {

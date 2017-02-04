@@ -30,6 +30,7 @@ SELECT a.id FROM a LEFT JOIN b ON a.id = b.id LEFT JOIN c ON b.id = c.id LEFT JO
 SELECT round(t.val / 100, 2) FROM t ;
 SELECT id, CASE id WHEN 0 THEN 'blah' ELSE id % 3 > 1 END AS val FROM t ;
 SELECT id, CASE WHEN val = 0 THEN 'nothing' WHEN val < 100 THEN 'little' WHEN val >= 100 THEN 'lot' END FROM t ;
+SELECT trim(leading ' ' from v) FROM t ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement
