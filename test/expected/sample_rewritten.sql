@@ -21,7 +21,7 @@ SELECT a, b, c FROM foo AS bar GROUP BY GROUPING SETS (a, CUBE (a, b), ROLLUP (c
 SELECT * FROM tbl AS t, t2 NATURAL JOIN t3 FOR UPDATE OF t2, col NOWAIT ;
 -- 2 FIXME for this statement
 -- FIXME: Clause "WAIT 1" converted to "NOWAIT"
--- FIXME: FOR UPDATE OF col must be changed ot its table name/alias
+-- FIXME: FOR UPDATE OF col must be changed to its table name/alias
 UPDATE t SET a = 1, (b, c) = (SELECT * FROM t2 WHERE id = 1), d = (SELECT 1) WHERE (a < 10) ;
 DELETE FROM public.t AS tbl WHERE COALESCE(tbl.col, 'todel') = 'todel' ;
 INSERT INTO public.t AS ins VALUES (2 + 1, 'tt') ;

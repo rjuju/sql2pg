@@ -1674,6 +1674,8 @@ sub format_select {
 
     $stmt = handle_connectby($stmt);
 
+    handle_missing_alias($stmt);
+
     handle_forupdate_clause($stmt);
 
     foreach my $current (@clauselist) {
@@ -2004,6 +2006,25 @@ sub handle_connectby {
     return $stmt;
 }
 
+# Generate unique alias for subquery which doesn't have an alias
+sub handle_missing_alias {
+    my ($stmt) = @_;
+
+    foreach my $w (@{$stmt->{FROM}->{content}}) {
+        if ( isA($w, 'SUBQUERY') and (not defined($w->{alias})) ) {
+            $w->{alias} = generate_alias();
+        }
+    }
+
+    if (defined($stmt->{JOIN})) {
+        foreach my $w (@{$stmt->{JOIN}->{content}}) {
+            if ( isA($w, 'SUBQUERY') and (not defined($w->{alias})) ) {
+                $w->{alias} = generate_alias();
+            }
+        }
+    }
+}
+
 # Oracle wants column name, pg wants table name, try to figure it out.  It's
 # done here just in case original query only provided column name without
 # reference to column and there was only one table ref.
@@ -2024,6 +2045,7 @@ sub handle_forupdate_clause {
         $tbl_count++;
         # no need to check other tables if already more than 1 found
         last if ($tbl_count > 1);
+
         if (defined($w->{alias})) {
             $tbl_name = $w->{alias}
         } else {
@@ -2041,10 +2063,10 @@ sub handle_forupdate_clause {
     }
     foreach my $ident (@{$forupdate->{content}->{tlist}}) {
         if (not defined($ident->{table})) {
-            if ($tbl_count == 1) {
+            if ( ($tbl_count == 1) and (defined($tbl_name)) ) {
                 $ident->{attribute} = $tbl_name;
             } else {
-                add_fixme("FOR UPDATE OF $ident->{attribute} must be changed ot its table name/alias");
+                add_fixme("FOR UPDATE OF $ident->{attribute} must be changed to its table name/alias");
             }
         } else {
             # remove column reference
@@ -2518,17 +2540,17 @@ sub format_OFFSET {
 sub format_SUBQUERY {
     my ($query) = @_;
     my $stmts = $ query->{content}->{stmts};
-    my $alias = $ query->{content}->{alias};
+    my $alias = $ query->{alias};
     my $out;
 
     $out .= '(' . format_node($stmts) . ')';
 
     $alias = format_alias($alias);
 
-    # alias on subquery in mandatory in pg
-    if ($alias eq '') {
-        $alias = " AS " . generate_alias();
-    }
+    # alias on subquery in mandatory in pg, should have been generated if
+    # needed in handle_missing_alias, but this function doesn't really try hard
+    # to reach all possible subqueries, so check here also
+    $alias = ' AS ' . generate_alias() if ($alias eq '');
 
     $out .= $alias;
 
