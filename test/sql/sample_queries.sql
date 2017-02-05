@@ -30,6 +30,7 @@ select id, case when val = 0 then 'nothing' when val < 100 then 'little' when va
 select trim(leading ' ' from v) from t where id > (select count(*) from t2);
 select count(*) from t where val like '%the_val%' escape '\' and rownum <= 5 for update skip locked;
 with s (id, val) as (select 1, 'val' from dual) select * from s;
+select * from dual, (t1 left join (select 1 from t2) tt using (id));
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);

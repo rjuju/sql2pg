@@ -248,6 +248,7 @@ simple_from_elem ::=
     | '(' SelectStmt ')' action => make_subquery
     # ONLY is not valid for DELETE, assume original query is valid
     | ONLY '(' simple_from_elem ')' action => make_fromonly
+    | '(' IDENT join_list ')' action => make_subjoin
 
 join_clause ::=
     join_list action => make_joinclause
@@ -1258,6 +1259,36 @@ sub plsql2pg::make_subquery {
     $clause = make_clause('SUBQUERY', $node);
 
     return to_array($clause);
+}
+
+sub format_subquery {
+    my ($stmt) = @_;
+
+    return format_node($stmt->{stmts});
+}
+
+sub plsql2pg::make_subjoin {
+    my (undef, undef, $ident, $list, undef) = @_;
+    my $node = make_node('subjoin');
+    my $clause;
+
+    $node->{ident} = $ident;
+    $node->{joins} = $list;
+
+    $clause = make_clause('SUBQUERY', $node);
+
+    return to_array($clause);
+}
+
+sub format_subjoin {
+    my ($node) = @_;
+    my $out = format_node($node->{ident});
+
+    if (defined($node->{joins})) {
+        $out .= ' ' . format_node($node->{joins});
+    }
+
+    return $out;
 }
 
 sub plsql2pg::alias_node {
@@ -2600,11 +2631,10 @@ sub format_OFFSET {
 
 sub format_SUBQUERY {
     my ($query) = @_;
-    my $stmts = $ query->{content}->{stmts};
     my $alias = $ query->{alias};
     my $out;
 
-    $out .= '(' . format_node($stmts) . ')';
+    $out .= '(' . format_node($query->{content}) . ')';
 
     $alias = format_alias($alias);
 
