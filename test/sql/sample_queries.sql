@@ -15,7 +15,7 @@ WITH s1 as (with s3 as (select 1 from dual) select * from s3), s AS (SELECT * FR
 with s as (select 1 from dual) SELECT employee_id, last_name, manager_id
 FROM employees   -- this is the FROM clause
 WHERE salary > 0   --should not happen
-start with /* hard coded value */ employee_id = 1 CONNECT BY isvalid = 1 and PRIOR employee_id = manager_id;
+start with /* hard coded value */ employee_id = 1 CONNECT BY nocycle isvalid = 1 and PRIOR employee_id = manager_id;
 SELECT a,b,c FROM foo bar group by grouping sets(a, cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
 SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
 update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from dual) where (a < 10);

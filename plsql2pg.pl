@@ -352,7 +352,11 @@ startwith_clause ::=
     START WITH qual_list action => make_startwith
 
 connectby_clause ::=
-    CONNECT BY qual_list action => make_connectby
+    CONNECT BY nocycle qual_list action => make_connectby
+
+nocycle ::=
+    NOCYCLE
+    | EMPTY
 
 group_clause ::=
     GROUP BY group_list action => make_groupbyclause
@@ -545,8 +549,9 @@ MINUS       ~ 'MINUS':ic
 MINVALUE    ~ 'MINVALUE':ic
 :lexeme     ~ MINVALUE priority => 1
 NATURAL     ~ 'NATURAL':ic
-NOWAIT      ~ 'NOWAIT':ic
+NOCYCLE     ~ 'NOCYCLE':ic
 NOT         ~ 'NOT':ic
+NOWAIT      ~ 'NOWAIT':ic
 NULLS       ~ 'NULLS':ic
 OF          ~ 'OF':ic
 ONLY        ~ 'ONLY':ic
@@ -1351,7 +1356,11 @@ sub plsql2pg::make_startwith {
 }
 
 sub plsql2pg::make_connectby {
-    my (undef, undef, undef, $quals) = @_;
+    my (undef, undef, undef, $nocycle, $quals) = @_;
+
+    if (defined($nocycle)) {
+        add_fixme('NOCYCLE clause ignored for clause: ' . format_node($quals));
+    }
 
     return make_clause('CONNECTBY', $quals);
 }

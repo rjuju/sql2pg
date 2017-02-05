@@ -12,7 +12,8 @@ SELECT id, log(2, id), log(10, id), count(*) FROM a GROUP BY id HAVING count(*) 
 SELECT val, rank() OVER (PARTITION BY id) AS rank, lead(val) OVER (ORDER BY val ASC ROWS CURRENT ROW), lag(val) OVER (PARTITION BY id, val ORDER BY val ASC RANGE BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING) AS lag FROM t ;
 WITH s1 AS (WITH s3 AS (SELECT 1) SELECT * FROM s3), s AS (SELECT * FROM s1 LIMIT 1) SELECT * FROM s, (WITH t AS (SELECT 3 FROM t) SELECT * FROM t) AS subquery2 CROSS JOIN (WITH u AS (SELECT count(*) AS nb) SELECT nb FROM u UNION ALL (SELECT 0)) AS subquery3 LIMIT 1 ;
 WITH RECURSIVE s AS (SELECT 1), recur AS (SELECT employee_id, last_name, manager_id FROM employees WHERE employee_id = 1 UNION ALL (SELECT employee_id, last_name, manager_id FROM employees WHERE isvalid = 1 AND recur.employee_id = manager_id)) SELECT * FROM recur WHERE salary > 0 ;
--- 3 FIXME for this statement
+-- 4 FIXME for this statement
+-- FIXME: NOCYCLE clause ignored for clause: isvalid = 1 AND employee_id = manager_id
 -- 3 comments for this statement must be replaced:
 -- this is the FROM clause
 --should not happen
