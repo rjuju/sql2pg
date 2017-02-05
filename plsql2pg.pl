@@ -140,8 +140,8 @@ no_parens_target_el ::=
     | '(' target_list ')' action => parens_node
 
 like_clause ::=
-    LIKE LITERAL action => make_like
-    | LIKE LITERAL ESCAPE LITERAL action => make_like
+    LIKE target_el action => make_like
+    | LIKE target_el ESCAPE LITERAL action => make_like
 
 simple_target_el ::=
     a_expr
@@ -826,7 +826,7 @@ sub format_likeexpr {
 
 sub plsql2pg::make_like {
     my (undef, undef, $like, undef, $escape) = @_;
-    my $out = 'LIKE ' . $like;
+    my $out = 'LIKE ' . format_node($like);
 
     $out .= ' ESCAPE ' . $escape if (defined($escape));
 
