@@ -248,7 +248,11 @@ simple_from_elem ::=
     | '(' SelectStmt ')' action => make_subquery
     # ONLY is not valid for DELETE, assume original query is valid
     | ONLY '(' simple_from_elem ')' action => make_fromonly
-    | '(' IDENT join_list ')' action => make_subjoin
+    | '(' subjoin ')' action => second
+
+subjoin ::=
+    IDENT join_list action => make_subjoin
+    | '(' subjoin ')' action => second
 
 join_clause ::=
     join_list action => make_joinclause
@@ -1268,7 +1272,7 @@ sub format_subquery {
 }
 
 sub plsql2pg::make_subjoin {
-    my (undef, undef, $ident, $list, undef) = @_;
+    my (undef, $ident, $list) = @_;
     my $node = make_node('subjoin');
     my $clause;
 
