@@ -251,7 +251,11 @@ simple_from_elem ::=
     | '(' subjoin ')' action => second
 
 subjoin ::=
-    ALIASED_IDENT join_list action => make_subjoin
+    subjoin_ident join_list action => make_subjoin
+    | '(' subjoin ')' action => second
+
+subjoin_ident ::=
+    ALIASED_IDENT
     | '(' subjoin ')' action => second
 
 join_clause ::=
