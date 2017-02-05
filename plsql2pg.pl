@@ -112,7 +112,10 @@ select_clause ::=
     | target_list action => make_selectclause
 
 target_list ::=
-    target_list ',' alias_target_el action => append_el_1_3
+    node_target_list action => make_target_list
+
+node_target_list ::=
+    node_target_list ',' alias_target_el action => append_el_1_3
     | alias_target_el
 
 alias_target_el ::=
@@ -122,27 +125,25 @@ alias_target_el ::=
 # to allow function in quals without ambiguity (having function in a_expr is
 # ambiguous)
 target_el ::=
-    target_el_no_parens
-    | target_el_with_parens
+    parens_target_el
+    | no_parens_target_el
 
-target_el_with_parens ::=
-    '(' target_el_no_parens ')' action => parens_node
-    | '(' target_el_with_parens ')' action => parens_node
+parens_target_el ::=
+    '(' no_parens_target_el ')' action => parens_node
+    # prune extra parens in the grammar
+    | '(' parens_target_el ')' action => second
 
-target_el_no_parens ::=
-    target_el OPERATOR simple_target_el action => make_opexpr
+no_parens_target_el ::=
+    target_el OPERATOR target_el action => make_opexpr
     | target_el like_clause action => make_likeexpr
-    | simple_target_el_no_parens
+    | simple_target_el
+    | '(' target_list ')' action => parens_node
 
 like_clause ::=
     LIKE LITERAL action => make_like
     | LIKE LITERAL ESCAPE LITERAL action => make_like
 
 simple_target_el ::=
-    simple_target_el_no_parens
-    | '(' target_el ')' action => parens_node
-
-simple_target_el_no_parens ::=
     a_expr
     | case_when
     | function
@@ -383,7 +384,7 @@ group_list ::=
     | group_elem
 
 group_elem ::=
-    a_expr action => make_groupby
+    target_list action => make_groupby
     | ROLLUP '(' target_list ')' action => make_rollupcube
     | CUBE '(' target_list ')' action => make_rollupcube
     | GROUPING SETS '(' group_list ')' action => make_groupingsetsclause
@@ -525,6 +526,7 @@ CASE        ~ 'CASE':ic
 CONNECT     ~ 'CONNECT':ic
 CROSS       ~ 'CROSS':ic
 CUBE        ~ 'CUBE':ic
+:lexeme     ~ CUBE priority => 1
 CURRENT     ~ 'CURRENT':ic
 DELETE      ~ 'DELETE':ic
 :lexeme     ~ DELETE pause => after event => keyword
@@ -586,6 +588,7 @@ RETURNING   ~ 'RETURNING':ic
 RIGHT       ~ 'RIGHT':ic
 :lexeme     ~ RIGHT priority => 1
 ROLLUP      ~ 'ROLLUP':ic
+:lexeme     ~ ROLLUP priority => 1
 ROW         ~ 'ROW':ic
 ROWS        ~ 'ROWS':ic
 SCN         ~ 'SCN':ic
@@ -781,6 +784,15 @@ sub plsql2pg::append_el_1_3 {
     push(@{$nodes}, @{$node});
 
     return $nodes;
+}
+
+sub plsql2pg::make_target_list {
+    my (undef, $tlist) = @_;
+    my $node = make_node('target_list');
+
+    $node->{tlist} = $tlist;
+
+    return $node;
 }
 
 sub plsql2pg::make_opexpr {
@@ -1067,20 +1079,16 @@ sub plsql2pg::make_partitionclause {
 
 sub plsql2pg::make_distinct_selectclause {
     my (undef, $distinct, $tlist) = @_;
-    my $node = make_node('target_list');
 
-    $node->{tlist} = $tlist;
-    $node->{distinct} = uc($distinct);
+    $tlist->{distinct} = uc($distinct);
 
-    return make_clause('SELECT', $node);
+    return make_clause('SELECT', $tlist);
 }
 
 sub plsql2pg::make_selectclause {
     my (undef, $tlist) = @_;
-    my $node = make_node('target_list');
 
-    $node->{tlist} = $tlist;
-    return make_clause('SELECT', $node);
+    return make_clause('SELECT', $tlist);
 }
 
 sub plsql2pg::make_fromclause {
@@ -1429,8 +1437,12 @@ sub plsql2pg::make_groupby {
     my (undef, $elem) = @_;
     my $groupby = make_node('groupby');
 
-    assert_one_el($elem);
-    $groupby->{elem} = pop(@{$elem});
+    if (isA($elem, 'target_list')) {
+        $groupby->{elem} = $elem;
+    } else {
+        assert_one_el($elem);
+        $groupby->{elem} = pop(@{$elem});
+    }
 
     return to_array($groupby);
 }
@@ -1455,7 +1467,7 @@ sub plsql2pg::make_rollupcube {
 sub format_rollupcube {
     my ($node) = @_;
 
-    return $node->{keyword} . ' (' . format_target_list($node) . ')';
+    return $node->{keyword} . ' (' . format_node($node->{tlist}) . ')';
 }
 
 sub plsql2pg::make_groupingsetsclause {
@@ -1568,7 +1580,7 @@ sub plsql2pg::make_values {
 sub format_values {
     my ($values) = @_;
 
-    return 'VALUES (' . format_target_list($values) . ')';
+    return 'VALUES (' . format_node($values->{tlist}) . ')';
 }
 
 sub plsql2pg::make_parens_column_list {
@@ -2712,7 +2724,7 @@ sub plsql2pg::make_returning_clause {
     my (undef, undef, $list, undef, $items) = @_;
     my $msg = 'RETURNING ';
 
-    $msg .= format_array($list, ', ') . ' INTO ' . format_array($items, ', ');
+    $msg .= format_node($list) . ' INTO ' . format_array($items, ', ');
 
     add_fixme('Returning clause ignored: "' . $msg . '"');
 }
@@ -2722,7 +2734,7 @@ sub plsql2pg::make_errlog_clause1 {
     my $msg = 'LOG ERRORS';
 
     $msg .= ' INTO ' . format_node($into) if (defined($into));
-    $msg .= ' (' . format_array($list, ', ') . ')' if (defined($list));
+    $msg .= ' (' . format_node($list) . ')' if (defined($list));
 
     add_fixme('Error logging clause ignored: "' . $msg . '"');
 

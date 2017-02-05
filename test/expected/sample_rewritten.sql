@@ -1,7 +1,7 @@
 SELECT 1 AS nb LIMIT 1 ;
 SELECT DISTINCT * FROM tbl AS t ORDER BY a ASC NULLS LAST, b DESC, tbl.c ASC ;
 SELECT -1, 1 - 1, aze AS "aze#", a AS "a$z#e" FROM t ;
-SELECT (1), COALESCE(val, 'null') || ' ' || COALESCE(val2, 'empty') AS "vAl", 1, abc, "DEF" FROM toto AS "TATA;" ;
+SELECT ((1), 1, (1, (1, 1))), COALESCE(val, 'null') || ' ' || COALESCE(val2, 'empty') AS "vAl", 1, abc, "DEF" FROM toto AS "TATA;" ;
 SELECT 1 + 2 * ((t.v) - 2) % 4 AS meh, 'test me', t.* FROM tbl AS t WHERE (((a > 2)) OR (b < 3)) GROUP BY a, t.b LIMIT 9 ;
 SELECT * FROM ((SELECT 1)) AS subquery1 UNION (SELECT 2) EXCEPT (SELECT 3) INTERSECT (SELECT 4) UNION ALL (SELECT 5) ORDER BY 1 ASC ;
 SELECT * FROM a, ONLY (c) INNER JOIN b USING (id, id2) LEFT JOIN d USING (id) LIMIT 20 OFFSET 10 ;
@@ -18,7 +18,7 @@ WITH RECURSIVE s AS (SELECT 1), recur AS (SELECT employee_id, last_name, manager
 -- this is the FROM clause
 --should not happen
 /* hard coded value */
-SELECT a, b, c FROM foo AS bar GROUP BY GROUPING SETS (a, CUBE (a, b), ROLLUP (c, a), CUBE (rollup(a, b, c))) ;
+SELECT a, b, c FROM foo AS bar GROUP BY GROUPING SETS ((a), CUBE (a, b), ROLLUP (c, a), CUBE (rollup(a, b, c))) ;
 SELECT * FROM tbl AS t, t2 NATURAL JOIN t3 FOR UPDATE OF t2, col NOWAIT ;
 -- 2 FIXME for this statement
 -- FIXME: Clause "WAIT 1" converted to "NOWAIT"
