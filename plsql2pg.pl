@@ -1756,7 +1756,8 @@ sub handle_function {
 
 # Iterate through a given where_clause or select node, undef any qual matching
 # the given function and return all these quals in an array, possibly undef but
-# not empty.
+# not empty.  Return a removed_qual node, containing the qual and the related
+# qual_op (AND/OR).
 sub whereclause_walker {
     my ($func, $node, $stmt) = @_;
     my $quals = [];
@@ -1788,25 +1789,33 @@ sub whereclause_walker {
 
             # We found matching quals in the parens node
             if (defined($res)) {
-                push(@{$quals}, @{$res});
+                # save qualop on the first qual in returned array
+                @{$res}[0]->{op} =  @{$node}[$todel];
 
                 # Remove the parens node if previous walker call removed all of
                 # its content
                 if ((parens_is_empty($qual)) and (ref(@{$node}[$todel])) ne 'HASH') {
                     @{$node}[$todel] = undef;
                 }
+
+                push(@{$quals}, @{$res});
             }
             next;
         }
         # Otherwise check if the node match the given condition
         elsif ($walker_actions{$func}->($qual)) {
+            my $ret = make_node('removed_qual');
+
             # Remove extraneous QUAL_OP, this is probably really buggy
             if (ref(@{$node}[$todel]) ne 'HASH') {
+                $ret->{op} = @{$node}[$todel];
                 @{$node}[$todel] = undef;
             }
 
-            # Save the matchingqual
-            push(@{$quals}, $qual);
+            $ret->{qual} = $qual;
+
+            # Save the matching qual
+            push(@{$quals}, $ret);
             # And remove it from the quallist
             @{$node}[$i] = undef;
         }
@@ -1830,7 +1839,8 @@ sub handle_nonsqljoin {
 
     return unless (defined($quals));
 
-    foreach my $qual (@{$quals}) {
+    foreach my $removed (@{$quals}) {
+        my $qual = $removed->{qual};
         my $join;
         my $t;
         my $ident;
@@ -1847,12 +1857,39 @@ sub handle_nonsqljoin {
 
         $ident = to_array($t);
 
-        $join = make_join(
-                    'LEFT', $ident, $t->{alias},
-                    plsql2pg::make_joinon(undef, undef, to_array($qual))
-        );
+        # If this qual is part of mulitple join condition, append the qual
+        if (isA($t, 'join')) {
+            # if the qual_op is undefined, it's probably because previous qual
+            # was first qual and it removed the op.  All the qual_op handling
+            # is probably buggy, so if we don't find previous one, just add an
+            # AND and go on
+            my $op = $removed->{op};
+            if (not defined($op)) {
+                my $nb = scalar(@{$t->{cond}->{quallist}});
 
-        push(@{$joins}, @{$join});
+                $op = @{$t->{cond}->{quallist}}[$nb-2]->{saved_op};
+                if (not defined($op)) {
+                    $op = 'AND';
+                    add_fixme('Cannot find operator for JOIN condition: '
+                              . format_node($qual)
+                              . '. An AND has been forced');
+                }
+            }
+            push(@{$t->{cond}->{quallist}}, $op);
+            push(@{$t->{cond}->{quallist}}, $qual);
+        }
+        # otherwise add a join JOIN clause
+        else {
+            my $joinon = plsql2pg::make_joinon(undef, undef, to_array($qual));
+
+            # saved this removed qual qualop in case further quals need it (see
+            # above bloc when appending a qual to joinon list)
+            @{$joinon->{quallist}}[0]->{saved_op} = $removed->{op};
+
+            $join = make_join('LEFT', $ident, $t->{alias}, $joinon);
+
+            push(@{$joins}, @{$join});
+        }
     }
 
     # Start to build the join_clause to be able to add joins in the right order
@@ -1865,7 +1902,8 @@ sub handle_nonsqljoin {
         my $left;
         my $right;
 
-        assert_one_el($join->{cond}->{quallist});
+        # XXX The quallist can contain multiple entries, assume there are not
+        # different dependancies in all of them
 
         # left node is needed to check dependency
         $left = @{$join->{cond}->{quallist}}[0]->{left};
@@ -1910,7 +1948,8 @@ sub handle_rownum {
 
     return unless (defined($quals));
 
-    foreach my $qual (@{$quals}) {
+    foreach my $removed (@{$quals}) {
+        my $qual = $removed->{qual};
         my $number;
         my $clause;
 
@@ -2175,6 +2214,8 @@ sub splice_table_from_fromlist {
     # no, then look for real table name
     for ($i=0; $i<(scalar @{$froms}); $i++) {
         my $t = @{$froms}[$i];
+        # for subquery, only the alias can be used as reference
+        next if (isA($t, 'SUBQUERY'));
         if ($t->{attribute} eq $name) {
             return(splice(@{$froms}, $i, 1));
         }
@@ -2200,8 +2241,12 @@ sub find_table_in_array {
             if (defined($t->{ident}->{alias}) and $t->{ident}->{alias} eq $name) {
                 return($t);
             }
+        } elsif (isA($t, 'SUBQUERY')) {
+            if (defined($t->{alias}) and $t->{alias} eq $name) {
+                return($t);
+            }
         } else {
-            error("Node unexpected", $t);
+            error('Node type ' . $t->{type} . ' unexpected', $t);
         }
     }
 
@@ -2212,9 +2257,14 @@ sub find_table_in_array {
                 return($t);
             }
         } elsif (isA($t, 'join')) {
+            # ignore if the join ident isn't an ident (probably a subquery),
+            # because only the alias can be referred
+            next unless(isA($t->{ident}, 'ident'));
             if ($t->{ident}->{attribute} eq $name) {
                 return($t);
             }
+        } elsif (isA($t, 'SUBQUERY')) {
+            # only alias can be used as reference for a SUBQUERY
         } else {
             error("Node unexpected", $t);
         }

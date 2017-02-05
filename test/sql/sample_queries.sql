@@ -23,7 +23,7 @@ delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
 insert into public.t ins values (2+1, 'tt');
 insert   into public.t ins (a,b) values (2+1, 'tt');
 insert into public.t ins (a,b) select id, count(*) from t group by 1;
-select a.id from a,d,b,c where b.id = c.id(+) and c.id = d.id (+) and a.id =b.id(+);
+select a.id from a,d,b,c where b.id = c.id(+) or b.id2 = c.id2(+) and c.id = d.id (+) and a.id =b.id(+);
 select round(t.val /100, 2) from t;
 select id, case id when 0 then 'blah' else id % 3 > 1 end as val from t;
 select id, case when val = 0 then 'nothing' when val < 100 then 'little' when val >=100 then 'lot' end from t;

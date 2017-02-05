@@ -27,7 +27,7 @@ DELETE FROM public.t AS tbl WHERE COALESCE(tbl.col, 'todel') = 'todel' ;
 INSERT INTO public.t AS ins VALUES (2 + 1, 'tt') ;
 INSERT INTO public.t AS ins (a, b) VALUES (2 + 1, 'tt') ;
 INSERT INTO public.t AS ins (a, b) SELECT id, count(*) FROM t GROUP BY 1 ;
-SELECT a.id FROM a LEFT JOIN b ON a.id = b.id LEFT JOIN c ON b.id = c.id LEFT JOIN d ON c.id = d.id ;
+SELECT a.id FROM a LEFT JOIN b ON a.id = b.id LEFT JOIN c ON b.id = c.id OR b.id2 = c.id2 LEFT JOIN d ON c.id = d.id ;
 SELECT round(t.val / 100, 2) FROM t ;
 SELECT id, CASE id WHEN 0 THEN 'blah' ELSE id % 3 > 1 END AS val FROM t ;
 SELECT id, CASE WHEN val = 0 THEN 'nothing' WHEN val < 100 THEN 'little' WHEN val >= 100 THEN 'lot' END FROM t ;
