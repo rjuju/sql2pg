@@ -644,12 +644,10 @@ my $input = $ARGV[0] || '';
 if (!$input || !-f $ARGV[0]) {
     die "FATAL: you must give a DDL/DML file to convert as argument.\n";
 }
-my $old_sep = $/;
-$/ = '';
 open(my $fh, $input) or die "FATAL: can not open file $input\n";
-$input = <$fh>;
+my @content = <$fh>;
 close($fh);
-$/ = $old_sep;
+$input = join('', @content);
 
 my $grammar = Marpa::R2::Scanless::G->new( {
     default_action => '::first',
