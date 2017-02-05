@@ -36,6 +36,7 @@ SELECT trim(leading ' ' from v) FROM t WHERE id > (SELECT count(*) FROM t2) ;
 SELECT count(*) FROM t WHERE val LIKE '%the_val%' ESCAPE '\' OR val LIKE (fct(val)) FOR UPDATE SKIP LOCKED LIMIT 5 ;
 WITH s (id, val) AS (SELECT 1, 'val') SELECT * FROM s ;
 SELECT * FROM dual, ((t AS t1 LEFT JOIN (SELECT 1 FROM t2) AS tt USING (id)) AS subquery5 RIGHT JOIN t USING (id)) AS subquery4 ;
+SELECT count(*) FROM t WHERE val in ('a', 'b') OR val NOT IN ('test') ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement

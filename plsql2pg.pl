@@ -121,6 +121,13 @@ node_target_list ::=
 alias_target_el ::=
     target_el ALIAS_CLAUSE action => alias_node
 
+unalias_target_list ::=
+    unalias_node_target_list action => make_target_list
+
+unalias_node_target_list ::=
+    target_list ',' target_el action => append_el_1_3
+    | target_el
+
 # aliasing is done in a different rule, so target_el can be used in qual rule,
 # to allow function in quals without ambiguity (having function in a_expr is
 # ambiguous)
@@ -330,6 +337,11 @@ qual_op ::=
     AND action => upper
     | OR action => upper
 
+# use a specific G1 rule, the NOT IN seems to conflict with IS NOT operator
+qual_inop ::=
+    IN
+    | NOT IN action => concat
+
 IDENT ::=
     ident '.' ident '.' ident action => make_ident
     | ident '.' ident action => make_ident
@@ -343,6 +355,7 @@ ALIASED_IDENT ::=
 # is valid
 qual_no_parens ::=
     qual_elem join_op OPERATOR qual_elem join_op action => make_qual
+    | qual_elem join_op qual_inop qual_elem join_op action => make_qual
     | qual_elem like_clause action => make_likeexpr
     | qual_elem BETWEEN qual_elem AND qual_elem action => make_betweenqual
     | PRIOR qual_elem OPERATOR qual_elem join_op action => make_priorqual
@@ -350,6 +363,7 @@ qual_no_parens ::=
 
 qual_elem ::=
     target_el
+    | '(' unalias_target_list ')' action => parens_node
     | '(' SelectStmt ')' action => parens_node
 
 qual ::=
@@ -546,6 +560,7 @@ GROUP       ~ 'GROUP':ic
 GROUPING    ~ 'GROUPING':ic
 HAVING      ~ 'HAVING':ic
 IGNORE      ~ 'IGNORE':ic
+IN          ~ 'IN':ic
 INNER       ~ 'INNER':ic
 INSERT      ~ 'INSERT':ic
 :lexeme     ~ INSERT pause => after event => keyword
@@ -568,7 +583,10 @@ MINVALUE    ~ 'MINVALUE':ic
 :lexeme     ~ MINVALUE priority => 1
 NATURAL     ~ 'NATURAL':ic
 NOCYCLE     ~ 'NOCYCLE':ic
+# this one is unsed in qual_inop G1 rule
 NOT         ~ 'NOT':ic
+# this one is used in OPERATOR L0 rule
+NOT_        ~ 'NOT':ic
 NOWAIT      ~ 'NOWAIT':ic
 NULLS       ~ 'NULLS':ic
 OF          ~ 'OF':ic
@@ -642,7 +660,7 @@ literal_delim   ~ [']
 literal_chars   ~ [^']*
 
 OPERATOR    ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
-            | '+' | '-' | '*' | '/' | '||' | IS | IS NOT
+            | '+' | '-' | '*' | '/' | '||' | IS | IS NOT_
 
 :discard                    ~ discard
 discard                     ~ whitespace
