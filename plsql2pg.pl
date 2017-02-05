@@ -251,7 +251,7 @@ simple_from_elem ::=
     | '(' subjoin ')' action => second
 
 subjoin ::=
-    IDENT join_list action => make_subjoin
+    ALIASED_IDENT join_list action => make_subjoin
     | '(' subjoin ')' action => second
 
 join_clause ::=
@@ -325,6 +325,9 @@ IDENT ::=
     ident '.' ident '.' ident action => make_ident
     | ident '.' ident action => make_ident
     | ident action => make_ident
+
+ALIASED_IDENT ::=
+    IDENT ALIAS_CLAUSE action => alias_node
 
 # PRIOR is only legal in hierarchical clause, assume original query is valid
 # join_op can't be on the LHS and RHS at the same time, assume original query
