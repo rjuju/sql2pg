@@ -299,7 +299,11 @@ join_cond ::=
     | ON qual_list action => make_joinon
 
 using_list ::=
-    using_list ',' using_el action => append_el_1_3
+    parens_using_list
+    | '(' using_list ')' action => second
+
+parens_using_list ::=
+    parens_using_list ',' using_el action => append_el_1_3
     | using_el
 
 using_el ::=
