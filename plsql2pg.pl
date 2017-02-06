@@ -342,6 +342,10 @@ qual_inop ::=
     IN
     | NOT IN action => concat
 
+qual_exists ::=
+    EXISTS action => upper
+    | NOT EXISTS action => concat
+
 IDENT ::=
     ident '.' ident '.' ident action => make_ident
     | ident '.' ident action => make_ident
@@ -356,6 +360,7 @@ ALIASED_IDENT ::=
 qual_no_parens ::=
     qual_elem join_op OPERATOR qual_elem join_op action => make_qual
     | qual_elem join_op qual_inop qual_elem join_op action => make_qual
+    | qual_exists '(' SelectStmt ')' action => make_existsqual
     | qual_elem like_clause action => make_likeexpr
     | qual_elem BETWEEN qual_elem AND qual_elem action => make_betweenqual
     | PRIOR qual_elem OPERATOR qual_elem join_op action => make_priorqual
@@ -551,6 +556,7 @@ ELSE        ~ 'ELSE':ic
 END         ~ 'END':ic
 ERRORS      ~ 'ERRORS':ic
 ESCAPE      ~ 'ESCAPE':ic
+EXISTS      ~ 'EXISTS':ic
 FIRST       ~ 'FIRST':ic
 FOLLOWING   ~ 'FOLLOWING':ic
 FOR         ~ 'FOR':ic
@@ -1154,6 +1160,22 @@ sub plsql2pg::make_qual {
         $qual->{left} = pop(@{$left});
         $qual->{right} = pop(@{$right});
         $qual->{join_op} = $join_op2;
+    }
+
+    return to_array($qual);
+}
+
+sub plsql2pg::make_existsqual {
+    my (undef, $op, undef, $subq, undef) = @_;
+    my $qual = make_node('qual');
+    my $tmp = pop(@{$subq});
+
+    $qual->{op} = $op;
+    if (isA($tmp, 'parens')) {
+        $qual->{right} = $tmp;
+    } else {
+        # make sure there's a parens node, without writing too much grammar
+        $qual->{right} = parens_node($tmp);
     }
 
     return to_array($qual);
@@ -2543,11 +2565,12 @@ sub format_parens {
 
 sub format_qual {
     my ($qual) = @_;
-    my $out;
-    my $tmp = $qual->{left};
+    my $out = '';
 
-    $out = format_node($qual->{left}) . ' ' . $qual->{op} . ' '
-         . format_node($qual->{right});
+    # EXISTS qual don't have LHS
+    $out .= format_node($qual->{left}) . ' ' if (defined($qual->{left}));
+
+    $out .= $qual->{op} . ' ' . format_node($qual->{right});
 
     $out .= ' ' . $qual->{op2} . ' ' . format_node($qual->{right2})
         if (defined($qual->{op2}));

@@ -31,7 +31,7 @@ select trim(leading ' ' from v) from t where id > (select count(*) from t2);
 select count(*) from t where val like '%the_val%' escape '\' and rownum <= 5 or val like (fct(val)) for update skip locked;
 with s (id, val) as (select 1, 'val' from dual) select * from s;
 select * from dual, (((((t t1 left join (select 1 from t2) tt using (((id)))))) right join t using (id)));
-select count(*) from t where val in ('a', 'b') or val not in (('test'));
+select count(*) from t where val in ('a', 'b') or val not in (('test')) or not exists (select 1 from t2 where t2.id = t1.id) or exists (((((select 1 from t3 where t3.id=t1.id)))));
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
