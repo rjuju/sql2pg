@@ -160,6 +160,10 @@ a_expr ::=
     IDENT
     | number action => make_number
     | LITERAL action => make_literal
+    | NULL action => make_null
+    # use "NOT NULL" as a_expr instead of using "IS NOT" as an operator avoid
+    # ambiguity (otherwise NOT would be considered as an ident)
+    | NOT NULL action => make_null
 
 case_when ::=
     CASE when_expr else_expr END action => make_case_when
@@ -593,8 +597,9 @@ NOCYCLE     ~ 'NOCYCLE':ic
 # this one is unsed in qual_inop G1 rule
 NOT         ~ 'NOT':ic
 # this one is used in OPERATOR L0 rule
-NOT_        ~ 'NOT':ic
 NOWAIT      ~ 'NOWAIT':ic
+NULL        ~ 'NULL':ic
+:lexeme     ~ NULL priority => 1
 NULLS       ~ 'NULLS':ic
 OF          ~ 'OF':ic
 ONLY        ~ 'ONLY':ic
@@ -667,7 +672,7 @@ literal_delim   ~ [']
 literal_chars   ~ [^']*
 
 OPERATOR    ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
-            | '+' | '-' | '*' | '/' | '||' | IS | IS NOT_
+            | '+' | '-' | '*' | '/' | '||' | IS
 
 :discard                    ~ discard
 discard                     ~ whitespace
@@ -901,6 +906,22 @@ sub plsql2pg::make_literal {
     $literal->{alias} = $alias;
 
     return to_array($literal);
+}
+
+sub plsql2pg::make_null {
+    my (undef, $kw1, $kw2) = @_;
+    my $node = make_node('keyword');
+
+    $node->{val} = uc($kw1);
+    $node->{val} .= ' ' . uc($kw2) if (defined($kw2));
+
+    return to_array($node);
+}
+
+sub format_keyword {
+    my ($node) = @_;
+
+    return $node->{val};
 }
 
 sub plsql2pg::make_case_when {
@@ -1150,7 +1171,8 @@ sub plsql2pg::make_qual {
     my (undef, $left, $join_op1, $op, $right, $join_op2) = @_;
     my $qual = make_node('qual');
 
-    $qual->{op} = $op;
+    # uc the operator in case it has alpha char (IN, IS...)
+    $qual->{op} = uc($op);
     # if the join_op is on the LHS, permute args to simplify further code
     if (defined($join_op1)) {
         $qual->{left} = pop(@{$right});
