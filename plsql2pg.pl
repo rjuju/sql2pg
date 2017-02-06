@@ -145,6 +145,7 @@ no_parens_target_el ::=
     | target_el like_clause action => make_likeexpr
     | simple_target_el
     | '(' target_list ')' action => parens_node
+    | '(' SelectStmt ')' action => parens_node
 
 like_clause ::=
     LIKE target_el action => make_like
