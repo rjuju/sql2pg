@@ -16,7 +16,7 @@ with s as (select 1 from dual) SELECT employee_id, last_name, manager_id
 FROM employees   -- this is the FROM clause
 WHERE salary > 0   --should not happen
 start with /* hard coded value */ employee_id = 1 CONNECT BY nocycle isvalid = 1 and PRIOR employee_id = manager_id;
-SELECT a,b,c FROM foo bar group by grouping sets((a), cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
+SELECT :val,b,c FROM foo bar group by grouping sets((a), cube(a,b), rollup(c,a), cube(rollup(a,b,c)));
 SELECT * FROM tbl t, t2 natural join t3 FOR UPDATE OF t2.a, col wait 1;
 update t set a = 1, (b,c) = (select * from t2 WHERE id = 1), d = (SELECT 1 from dual) where (a < 10);
 delete from public.t tbl where nvl(tbl.col, 'todel') = 'todel';
@@ -35,6 +35,7 @@ select count(*) from t where val in ('a', 'b') or val not in (('test')) or not e
 select null, 1, (1, (select count(*) from t)) from t2 where id1 is not and ((((id2 is not null))));
 select interval '3' hour, interval '3-6' hour(1) to second(3,1) from dual;
 select INTERVAL'20' DAY - INTERVAL'240' HOUR = INTERVAL'10-0' DAY TO SECOND from t;
+select :a, b,:c,d,:c from t where b = :a;
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);

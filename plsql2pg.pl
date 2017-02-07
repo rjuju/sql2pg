@@ -21,6 +21,8 @@ my %walker_actions = (
     rownum  => \&qual_is_rownum
 );
 
+my %bindvars = ();
+
 # Ugly way to try to preserve comments: keep track of statement count, and push
 # all found comments in the according hash element.
 my %comments;
@@ -165,6 +167,7 @@ a_expr ::=
     # use "NOT NULL" as a_expr instead of using "IS NOT" as an operator avoid
     # ambiguity (otherwise NOT would be considered as an ident)
     | NOT NULL action => make_keyword
+    | bindvar action => make_bindvar
 
 case_when ::=
     CASE when_expr else_expr END action => make_case_when
@@ -687,14 +690,20 @@ digits ~ [0-9]+
 float   ~ digits '.' digits
         | '.' digits
 
-ident   ~ unquoted_start unquoted_chars
+ident   ~ unquoted_ident
         | quoted_ident
         # only for a_expr, but assuming original SQL is valid
         | '*'
+
+bindvar ~ ':' unquoted_ident
+
 ALIAS   ~ unquoted_start unquoted_chars
         | quoted_ident
+
+unquoted_ident ~ unquoted_start unquoted_chars
 unquoted_start ~ [a-zA-Z]
 unquoted_chars ~ [a-zA-Z_0-9_$#]*
+
 quoted_ident ~ '"' quoted_chars '"'
 quoted_chars ~ [^"]+
 
@@ -950,6 +959,28 @@ sub plsql2pg::make_keyword {
 }
 
 sub format_keyword {
+    my ($node) = @_;
+
+    return $node->{val};
+}
+
+sub plsql2pg::make_bindvar {
+    my (undef, $var) = @_;
+    my $node = make_node('bindvar');
+
+    if (not defined($bindvars{$var})) {
+        $bindvars{$var} = '$' . (scalar(keys %bindvars)+1);
+
+        add_fixme("Bindvar $var has been translatd to parameter "
+                . $bindvars{$var});
+    }
+
+    $node->{val} = $bindvars{$var};
+
+    return to_array($node);
+}
+
+sub format_bindvar {
     my ($node) = @_;
 
     return $node->{val};
@@ -2989,6 +3020,7 @@ sub qual_is_rownum {
 sub new_statement {
     $stmtno++;
     $alias_gen = 0;
+    %bindvars = ();
 }
 
 sub assert {
