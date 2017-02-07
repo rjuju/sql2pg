@@ -155,15 +155,16 @@ simple_target_el ::=
     a_expr
     | case_when
     | function
+    | interval
 
 a_expr ::=
     IDENT
-    | number action => make_number
+    | NUMBER
     | LITERAL action => make_literal
-    | NULL action => make_null
+    | NULL action => make_keyword
     # use "NOT NULL" as a_expr instead of using "IS NOT" as an operator avoid
     # ambiguity (otherwise NOT would be considered as an ident)
-    | NOT NULL action => make_null
+    | NOT NULL action => make_keyword
 
 case_when ::=
     CASE when_expr else_expr END action => make_case_when
@@ -182,6 +183,27 @@ when_elem ::=
 else_expr ::=
     ELSE target_el action => make_else
     | EMPTY
+
+interval ::=
+    INTERVAL LITERAL interval_kind action => make_interval
+    | INTERVAL LITERAL interval_kind TO interval_kind action => make_interval
+
+interval_kind ::=
+    interval_unit interval_typmod action => make_intervalkind
+
+interval_unit ::=
+    DAY
+    | HOUR
+    | MINUTE
+    | SECOND
+
+interval_typmod ::=
+    '(' number_list ')' action => second
+    | EMPTY
+
+number_list ::=
+    number_list ',' NUMBER action => append_el_1_3
+    | NUMBER
 
 function ::=
     IDENT '(' function_args ')' respect_ignore_nulls
@@ -358,6 +380,9 @@ IDENT ::=
 
 ALIASED_IDENT ::=
     IDENT ALIAS_CLAUSE action => alias_node
+
+NUMBER ::=
+    number action => make_number
 
 # PRIOR is only legal in hierarchical clause, assume original query is valid
 # join_op can't be on the LHS and RHS at the same time, assume original query
@@ -552,6 +577,7 @@ CROSS       ~ 'CROSS':ic
 CUBE        ~ 'CUBE':ic
 :lexeme     ~ CUBE priority => 1
 CURRENT     ~ 'CURRENT':ic
+DAY         ~ 'DAY':ic
 DELETE      ~ 'DELETE':ic
 :lexeme     ~ DELETE pause => after event => keyword
 DENSE_RANK  ~ 'DENSE_RANK':ic
@@ -570,9 +596,11 @@ FROM        ~ 'FROM':ic
 GROUP       ~ 'GROUP':ic
 GROUPING    ~ 'GROUPING':ic
 HAVING      ~ 'HAVING':ic
+HOUR        ~ 'HOUR':ic
 IGNORE      ~ 'IGNORE':ic
 IN          ~ 'IN':ic
 INNER       ~ 'INNER':ic
+INTERVAL    ~ 'INTERVAL':ic
 INSERT      ~ 'INSERT':ic
 :lexeme     ~ INSERT pause => after event => keyword
 INTERSECT   ~ 'INTERSECT':ic
@@ -590,6 +618,7 @@ LOG         ~ 'LOG':ic
 MAXVALUE    ~ 'MAXVALUE':ic
 :lexeme     ~ MAXVALUE priority => 1
 MINUS       ~ 'MINUS':ic
+MINUTE      ~ 'MINUTE':ic
 MINVALUE    ~ 'MINVALUE':ic
 :lexeme     ~ MINVALUE priority => 1
 NATURAL     ~ 'NATURAL':ic
@@ -622,6 +651,7 @@ ROLLUP      ~ 'ROLLUP':ic
 ROW         ~ 'ROW':ic
 ROWS        ~ 'ROWS':ic
 SCN         ~ 'SCN':ic
+SECOND      ~ 'SECOND':ic
 SELECT      ~ 'SELECT':ic
 :lexeme     ~ SELECT pause => after event => keyword
 SET         ~ 'SET':ic
@@ -631,6 +661,7 @@ START       ~ 'START':ic
 THEN        ~ 'THEN':ic
 :lexeme     ~ THEN priority => 1
 TIMESTAMP   ~ 'TIMESTAMP':ic
+TO          ~ 'TO':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
 UNIQUE      ~ 'UNIQUE':ic
 UNION       ~ 'UNION':ic
@@ -908,7 +939,7 @@ sub plsql2pg::make_literal {
     return to_array($literal);
 }
 
-sub plsql2pg::make_null {
+sub plsql2pg::make_keyword {
     my (undef, $kw1, $kw2) = @_;
     my $node = make_node('keyword');
 
@@ -980,6 +1011,39 @@ sub format_else {
     my ($node) = @_;
 
     return 'ELSE ' . format_node($node->{el});
+}
+
+sub plsql2pg::make_intervalkind {
+    my (undef, $unit, $typmod) = @_;
+    my $node = make_node('keyword');
+
+    $node->{val} = uc($unit);
+    $node->{val} .= '(' . format_array($typmod, ', ') . ')' if (defined($typmod));
+
+    return $node;
+}
+
+sub plsql2pg::make_interval {
+    my (undef, undef, $literal, $kind, undef, $kind2) = @_;
+    my $node = make_node('interval');
+
+    $node->{literal} = $literal;
+    $node->{kind} = $kind;
+    $node->{kind2} = $kind2 if (defined($kind2));
+
+    return to_array($node);
+}
+
+sub format_interval {
+    my ($node) = @_;
+    my $out = 'INTERVAL';
+
+    $out .= format_node($node->{literal})
+         . format_node($node->{kind});
+
+    $out .= ' TO ' . format_node($node->{kind2}) if (defined($node->{kind2}));
+
+    return $out;
 }
 
 sub plsql2pg::make_function {
@@ -2937,8 +3001,8 @@ sub assert_one_el {
     my ($arr) = @_;
     my $func = (caller(1))[3];
 
-    error("Element is not an array in $func", $arr) if (ref($arr) ne 'ARRAY');
-    error("Array contains more than one element in $func", $arr) if (scalar @{$arr} != 1);
+    error("$func: Element is not an array in $func", $arr) if (ref($arr) ne 'ARRAY');
+    error("$func: Array contains more than one element in $func", $arr) if (scalar @{$arr} != 1);
 }
 
 sub to_array {
