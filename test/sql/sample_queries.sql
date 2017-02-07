@@ -35,7 +35,7 @@ select count(*) from t where val in ('a', 'b') or val not in (('test')) or not e
 select null, 1, (1, (select count(*) from t)) from t2 where id1 is not and ((((id2 is not null))));
 select interval '3' hour, interval '3-6' hour(1) to second(3,1) from dual;
 select INTERVAL'20' DAY - INTERVAL'240' HOUR = INTERVAL'10-0' DAY TO SECOND from t;
-select :a, b,:c,d,:c from t where b = :a;
+select :a, b,:1,d,:1 from t where b = :a;
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);

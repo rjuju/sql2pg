@@ -696,6 +696,7 @@ ident   ~ unquoted_ident
         | '*'
 
 bindvar ~ ':' unquoted_ident
+        | ':' digits
 
 ALIAS   ~ unquoted_start unquoted_chars
         | quoted_ident

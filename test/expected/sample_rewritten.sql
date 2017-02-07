@@ -45,7 +45,7 @@ SELECT INTERVAL '20' DAY - INTERVAL '240' HOUR = INTERVAL '10-0' DAY TO SECOND F
 SELECT $1, b, $2, d, $2 FROM t WHERE b = $1 ;
 -- 2 FIXME for this statement
 -- FIXME: Bindvar :a has been translatd to parameter $1
--- FIXME: Bindvar :c has been translatd to parameter $2
+-- FIXME: Bindvar :1 has been translatd to parameter $2
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement
