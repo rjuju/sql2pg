@@ -162,12 +162,11 @@ simple_target_el ::=
 a_expr ::=
     IDENT
     | NUMBER
-    | LITERAL action => make_literal
+    | LITERAL
     | NULL action => make_keyword
     # use "NOT NULL" as a_expr instead of using "IS NOT" as an operator avoid
     # ambiguity (otherwise NOT would be considered as an ident)
     | NOT NULL action => make_keyword
-    | bindvar action => make_bindvar
 
 case_when ::=
     CASE when_expr else_expr END action => make_case_when
@@ -386,6 +385,11 @@ ALIASED_IDENT ::=
 
 NUMBER ::=
     number action => make_number
+    | bindvar action => make_bindvar
+
+LITERAL ::=
+    literal action => make_literal
+    | bindvar action => make_bindvar
 
 # PRIOR is only legal in hierarchical clause, assume original query is valid
 # join_op can't be on the LHS and RHS at the same time, assume original query
@@ -697,6 +701,7 @@ ident   ~ unquoted_ident
 
 bindvar ~ ':' unquoted_ident
         | ':' digits
+        | ':' quoted_ident
 
 ALIAS   ~ unquoted_start unquoted_chars
         | quoted_ident
@@ -708,7 +713,7 @@ unquoted_chars ~ [a-zA-Z_0-9_$#]*
 quoted_ident ~ '"' quoted_chars '"'
 quoted_chars ~ [^"]+
 
-LITERAL         ~ literal_delim literal_chars literal_delim
+literal         ~ literal_delim literal_chars literal_delim
 literal_delim   ~ [']
 literal_chars   ~ [^']*
 
@@ -899,7 +904,9 @@ sub plsql2pg::make_like {
     my (undef, undef, $like, undef, $escape) = @_;
     my $out = 'LIKE ' . format_node($like);
 
-    $out .= ' ESCAPE ' . $escape if (defined($escape));
+    assert_one_el($escape) if (defined($escape));
+
+    $out .= ' ESCAPE ' . format_node(pop(@{$escape})) if (defined($escape));
 
     return $out;
 }
@@ -969,14 +976,8 @@ sub plsql2pg::make_bindvar {
     my (undef, $var) = @_;
     my $node = make_node('bindvar');
 
-    if (not defined($bindvars{$var})) {
-        $bindvars{$var} = '$' . (scalar(keys %bindvars)+1);
-
-        add_fixme("Bindvar $var has been translatd to parameter "
-                . $bindvars{$var});
-    }
-
-    $node->{val} = $bindvars{$var};
+    # translation will be done on formatting, to avoid outputting useless fixme
+    $node->{var} = $var;
 
     return to_array($node);
 }
@@ -984,7 +985,7 @@ sub plsql2pg::make_bindvar {
 sub format_bindvar {
     my ($node) = @_;
 
-    return $node->{val};
+    return translate_bindvar($node);
 }
 
 sub plsql2pg::make_case_when {
@@ -1057,6 +1058,12 @@ sub plsql2pg::make_intervalkind {
         $node->{val} .= '(' . format_node(pop(@{$typmod})) . ')';
     }
 
+    # We still have to iterate through every remaining typmods to keep track of
+    # possibly now useless bindvars.
+    foreach my $v (@{$typmod}) {
+        useless_bindvar($v) if (isA($v, 'bindvar'));
+    }
+
     return $node;
 }
 
@@ -1064,7 +1071,9 @@ sub plsql2pg::make_interval {
     my (undef, undef, $literal, $kind, undef, $kind2) = @_;
     my $node = make_node('interval');
 
-    $node->{literal} = $literal;
+    assert_one_el($literal);
+
+    $node->{literal} = pop(@{$literal});
     $node->{kind} = $kind;
     $node->{kind2} = $kind2 if (defined($kind2));
 
@@ -1073,10 +1082,10 @@ sub plsql2pg::make_interval {
 
 sub format_interval {
     my ($node) = @_;
-    my $out = 'INTERVAL';
+    my $out = 'INTERVAL ';
 
     $out .= format_node($node->{literal})
-         . format_node($node->{kind});
+         . ' ' . format_node($node->{kind});
 
     $out .= ' TO ' . format_node($node->{kind2}) if (defined($node->{kind2}));
 
@@ -2562,8 +2571,7 @@ sub plsql2pg::format_stmts {
     my (undef, $stmts) = @_;
     my $nbfix = 0;
 
-    # reset all neeed global vars
-    new_statement();
+    $stmtno++;
 
     $out_statements .= format_comment($comments{$stmtno}{ok})
         if (defined($comments{$stmtno}{ok}));
@@ -2575,6 +2583,8 @@ sub plsql2pg::format_stmts {
         $out_statements .= format_node($stmt);
     }
     $out_statements .= " ;\n";
+
+    warn_useless_bindvars();
 
     $nbfix += (scalar(@fixme)) if (scalar(@fixme > 0));
     $nbfix += (scalar(@{$comments{$stmtno}{fixme}}))
@@ -2591,6 +2601,10 @@ sub plsql2pg::format_stmts {
             . " comments for this statement must be replaced:\n";
         $out_statements .= format_comment($comments{$stmtno}{fixme});
     }
+
+    # reset all neeed global vars, must be at the end the this function to
+    # avoid weird corner case resetting vars in the middle of a statement
+    new_statement();
 }
 
 # Handle ident conversion from oracle to pg
@@ -3019,9 +3033,48 @@ sub qual_is_rownum {
 }
 
 sub new_statement {
-    $stmtno++;
     $alias_gen = 0;
     %bindvars = ();
+}
+
+sub useless_bindvar {
+    my ($v) = @_;
+
+    # sanity check
+    return unless(isA($v, 'bindvar'));
+
+    # if the bindvar has already been used, it's not a useless bindvar
+    return if(defined($bindvars{used}{$v->{var}}));
+
+    # ok, we can add it as a for now useless bindvar
+    $bindvars{useless}{$v->{var}} = 1;
+}
+
+sub translate_bindvar {
+    my ($v) = @_;
+
+    assert_isA($v, 'bindvar');
+
+    # if it was a useless bindvar, remove this information
+    delete($bindvars{useless}{$v->{var}});
+
+    if (not defined($bindvars{used}{$v->{var}})) {
+        # pick up next param number
+        $bindvars{used}{$v->{var}} = '$' . (scalar(keys %{$bindvars{used}})+1);
+
+        add_fixme('Bindvar ' . $v->{var}
+                . ' has been translated to parameter '
+                . $bindvars{used}{$v->{var}});
+    }
+
+    return $bindvars{used}{$v->{var}};
+}
+
+sub warn_useless_bindvars {
+
+    foreach my $k (keys %{$bindvars{useless}}) {
+        add_fixme("Bindvar $k is now useless");
+    }
 }
 
 sub assert {

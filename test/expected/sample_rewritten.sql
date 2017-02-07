@@ -20,7 +20,7 @@ WITH RECURSIVE s AS (SELECT 1), recur AS (SELECT employee_id, last_name, manager
 /* hard coded value */
 SELECT $1, b, c FROM foo AS bar GROUP BY GROUPING SETS ((a), CUBE (a, b), ROLLUP (c, a), CUBE (rollup(a, b, c))) ;
 -- 1 FIXME for this statement
--- FIXME: Bindvar :val has been translatd to parameter $1
+-- FIXME: Bindvar :val has been translated to parameter $1
 SELECT * FROM tbl AS t, t2 NATURAL JOIN t3 FOR UPDATE OF t2, col NOWAIT ;
 -- 2 FIXME for this statement
 -- FIXME: Clause "WAIT 1" converted to "NOWAIT"
@@ -40,12 +40,16 @@ WITH s (id, val) AS (SELECT 1, 'val') SELECT * FROM s ;
 SELECT * FROM dual, ((t AS t1 LEFT JOIN (SELECT 1 FROM t2) AS tt USING (id)) AS subquery2 RIGHT JOIN t USING (id)) AS subquery1 ;
 SELECT count(*) FROM t WHERE val IN ('a', 'b') OR val NOT IN ('test') OR NOT EXISTS (SELECT 1 FROM t2 WHERE t2.id = t1.id) OR EXISTS (SELECT 1 FROM t3 WHERE t3.id = t1.id) ;
 SELECT NULL, 1, (1, (SELECT count(*) FROM t)) FROM t2 WHERE id1 IS not AND (id2 IS NOT NULL) ;
-SELECT INTERVAL '3' HOUR, INTERVAL '3-6' HOUR TO SECOND(1) ;
+SELECT INTERVAL '3' HOUR, INTERVAL '3-6' HOUR TO SECOND($1) WHERE val = $2 ;
+-- 3 FIXME for this statement
+-- FIXME: Bindvar :b has been translated to parameter $1
+-- FIXME: Bindvar :"h" has been translated to parameter $2
+-- FIXME: Bindvar :a is now useless
 SELECT INTERVAL '20' DAY - INTERVAL '240' HOUR = INTERVAL '10-0' DAY TO SECOND FROM t ;
 SELECT $1, b, $2, d, $2 FROM t WHERE b = $1 ;
 -- 2 FIXME for this statement
--- FIXME: Bindvar :a has been translatd to parameter $1
--- FIXME: Bindvar :1 has been translatd to parameter $2
+-- FIXME: Bindvar :a has been translated to parameter $1
+-- FIXME: Bindvar :1 has been translated to parameter $2
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement

@@ -33,7 +33,7 @@ with s (id, val) as (select 1, 'val' from dual) select * from s;
 select * from dual, (((((t t1 left join (select 1 from t2) tt using (((id)))))) right join t using (id)));
 select count(*) from t where val in ('a', 'b') or val not in (('test')) or not exists (select 1 from t2 where t2.id = t1.id) or exists (((((select 1 from t3 where t3.id=t1.id)))));
 select null, 1, (1, (select count(*) from t)) from t2 where id1 is not and ((((id2 is not null))));
-select interval '3' hour, interval '3-6' hour(1) to second(3,1) from dual;
+select interval '3' hour, interval '3-6' hour(:"h") to second(:a,:b) from dual where val = :"h";
 select INTERVAL'20' DAY - INTERVAL'240' HOUR = INTERVAL'10-0' DAY TO SECOND from t;
 select :a, b,:1,d,:1 from t where b = :a;
 -- now unsupported stuff
