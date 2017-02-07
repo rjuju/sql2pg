@@ -39,6 +39,7 @@ SELECT * FROM dual, ((t AS t1 LEFT JOIN (SELECT 1 FROM t2) AS tt USING (id)) AS 
 SELECT count(*) FROM t WHERE val IN ('a', 'b') OR val NOT IN ('test') OR NOT EXISTS (SELECT 1 FROM t2 WHERE t2.id = t1.id) OR EXISTS (SELECT 1 FROM t3 WHERE t3.id = t1.id) ;
 SELECT NULL, 1, (1, (SELECT count(*) FROM t)) FROM t2 WHERE id1 IS not AND (id2 IS NOT NULL) ;
 SELECT INTERVAL '3' HOUR, INTERVAL '3-6' HOUR TO SECOND(1) ;
+SELECT INTERVAL '20' DAY - INTERVAL '240' HOUR = INTERVAL '10-0' DAY TO SECOND FROM t ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement
