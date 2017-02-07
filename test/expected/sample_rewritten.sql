@@ -38,7 +38,7 @@ WITH s (id, val) AS (SELECT 1, 'val') SELECT * FROM s ;
 SELECT * FROM dual, ((t AS t1 LEFT JOIN (SELECT 1 FROM t2) AS tt USING (id)) AS subquery5 RIGHT JOIN t USING (id)) AS subquery4 ;
 SELECT count(*) FROM t WHERE val IN ('a', 'b') OR val NOT IN ('test') OR NOT EXISTS (SELECT 1 FROM t2 WHERE t2.id = t1.id) OR EXISTS (SELECT 1 FROM t3 WHERE t3.id = t1.id) ;
 SELECT NULL, 1, (1, (SELECT count(*) FROM t)) FROM t2 WHERE id1 IS not AND (id2 IS NOT NULL) ;
-SELECT INTERVAL '3' HOUR, INTERVAL '3-6' HOUR(1) TO SECOND(3, 1) ;
+SELECT INTERVAL '3' HOUR, INTERVAL '3-6' HOUR TO SECOND(1) ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement

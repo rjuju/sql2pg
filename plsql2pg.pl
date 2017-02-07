@@ -1018,7 +1018,12 @@ sub plsql2pg::make_intervalkind {
     my $node = make_node('keyword');
 
     $node->{val} = uc($unit);
-    $node->{val} .= '(' . format_array($typmod, ', ') . ')' if (defined($typmod));
+
+    # the typmod is only legal for SECOND in postgres, because not necessary
+    # for other units. Also, only the 2nd digit is legal/needed
+    if ( (defined($typmod)) and (uc($unit) eq 'SECOND') ) {
+        $node->{val} .= '(' . format_node(pop(@{$typmod})) . ')';
+    }
 
     return $node;
 }
