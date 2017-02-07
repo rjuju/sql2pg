@@ -2530,7 +2530,8 @@ sub plsql2pg::format_stmts {
     my (undef, $stmts) = @_;
     my $nbfix = 0;
 
-    $stmtno++;
+    # reset all neeed global vars
+    new_statement();
 
     $out_statements .= format_comment($comments{$stmtno}{ok})
         if (defined($comments{$stmtno}{ok}));
@@ -2983,6 +2984,11 @@ sub qual_is_rownum {
             and ($qual->{left}->{attribute} eq 'rownum')
             and not defined($qual->{left}->{table}))
         ));
+}
+
+sub new_statement {
+    $stmtno++;
+    $alias_gen = 0;
 }
 
 sub assert {
