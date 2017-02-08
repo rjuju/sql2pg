@@ -145,6 +145,7 @@ parens_target_el ::=
 no_parens_target_el ::=
     target_el OPERATOR target_el action => make_opexpr
     | target_el like_clause action => make_likeexpr
+    | target_el at_time_zone action => make_at_time_zone
     | simple_target_el
     | '(' target_list ')' action => parens_node
     | '(' SelectStmt ')' action => parens_node
@@ -152,6 +153,9 @@ no_parens_target_el ::=
 like_clause ::=
     LIKE target_el action => make_like
     | LIKE target_el ESCAPE LITERAL action => make_like
+
+at_time_zone ::=
+    AT TIME ZONE simple_target_el action => make_timezoneexpr
 
 simple_target_el ::=
     a_expr
@@ -576,6 +580,7 @@ ALL         ~ 'ALL':ic
 AND         ~ 'AND':ic
 AS          ~ 'AS':ic
 ASC         ~ 'ASC':ic
+AT          ~ 'AT':ic
 BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
 CASE        ~ 'CASE':ic
@@ -667,6 +672,7 @@ SKIP        ~ 'SKIP':ic
 START       ~ 'START':ic
 THEN        ~ 'THEN':ic
 :lexeme     ~ THEN priority => 1
+TIME        ~ 'TIME':ic
 TIMESTAMP   ~ 'TIMESTAMP':ic
 TO          ~ 'TO':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
@@ -683,6 +689,7 @@ WHERE       ~ 'WHERE':ic
 WAIT        ~ 'WAIT':ic
 WITH        ~ 'WITH':ic
 :lexeme     ~ WITH pause => after event => keyword
+ZONE        ~ 'ZONE':ic
 
 SEMICOLON   ~ ';'
 :lexeme     ~ SEMICOLON pause => after event => new_query
@@ -909,6 +916,31 @@ sub plsql2pg::make_like {
     $out .= ' ESCAPE ' . format_node(pop(@{$escape})) if (defined($escape));
 
     return $out;
+}
+
+sub plsql2pg::make_at_time_zone {
+    my (undef, $el, $expr) = @_;
+    my $node = make_node('at_time_zone');
+
+    $node->{el} = $el;
+    $node->{expr} = $expr;
+
+    return to_array($node);
+}
+
+sub format_at_time_zone {
+    my ($node) = @_;
+
+    return format_node($node->{el})
+           . ' AT TIME ZONE '
+           . format_node($node->{expr})
+           . format_alias($node->{alias});
+}
+
+sub plsql2pg::make_timezoneexpr {
+    my (undef, undef, undef, undef, $val) = @_;
+
+    return $val;
 }
 
 sub plsql2pg::make_number {
