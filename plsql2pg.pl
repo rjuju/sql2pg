@@ -1008,8 +1008,16 @@ sub plsql2pg::make_bindvar {
     my (undef, $var) = @_;
     my $node = make_node('bindvar');
 
-    # translation will be done on formatting, to avoid outputting useless fixme
+    # Conversion to numbered parameter will be done on formatting: there's no
+    # guarantee that every bindvar will be used, so we can't do the conversion
+    # now. Instead save the original bindvar name in a hash
     $node->{var} = $var;
+
+    # Also, declare by default this bindvar as useless.  This way, we can warn
+    # automatically about all bindvars that won't be used (this function will
+    # take care of not declaring useless a bindvar that was already used in the
+    # current statement).
+    useless_bindvar($node);
 
     return to_array($node);
 }
@@ -1088,12 +1096,6 @@ sub plsql2pg::make_intervalkind {
     # for other units. Also, only the 2nd digit is legal/needed
     if ( (defined($typmod)) and (uc($unit) eq 'SECOND') ) {
         $node->{val} .= '(' . format_node(pop(@{$typmod})) . ')';
-    }
-
-    # We still have to iterate through every remaining typmods to keep track of
-    # possibly now useless bindvars.
-    foreach my $v (@{$typmod}) {
-        useless_bindvar($v) if (isA($v, 'bindvar'));
     }
 
     return $node;
