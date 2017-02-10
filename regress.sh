@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Running regression tests..."
-./plsql2pg.pl test/sql/sample_queries.sql > test/out/rewritten.sql 2> test/out/stderr
+perl ./plsql2pg.pl test/sql/sample_queries.sql > test/out/rewritten.sql 2> test/out/stderr
 if [[ $? -ne 0 ]]; then
     echo "Error during plsql2pg;"
     cat test/out/stderr
