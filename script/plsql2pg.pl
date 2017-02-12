@@ -21,6 +21,6 @@ $input = join('', @content);
 my $converter = new plsql2pg();
 my $translated = $converter->convert($input);
 
-print join('', @{$translated});
+print $translated;
 
 exit 0;

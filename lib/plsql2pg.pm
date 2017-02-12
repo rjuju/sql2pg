@@ -112,7 +112,7 @@ sub convert {
         push (@{$value}, $comment) if ($comment ne '');
     }
 
-    return $value;
+    return join('', @{$value});
 }
 
 sub inc_stmtno {
