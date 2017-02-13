@@ -45,4 +45,5 @@ SELECT first_value(val ignore nulls) over (partition by deptno order by val) fro
 SELECT lag(val respect nulls, 1, -1) over () from t;
 SELECT lag(val, 1) respect nulls over () from t;
 SELECT val from t partition by (dt) right outer join t2 on (t2.id = t.id);
+select a,b,c from (select * from t1 join b using (id)) model dimension by (a,b) measures (c) rules (f[a,b] = 4, g[a,c] = val(2));
 -- I don't belong to any query

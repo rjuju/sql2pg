@@ -38,7 +38,7 @@ combine_op ::=
 SingleSelectStmt ::=
     with_clause SELECT select_clause from_clause join_clause
         where_clause hierarchical_clause group_clause having_clause
-        order_clause forupdate_clause action => make_select
+        model_clause order_clause forupdate_clause action => make_select
 
 UpdateStmt ::=
     UPDATE update_from_clause update_set_clause where_clause
@@ -359,9 +359,12 @@ IDENT ::=
     | ident '.' ident action => make_ident
     | ident action => make_ident
 
+IDENTS ::=
+    IDENTS ',' IDENT action => append_el_1_3
+    | IDENT
+
 ALIASED_IDENT ::=
     IDENT ALIAS_CLAUSE action => alias_node
-
 NUMBER ::=
     number action => make_number
     | bindvar action => make_bindvar
@@ -369,6 +372,10 @@ NUMBER ::=
 LITERAL ::=
     literal action => make_literal
     | bindvar action => make_bindvar
+
+LITERALS ::=
+    LITERALS ',' LITERAL action => append_el_1_3
+    | LITERAL
 
 # PRIOR is only legal in hierarchical clause, assume original query is valid
 # join_op can't be on the LHS and RHS at the same time, assume original query
@@ -427,6 +434,125 @@ group_elem ::=
 having_clause ::=
     HAVING qual_list action => make_havingclause
     | EMPTY action => ::undef
+
+model_clause ::=
+    MODEL cell_reference_options returns_rows_clause reference_models
+        main_model action => make_modelclause
+    | EMPTY
+
+cell_reference_options ::=
+    ignore_keep_nav dimension_single_reference action => discard
+    | EMPTY
+
+ignore_keep_nav ::=
+    IGNORE NAV action => discard
+    | KEEP NAV action => discard
+
+dimension_single_reference ::=
+    UNIQUE DIMENSION action => discard
+    | UNIQUE SINGLE REFERENCE action => discard
+    | EMPTY
+
+returns_rows_clause ::=
+    RETURN UPDATED ROWS action => discard
+    | RETURN ALL ROWS action => discard
+    | EMPTY
+
+reference_models ::=
+    reference_models reference_model action => discard
+    | reference_model action => discard
+    | EMPTY
+
+reference_model ::=
+    REFERENCE IDENT ON '(' SelectStmt ')' model_column_clauses
+        cell_reference_options model_rules_clause
+        action => discard
+
+model_column_clauses ::=
+    # partition_clause can be empty, assume original query is valid
+    partition_clause DIMENSION BY '(' target_list ')'
+        MEASURES '(' target_list ')' action => discard
+
+main_model ::=
+    main_model_name model_column_clauses cell_reference_options
+        model_rules_clause action => discard
+
+main_model_name ::=
+    MAIN IDENT action => discard
+    | EMPTY
+
+model_rules_clause ::=
+    rules_update_upsert iterate_clause '(' model_rules_clause_elems ')'
+        action => discard
+
+rules_update_upsert ::=
+    RULES update_upsert auto_seq_order action => discard
+    | EMPTY
+
+update_upsert ::=
+    UPDATE action => discard
+    | UPSERT action => discard
+    | UPSERT ALL action => discard
+    | EMPTY
+
+iterate_clause ::=
+    ITERATE '(' NUMBER ')' until_clause action => discard
+    | EMPTY
+
+auto_seq_order ::=
+    AUTOMATIC ORDER action => discard
+    | SEQUENTIAL ORDER action => discard
+    | EMPTY
+
+until_clause ::=
+    UNTIL '(' qual_list ')' action => discard
+    | EMPTY
+
+model_rules_clause_elems ::=
+    model_rules_clause_elems ',' model_rules_clause_elem action => discard
+    | model_rules_clause_elem
+
+model_rules_clause_elem ::=
+    update_upsert cell_assignment order_clause '=' target_el
+        action => discard
+
+cell_assignment ::=
+    IDENT '[' cell_assignment_elems ']' action => discard
+
+cell_assignment_elems ::=
+    cell_assignment_elems ',' cell_assignment_elem action => discard
+    | cell_assignment_elem action => discard
+
+cell_assignment_elem ::=
+    target_el
+    | single_column_for_loop
+    # multiple multi_column_for_loop is not legal, assume original query is valid
+    | multi_column_for_loop
+
+single_column_for_loop ::=
+    FOR IDENT single_column_for_loop_elem action => discard
+
+single_column_for_loop_elem ::=
+    IN '(' LITERALS ')' action => discard
+    | IN '(' SelectStmt ')'  action => discard
+    | like_clause FROM LITERAL TO LITERAL inc_dec LITERAL action => discard
+    | FROM LITERAL TO LITERAL inc_dec LITERAL action => discard
+
+inc_dec ::=
+    INCREMENT action => discard
+    | DECREMENT action => discard
+
+multi_column_for_loop ::=
+    FOR '(' IDENTS IN '(' multi_column_elems ')' action => discard
+    | FOR '(' IDENTS IN '(' SelectStmt ')' action => discard
+
+multi_column_elems ::=
+    multi_column_elems ',' multi_column_elem
+    | multi_column_elem
+
+multi_column_elem ::=
+    '(' LITERAL ')' action => discard
+    | LITERAL action => discard
 
 order_clause ::=
     ORDER BY order_list action => make_orderbyclause
@@ -556,6 +682,7 @@ AND         ~ 'AND':ic
 AS          ~ 'AS':ic
 ASC         ~ 'ASC':ic
 AT          ~ 'AT':ic
+AUTOMATIC   ~ 'AUTOMATIC':ic
 BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
 CASE        ~ 'CASE':ic
@@ -565,10 +692,12 @@ CUBE        ~ 'CUBE':ic
 :lexeme     ~ CUBE priority => 1
 CURRENT     ~ 'CURRENT':ic
 DAY         ~ 'DAY':ic
+DECREMENT   ~ 'DECREMENT':ic
 DELETE      ~ 'DELETE':ic
 :lexeme     ~ DELETE pause => after event => keyword
 DENSE_RANK  ~ 'DENSE_RANK':ic
 DESC        ~ 'DESC':ic
+DIMENSION   ~ 'DIMENSION':ic
 DISTINCT    ~ 'DISTINCT':ic
 ELSE        ~ 'ELSE':ic
 END         ~ 'END':ic
@@ -586,6 +715,7 @@ HAVING      ~ 'HAVING':ic
 HOUR        ~ 'HOUR':ic
 IGNORE      ~ 'IGNORE':ic
 IN          ~ 'IN':ic
+INCREMENT   ~ 'INCREMENT':ic
 INNER       ~ 'INNER':ic
 INTERVAL    ~ 'INTERVAL':ic
 INSERT      ~ 'INSERT':ic
@@ -593,6 +723,7 @@ INSERT      ~ 'INSERT':ic
 INTERSECT   ~ 'INTERSECT':ic
 INTO        ~ 'INTO':ic
 IS          ~ 'IS':ic
+ITERATE     ~ 'ITERATE':ic
 JOIN        ~ 'JOIN':ic
 KEEP        ~ 'KEEP':ic
 LAST        ~ 'LAST':ic
@@ -602,13 +733,17 @@ LIKE        ~ 'LIKE':ic
 LIMIT       ~ 'LIMIT':ic
 LOCKED       ~ 'LOCKED':ic
 LOG         ~ 'LOG':ic
+MAIN        ~ 'MAIN':ic
 MAXVALUE    ~ 'MAXVALUE':ic
 :lexeme     ~ MAXVALUE priority => 1
+MEASURES    ~ 'MEASURES':ic
 MINUS       ~ 'MINUS':ic
 MINUTE      ~ 'MINUTE':ic
 MINVALUE    ~ 'MINVALUE':ic
 :lexeme     ~ MINVALUE priority => 1
+MODEL       ~ 'MODEL':ic
 NATURAL     ~ 'NATURAL':ic
+NAV         ~ 'NAV':ic
 NOCYCLE     ~ 'NOCYCLE':ic
 # this one is unsed in qual_inop G1 rule
 NOT         ~ 'NOT':ic
@@ -628,8 +763,10 @@ PARTITION   ~ 'PARTITION':ic
 PRECEDING   ~ 'PRECEDING':ic
 PRIOR       ~ 'PRIOR':ic
 RANGE       ~ 'RANGE':ic
+REFERENCE   ~ 'REFERENCE':ic
 REJECT      ~ 'REJECT':ic
 RESPECT     ~ 'RESPECT':ic
+RETURN      ~ 'RETURN':ic
 RETURNING   ~ 'RETURNING':ic
 RIGHT       ~ 'RIGHT':ic
 :lexeme     ~ RIGHT priority => 1
@@ -637,12 +774,15 @@ ROLLUP      ~ 'ROLLUP':ic
 :lexeme     ~ ROLLUP priority => 1
 ROW         ~ 'ROW':ic
 ROWS        ~ 'ROWS':ic
+RULES       ~ 'RULES':ic
 SCN         ~ 'SCN':ic
 SECOND      ~ 'SECOND':ic
+SEQUENTIAL  ~ 'SEQUENTIAL':ic
 SELECT      ~ 'SELECT':ic
 :lexeme     ~ SELECT pause => after event => keyword
 SET         ~ 'SET':ic
 SETS        ~ 'SETS':ic
+SINGLE      ~ 'SINGLE':ic
 SKIP        ~ 'SKIP':ic
 START       ~ 'START':ic
 THEN        ~ 'THEN':ic
@@ -654,8 +794,11 @@ UNBOUNDED   ~ 'UNBOUNDED':ic
 UNIQUE      ~ 'UNIQUE':ic
 UNION       ~ 'UNION':ic
 UNLIMITED   ~ 'UNLIMITED':ic
+UNTIL       ~ 'UNTIL':ic
 UPDATE      ~ 'UPDATE':ic
 :lexeme     ~ UPDATE pause => after event => keyword
+UPDATED     ~ 'UPDATED':ic
+UPSERT      ~ 'UPSERT':ic
 USING       ~ 'USING':ic
 VALUES      ~ 'VALUES':ic
 VERSIONS    ~ 'VERSIONS':ic
@@ -729,9 +872,21 @@ sub make_alias {
 }
 
 sub concat {
-    my (undef, $a, $b) = @_;
+    my (undef, @args) = @_;
+    my $out;
 
-    return uc("$a $b");
+    foreach my $kw (@args) {
+        $out .= ' ' if (defined($out));
+        $out .= uc($kw);
+    }
+
+    return $out;
+}
+
+# Simple function to discard unhandled elements that doesn't need to be
+# deparsed
+sub discard {
+    return 0;
 }
 
 sub upper {
@@ -760,6 +915,12 @@ sub append_el_1_3 {
     push(@{$nodes}, @{$node});
 
     return $nodes;
+}
+
+sub make_modelclause {
+    add_fixme('MODEL claused ignored');
+
+    return undef;
 }
 
 sub make_target_list {

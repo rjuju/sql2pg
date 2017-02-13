@@ -77,4 +77,7 @@ SELECT lag(val, 1) OVER () FROM t ;
 SELECT val FROM t RIGHT JOIN t2 ON (t2.id = t.id) ;
 -- 1 FIXME for this statement
 -- FIXME: Partition clause ignored for outer join on table t2: PARTITION BY (dt)
+SELECT a, b, c FROM (SELECT * FROM t1 INNER JOIN b USING (id)) AS subquery1 ;
+-- 1 FIXME for this statement
+-- FIXME: MODEL claused ignored
 -- I don't belong to any query
