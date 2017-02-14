@@ -50,7 +50,7 @@ SELECT $1, b, $2, d, $2 FROM t WHERE b = $1 ;
 -- 2 FIXME for this statement
 -- FIXME: Bindvar :a has been translated to parameter $1
 -- FIXME: Bindvar :1 has been translated to parameter $2
-SELECT to_date('2017-01-01', 'YYYY-MM-DD') AT TIME ZONE 'Europe/Paris' AS "paris time", to_date(dt, $1) AT TIME ZONE $2 FROM t ;
+SELECT to_date('2017-01-01', 'YYYY-MM-DD') AT TIME ZONE 'Europe/Paris' AS "paris time", to_date(dt, $1) AT TIME ZONE $2, TIMESTAMP '2017-02-01 23:12:15' AT TIME ZONE 'CET', DATE '2017-02-01' AT TIME ZONE 'CET' FROM t ;
 -- 2 FIXME for this statement
 -- FIXME: Bindvar :fmt has been translated to parameter $1
 -- FIXME: Bindvar :tz has been translated to parameter $2

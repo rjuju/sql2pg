@@ -40,11 +40,16 @@ sub format_array {
 
 sub format_at_time_zone {
     my ($node) = @_;
+    my $out = '';
 
-    return format_node($node->{el})
+    $out = uc($node->{kw}) . ' ' if defined($node->{kw});
+
+    $out .= format_node($node->{el})
            . ' AT TIME ZONE '
            . format_node($node->{expr})
            . format_alias($node->{alias});
+
+    return $out;
 }
 
 sub format_bindvar {

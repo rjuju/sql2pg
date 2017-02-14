@@ -121,11 +121,16 @@ parens_target_el ::=
 no_parens_target_el ::=
     target_el OPERATOR target_el action => make_opexpr
     | target_el like_clause action => make_likeexpr
-    | target_el at_time_zone action => make_at_time_zone
+    | ts_or_date target_el at_time_zone action => make_at_time_zone
     | simple_target_el
     | '(' target_list ')' action => parens_node
     | '(' SelectStmt ')' action => parens_node
     | qual_list action => make_target_qual_list
+
+ts_or_date ::=
+    TIMESTAMP
+    | DATE
+    | EMPTY
 
 like_clause ::=
     LIKE target_el action => make_like
@@ -707,6 +712,7 @@ CROSS       ~ 'CROSS':ic
 CUBE        ~ 'CUBE':ic
 :lexeme     ~ CUBE priority => 1
 CURRENT     ~ 'CURRENT':ic
+DATE        ~ 'DATE':ic
 DAY         ~ 'DAY':ic
 DECREMENT   ~ 'DECREMENT':ic
 DELETE      ~ 'DELETE':ic
@@ -1012,9 +1018,10 @@ sub make_alias {
 }
 
 sub make_at_time_zone {
-    my (undef, $el, $expr) = @_;
+    my (undef, $kw, $el, $expr) = @_;
     my $node = make_node('at_time_zone');
 
+    $node->{kw} = $kw;
     $node->{el} = $el;
     $node->{expr} = $expr;
 
