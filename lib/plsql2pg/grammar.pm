@@ -121,16 +121,20 @@ parens_target_el ::=
 no_parens_target_el ::=
     target_el OPERATOR target_el action => make_opexpr
     | target_el like_clause action => make_likeexpr
-    | ts_or_date target_el at_time_zone action => make_at_time_zone
+    | at_tz_prefix_opt target_el at_time_zone action => make_at_time_zone
+    | at_tz_prefix target_el action => make_at_time_zone
     | simple_target_el
     | '(' target_list ')' action => parens_node
     | '(' SelectStmt ')' action => parens_node
     | qual_list action => make_target_qual_list
 
-ts_or_date ::=
+at_tz_prefix_opt ::=
+    at_tz_prefix
+    | EMPTY
+
+at_tz_prefix ::=
     TIMESTAMP
     | DATE
-    | EMPTY
 
 like_clause ::=
     LIKE target_el action => make_like

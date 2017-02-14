@@ -43,11 +43,10 @@ sub format_at_time_zone {
     my $out = '';
 
     $out = uc($node->{kw}) . ' ' if defined($node->{kw});
-
-    $out .= format_node($node->{el})
-           . ' AT TIME ZONE '
-           . format_node($node->{expr})
-           . format_alias($node->{alias});
+    $out .= format_node($node->{el});
+    $out .= ' AT TIME ZONE ' . format_node($node->{expr})
+        if (defined($node->{expr}));
+    $out .= format_alias($node->{alias});
 
     return $out;
 }
