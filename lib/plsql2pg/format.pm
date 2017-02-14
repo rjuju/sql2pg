@@ -20,6 +20,12 @@ sub format_alias {
     return '';
 }
 
+sub format_appended_quals {
+    my ($node) = @_;
+
+    return format_quallist($node->{quallist});
+}
+
 sub format_array {
     my ($arr, $delim) = @_;
     my $out = '';
@@ -378,7 +384,8 @@ sub format_parens {
     my ($parens) = @_;
     my $out = format_node($parens->{node});
 
-    return '(' . $out . ')' if (defined($out) and ($out ne ''));
+    return '(' . $out . ')' .format_alias($parens->{alias})
+        if (defined($out) and ($out ne ''));
     return '';
 }
 
@@ -399,6 +406,8 @@ sub format_qual {
 
     $out .= ' ' . $qual->{op2} . ' ' . format_node($qual->{right2})
         if (defined($qual->{op2}));
+
+    $out .= format_alias($qual->{alias});
 
     return $out;
 }
@@ -498,6 +507,12 @@ sub format_SUBQUERY {
     $out .= $alias;
 
     return $out;
+}
+
+sub format_target_quallist {
+    my ($node) = @_;
+
+    return format_quallist($node->{quallist}) . format_alias($node->{alias});
 }
 
 sub format_target_list {

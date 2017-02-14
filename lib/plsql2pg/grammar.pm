@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use 5.010;
 
+use Data::Dumper;
 use plsql2pg::format;
 use plsql2pg::utils;
 
@@ -124,6 +125,7 @@ no_parens_target_el ::=
     | simple_target_el
     | '(' target_list ')' action => parens_node
     | '(' SelectStmt ')' action => parens_node
+    | qual_list action => make_target_qual_list
 
 like_clause ::=
     LIKE target_el action => make_like
@@ -348,7 +350,7 @@ qual_list ::=
 
 qual_list_with_parens ::=
     '(' qual_list_no_parens ')' action => parens_node
-    | '(' qual_list_with_parens ')' action => parens_node
+    | '(' qual_list_with_parens ')' action => second
 
 qual_list_no_parens ::=
     qual_list qual_op qual action => append_qual
@@ -1666,6 +1668,15 @@ sub make_subquery {
     $clause = make_clause('SUBQUERY', $node);
 
     return node_to_array($clause);
+}
+
+sub make_target_qual_list {
+    my (undef, $quals) = @_;
+    my $node = make_node('target_quallist');
+
+    $node->{quallist} = $quals;
+
+    return node_to_array($node);
 }
 
 sub make_target_list {

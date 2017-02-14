@@ -28,14 +28,12 @@ sub add_fixme {
 
 sub assert {
     my ($ok, $msg, @args) = @_;
-    my $func = (caller(1))[3];
 
-    error("Assert error in $func:" . "\n" . $msg, @args) if (not $ok);
+    error("Assert error:" . "\n" . $msg, @args) if (not $ok);
 }
 
 sub assert_isA {
     my ($node, $type, @args) = @_;
-    my $func = (caller(1))[3];
 
     if (not isA($node, $type)) {
         error("Unexpected node type " . $node->{type} . ", expected $type",
@@ -45,11 +43,10 @@ sub assert_isA {
 
 sub assert_one_el {
     my ($arr) = @_;
-    my $func = (caller(1))[3];
 
-    error("$func: Element is not an array in $func", $arr)
+    error("Element is not an array", $arr)
         if (ref($arr) ne 'ARRAY');
-    error("$func: Array contains more than one element in $func", $arr)
+    error("Array contains more than one element", $arr)
         if (scalar @{$arr} != 1);
 }
 
@@ -74,8 +71,14 @@ sub combine_and_parens_select {
 
 sub error {
     my ($msg, @args) = @_;
+    my $i=1;
 
     print "ERROR: $msg\n";
+
+    while ( (my @c = (caller($i++))) ) {
+        print "in $c[3]\n";
+    }
+
     foreach my $node (@args) {
         print Dumper($node);
     }
@@ -631,7 +634,7 @@ sub whereclause_walker {
     return whereclause_walker($func, $node->{node}, $stmt)
         if isA($node, 'parens');
     return whereclause_walker($func, $node->{quallist}, $stmt)
-        if isA($node, 'quallist');
+        if (isA($node, 'quallist') or isA($node, 'appended_quals'));
 
     for ($i=0; $i<(scalar @{$node}); $i++) {
         my $qual = @{$node}[$i];
@@ -743,7 +746,8 @@ sub _parens_node {
     my $parens = make_node('parens');
 
     $parens->{node} = $node;
-    prune_parens($node);
+    prune_parens($parens);
+
     return node_to_array($parens);
 }
 

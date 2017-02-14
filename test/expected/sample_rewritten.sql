@@ -55,6 +55,7 @@ SELECT to_date('2017-01-01', 'YYYY-MM-DD') AT TIME ZONE 'Europe/Paris' AS "paris
 -- FIXME: Bindvar :fmt has been translated to parameter $1
 -- FIXME: Bindvar :tz has been translated to parameter $2
 SELECT a, b, c FROM t TABLESAMPLE SYSTEM (3) REPEATABLE (.2) AS "S" ;
+SELECT a = 1 OR b = 2 AS v1, (a = 1 OR b = 2) AS v2 FROM t ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement

@@ -38,6 +38,7 @@ select INTERVAL'20' DAY - INTERVAL'240' HOUR = INTERVAL'10-0' DAY TO SECOND from
 select :a, b,:1,d,:1 from t where b = :a;
 select to_date('2017-01-01', 'YYYY-MM-DD') at time zone 'Europe/Paris' "paris time", to_date(dt, :fmt) at time zone :tz from t;
 select a,b,c from t sample block (3) seed (.2)"S";
+select a = 1 OR b = 2 v1,(a = 1 OR b = 2)v2 from t;
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
