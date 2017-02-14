@@ -260,11 +260,24 @@ flashback_from_elem ::=
     simple_from_elem flashback_clause action => add_flashback
 
 simple_from_elem ::=
-    IDENT
+    IDENT sample_clause action => add_sample_clause
     | '(' SelectStmt ')' action => make_subquery
     # ONLY is not valid for DELETE, assume original query is valid
     | ONLY '(' simple_from_elem ')' action => make_fromonly
     | '(' subjoin ')' action => second
+
+sample_clause ::=
+    SAMPLE sample_block '(' number ')' sample_seed
+        action => make_sample_clause
+    | EMPTY
+
+sample_block ::=
+    BLOCK
+    | EMPTY
+
+sample_seed ::=
+    SEED '(' number ')' action => make_sample_seed
+    | EMPTY
 
 subjoin ::=
     subjoin_ident join_list action => make_subjoin
@@ -684,6 +697,7 @@ ASC         ~ 'ASC':ic
 AT          ~ 'AT':ic
 AUTOMATIC   ~ 'AUTOMATIC':ic
 BETWEEN     ~ 'BETWEEN':ic
+BLOCK       ~ 'BLOCK':ic
 BY          ~ 'BY':ic
 CASE        ~ 'CASE':ic
 CONNECT     ~ 'CONNECT':ic
@@ -775,8 +789,10 @@ ROLLUP      ~ 'ROLLUP':ic
 ROW         ~ 'ROW':ic
 ROWS        ~ 'ROWS':ic
 RULES       ~ 'RULES':ic
+SAMPLE      ~ 'SAMPLE':ic
 SCN         ~ 'SCN':ic
 SECOND      ~ 'SECOND':ic
+SEED        ~ 'SEED':ic
 SEQUENTIAL  ~ 'SEQUENTIAL':ic
 SELECT      ~ 'SELECT':ic
 :lexeme     ~ SELECT pause => after event => keyword
@@ -877,6 +893,16 @@ sub add_flashback {
     add_fixme($info);
 
     return $node;
+}
+
+sub add_sample_clause {
+    my (undef, $ident, $sample) = @_;
+
+    assert_one_el($ident);
+
+    @{$ident}[0]->{sample} = $sample if (defined($sample));
+
+    return $ident;
 }
 
 sub alias_node {
@@ -1566,6 +1592,22 @@ sub make_rollupcube {
     $rollbupcube->{tlist} = $tlist;
 
     return node_to_array($rollbupcube);
+}
+
+sub make_sample_clause {
+    my (undef, undef, undef, undef, $percent, undef, $seed) = @_;
+    my $node = make_node('sample');
+
+    $node->{percent} = $percent;
+    $node->{seed} = $seed if (defined($seed));
+
+    return $node;
+}
+
+sub make_sample_seed {
+    my (undef, undef, undef, $seed, undef) = @_;
+
+    return $seed;
 }
 
 sub make_select {

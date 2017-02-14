@@ -222,6 +222,7 @@ sub format_ident {
         }
     }
 
+    $out .= format_node($ident->{sample}) if (defined($ident->{sample}));
     $out .= format_alias($ident->{alias});
 
     return $out;
@@ -520,6 +521,16 @@ sub format_using {
 
     $out = 'USING (' . $out;
     $out .= ')';
+    return $out;
+}
+
+sub format_sample {
+    my ($node) = @_;
+    my $out = ' TABLESAMPLE SYSTEM (';
+
+    $out .= $node->{percent} . ')';
+    $out .= ' REPEATABLE (' . $node->{seed} . ')' if (defined($node->{seed}));
+
     return $out;
 }
 
