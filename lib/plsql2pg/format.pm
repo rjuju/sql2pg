@@ -113,6 +113,12 @@ sub format_else {
     return 'ELSE ' . format_node($node->{el});
 }
 
+sub format_explain {
+    my ($node) = @_;
+
+    return 'EXPLAIN ' . format_node($node->{stmts});
+}
+
 sub format_FLASHBACK {
     my ($node) = @_;
 

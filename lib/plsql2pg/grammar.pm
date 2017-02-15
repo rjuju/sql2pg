@@ -17,10 +17,27 @@ stmtmulti ::=
     stmt* separator => SEMICOLON action => ::array
 
 stmt ::=
-    CombinedSelectStmt action => call_format_stmts
-    | UpdateStmt action => call_format_stmts
-    | DeleteStmt action => call_format_stmts
-    | InsertStmt action => call_format_stmts
+    raw_stmt action => call_format_stmts
+    | ExplainStmt action => call_format_stmts
+
+raw_stmt ::=
+    CombinedSelectStmt
+    | UpdateStmt
+    | DeleteStmt
+    | InsertStmt
+    | ExplainStmt
+
+ExplainStmt ::=
+    EXPLAIN PLAN explain_set explain_into FOR raw_stmt
+        action => make_explainplan
+
+explain_set ::=
+    SET STATEMENT_ID '=' literal action => make_explain_set
+    | EMPTY
+
+explain_into ::=
+    INTO IDENT action => make_explain_into
+    | EMPTY
 
 CombinedSelectStmt ::=
     SelectStmt order_clause action => append_orderbyclause
@@ -730,6 +747,8 @@ END         ~ 'END':ic
 ERRORS      ~ 'ERRORS':ic
 ESCAPE      ~ 'ESCAPE':ic
 EXISTS      ~ 'EXISTS':ic
+EXPLAIN     ~ 'EXPLAIN':ic
+:lexeme     ~ EXPLAIN pause => after event => keyword
 FIRST       ~ 'FIRST':ic
 FOLLOWING   ~ 'FOLLOWING':ic
 FOR         ~ 'FOR':ic
@@ -786,6 +805,7 @@ ON          ~ 'ON':ic
 OUTER       ~ 'OUTER':ic
 OVER        ~ 'OVER':ic
 PARTITION   ~ 'PARTITION':ic
+PLAN        ~ 'PLAN':ic
 PRECEDING   ~ 'PRECEDING':ic
 PRIOR       ~ 'PRIOR':ic
 RANGE       ~ 'RANGE':ic
@@ -813,6 +833,7 @@ SETS        ~ 'SETS':ic
 SINGLE      ~ 'SINGLE':ic
 SKIP        ~ 'SKIP':ic
 START       ~ 'START':ic
+STATEMENT_ID~ 'STATEMENT_ID':ic
 THEN        ~ 'THEN':ic
 :lexeme     ~ THEN priority => 1
 TIME        ~ 'TIME':ic
@@ -1148,6 +1169,36 @@ sub make_existsqual {
     }
 
     return node_to_array($qual);
+}
+
+sub make_explain_into {
+    my (undef, undef, $ident) = @_;
+
+    return $ident;
+}
+
+sub make_explainplan {
+    my (undef, undef, undef, $set, $into, undef, $stmts) = @_;
+    my $node = make_node('explain');
+    my $msg = '';
+
+    $node->{stmts} = $stmts;
+
+    $msg .= 'SET STATEMENT_ID = ' . $set if defined ($set);
+    if (defined($into)) {
+        $msg .= ' ' unless($msg eq '');
+        $msg .= 'INTO ' . format_node($into);
+    }
+
+    add_fixme('EXPLAIN clause ignored: ' . $msg) if ($msg ne '');
+
+    return node_to_array($node);
+}
+
+sub make_explain_set {
+    my (undef, undef, undef, undef, $literal) = @_;
+
+    return $literal;
 }
 
 sub make_flashback_clause {
