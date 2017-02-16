@@ -265,14 +265,14 @@ RANGE_ROWS ::=
     | ROWS action => upper
 
 frame_start ::=
-    UNBOUNDED PRECEDING action => concat
-    | CURRENT ROW action => concat
-    | number PRECEDING action => concat
+    UNBOUNDED PRECEDING action => make_frame_boundary
+    | CURRENT ROW action => make_frame_boundary
+    | NUMBER PRECEDING action => make_frame_boundary
 
 frame_end ::=
-    UNBOUNDED FOLLOWING action => concat
-    | CURRENT ROW action => concat
-    | number FOLLOWING action => concat
+    UNBOUNDED FOLLOWING action => make_frame_boundary
+    | CURRENT ROW action => make_frame_boundary
+    | NUMBER FOLLOWING action => make_frame_boundary
 
 from_clause ::=
     FROM from_list action => make_fromclause
@@ -295,7 +295,7 @@ simple_from_elem ::=
     | '(' subjoin ')' action => second
 
 sample_clause ::=
-    SAMPLE sample_block '(' number ')' sample_seed
+    SAMPLE sample_block '(' NUMBER ')' sample_seed
         action => make_sample_clause
     | EMPTY
 
@@ -304,7 +304,7 @@ sample_block ::=
     | EMPTY
 
 sample_seed ::=
-    SEED '(' number ')' action => make_sample_seed
+    SEED '(' NUMBER ')' action => make_sample_seed
     | EMPTY
 
 subjoin ::=
@@ -406,9 +406,6 @@ IDENTS ::=
 
 ALIASED_IDENT ::=
     IDENT ALIAS_CLAUSE action => alias_node
-NUMBER ::=
-    number action => make_number
-    | bindvar action => make_bindvar
 
 LITERAL ::=
     literal action => make_literal
@@ -634,7 +631,7 @@ forupdate_list ::=
 
 forupdate_wait_clause ::=
     NOWAIT action => upper
-    | WAIT integer action => make_forupdate_wait
+    | WAIT INTEGER action => make_forupdate_wait
     | SKIP LOCKED action => concat
     | EMPTY
 
@@ -704,7 +701,7 @@ data_item ::=
 
 error_logging_clause ::=
     LOG ERRORS err_log_into err_log_list action => make_errlog_clause1
-    | REJECT LIMIT number action => make_errlog_clause2
+    | REJECT LIMIT NUMBER action => make_errlog_clause2
     | REJECT LIMIT UNLIMITED action => make_errlog_clause2
     | EMPTY
 
@@ -716,6 +713,22 @@ err_log_list ::=
     '(' target_list ')' action => second
     | EMPTY
 
+sign ::=
+    '-'
+    | '+'
+    | EMPTY
+
+INTEGER ::=
+    sign integer action => make_number
+    | bindvar action => make_bindvar
+
+FLOAT ::=
+    sign float action => make_number
+    | bindvar action => make_bindvar
+
+NUMBER ::=
+    INTEGER
+    | FLOAT
 
 # keywords
 ALL         ~ 'ALL':ic
@@ -862,9 +875,8 @@ SEMICOLON   ~ ';'
 :lexeme     ~ SEMICOLON pause => after event => new_query
 
 # everything else
-number  ~ digits | '-' digits | float | '-' float
-integer ~ digits
 digits ~ [0-9]+
+integer ~ digits
 float   ~ digits '.' digits
         | '.' digits
 
@@ -1147,7 +1159,13 @@ sub make_errlog_clause1 {
 
 sub make_errlog_clause2 {
     my (undef, undef, undef, $limit) = @_;
-    my $msg = 'REJECT LIMIT ' . uc($limit);
+    my $msg = 'REJECT LIMIT ';
+
+    if (not ref($limit)) {
+        $msg .= uc($limit);
+    } else {
+        $msg .= format_node($limit);
+    }
 
     add_fixme('Error logging clause ignored: "' . $msg . '"');
 
@@ -1239,9 +1257,25 @@ sub make_forupdateclause {
 sub make_forupdate_wait {
     my (undef, $kw, $delay) = @_;
 
-    add_fixme("Clause \"WAIT $delay\" converted to \"NOWAIT\"");
+    add_fixme('Clause "WAIT '
+                . format_node($delay)
+                . '" converted to "NOWAIT"');
 
     return 'NOWAIT';
+}
+
+sub make_frame_boundary {
+    my (undef, $el1, $el2) = @_;
+    my $node = make_node('frame_boundary');
+
+    # use keyword node to avoid extra space around them
+    $el1 = make_keyword(undef, $el1) if (not ref($el1));
+    $el2 = make_keyword(undef, $el2);
+
+    $node->{el1} = $el1;
+    $node->{el2} = $el2;
+
+    return $node;
 }
 
 sub make_frame_between {
@@ -1517,10 +1551,11 @@ sub make_normaljoin {
 }
 
 sub make_number {
-    my (undef, $val) = @_;
+    my (undef, $sign, $val) = @_;
     my $number = make_node('number');
 
-    $number->{val} = $val;
+    $number->{sign} = $sign;
+    $number->{val} .= $val;
 
     return node_to_array($number);
 }

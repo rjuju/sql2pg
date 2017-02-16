@@ -142,11 +142,25 @@ sub format_frame {
     my ($frame) = @_;
 
     if (defined($frame->{frame_end})) {
-        return $frame->{rangerows} . " BETWEEN "
-            . $frame->{frame_start} . " AND " . $frame->{frame_end};
+        return
+            $frame->{rangerows}
+            . " BETWEEN "
+            . format_node($frame->{frame_start})
+            . " AND "
+            . format_node($frame->{frame_end});
     } else {
-        return $frame->{rangerows} . " " . $frame->{frame_start};
+        return
+            $frame->{rangerows}
+            . " "
+            . format_node($frame->{frame_start});
     }
+}
+
+sub format_frame_boundary {
+    my ($node) = @_;
+    my $out = '';
+
+    return format_node($node->{el1}) . ' ' . format_node($node->{el2});
 }
 
 sub format_FROM {
@@ -349,9 +363,14 @@ sub format_node {
 }
 
 sub format_number {
-    my ($number) = @_;
+    my ($num) = @_;
+    my $out = '';
 
-    return $number->{val} . format_alias($number->{alias});
+    $out .= $num->{sign} if (defined($num->{sign}) and ($num->{sign} ne '+') );
+    $out .= $num->{val};
+    $out .= format_alias($num->{alias});
+
+    return $out;
 }
 
 sub format_OFFSET {
@@ -553,8 +572,9 @@ sub format_sample {
     my ($node) = @_;
     my $out = ' TABLESAMPLE SYSTEM (';
 
-    $out .= $node->{percent} . ')';
-    $out .= ' REPEATABLE (' . $node->{seed} . ')' if (defined($node->{seed}));
+    $out .= format_node($node->{percent}) . ')';
+    $out .= ' REPEATABLE (' . format_node($node->{seed}) . ')'
+        if (defined($node->{seed}));
 
     return $out;
 }
