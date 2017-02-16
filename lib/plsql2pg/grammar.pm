@@ -162,14 +162,14 @@ at_time_zone ::=
 
 simple_target_el ::=
     a_expr
-    | case_when
-    | function
     | interval
 
 a_expr ::=
     IDENT
     | NUMBER
     | LITERAL
+    | case_when
+    | function
     | NULL action => make_keyword
     # use "NOT NULL" as a_expr instead of using "IS NOT" as an operator avoid
     # ambiguity (otherwise NOT would be considered as an ident)
