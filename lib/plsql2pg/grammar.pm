@@ -468,6 +468,8 @@ group_elem ::=
     | ROLLUP '(' target_list ')' action => make_rollupcube
     | CUBE '(' target_list ')' action => make_rollupcube
     | GROUPING SETS '(' group_list ')' action => make_groupingsetsclause
+    # only legal in GROUPING SETS list elem
+    | '()' action => make_keyword # simple way to have empty parens as-is, not pruned
 
 having_clause ::=
     HAVING qual_list action => make_havingclause

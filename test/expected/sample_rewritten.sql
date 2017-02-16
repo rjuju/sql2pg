@@ -18,7 +18,7 @@ WITH RECURSIVE s AS (SELECT 1), recur AS (SELECT employee_id, last_name, manager
 -- this is the FROM clause
 --should not happen
 /* hard coded value */
-SELECT $1, b, c FROM foo AS bar GROUP BY GROUPING SETS ((a), CUBE (a, b), ROLLUP (c, a), CUBE (rollup(a, b, c))) ;
+SELECT $1, b, c FROM foo AS bar GROUP BY GROUPING SETS ((a), (), CUBE (a, b), ROLLUP (c, a), CUBE (rollup(a, b, c)), GROUPING SETS (())) ;
 -- 1 FIXME for this statement
 -- FIXME: Bindvar :val has been translated to parameter $1
 SELECT * FROM tbl AS t, t2 NATURAL JOIN t3 FOR UPDATE OF t2, col NOWAIT ;
