@@ -366,8 +366,12 @@ sub format_number {
     my ($num) = @_;
     my $out = '';
 
+    $out .= 'CAST(' if (defined($num->{cast}));
     $out .= $num->{sign} if (defined($num->{sign}) and ($num->{sign} ne '+') );
     $out .= $num->{val};
+    if (defined($num->{cast})) {
+        $out .= ' AS ' . ($num->{cast} eq 'd' ? 'float' : 'real') . ')';
+    }
     $out .= format_alias($num->{alias});
 
     return $out;

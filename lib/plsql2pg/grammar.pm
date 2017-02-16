@@ -877,10 +877,27 @@ SEMICOLON   ~ ';'
 :lexeme     ~ SEMICOLON pause => after event => new_query
 
 # everything else
-digits ~ [0-9]+
-integer ~ digits
-float   ~ digits '.' digits
-        | '.' digits
+digits      ~ [0-9]+
+integer     ~ digits
+            | digits expcast
+float       ~ digits '.' digits
+            | digits '.' digits expcast
+            | '.' digits
+            | '.' digits expcast
+# exponent and type are done in L0 since no whitespace is allowed here
+expcast     ~ exponent
+            | cast
+            | exponent cast
+exponent    ~ 'e' digits
+            | 'E' digits
+            | 'e-' digits
+            | 'E-' digits
+            | 'e+' digits
+            | 'E+' digits
+cast        ~ 'd'
+            | 'D'
+            | 'f'
+            | 'F'
 
 ident   ~ unquoted_ident
         | quoted_ident
@@ -1555,6 +1572,12 @@ sub make_normaljoin {
 sub make_number {
     my (undef, $sign, $val) = @_;
     my $number = make_node('number');
+
+    # extract possible float/double type indicator
+    if ($val =~ /[df]$/i) {
+        $number->{cast} = lc(substr($val, -1));
+        $val = substr($val, 0, -1);
+    }
 
     $number->{sign} = $sign;
     $number->{val} .= $val;
