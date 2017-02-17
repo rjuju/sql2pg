@@ -54,8 +54,8 @@ combine_op ::=
     | MINUS
 
 SingleSelectStmt ::=
-    with_clause SELECT select_clause from_clause join_clause
-        where_clause hierarchical_clause group_clause having_clause
+    with_clause SELECT select_clause from_clause where_clause
+        hierarchical_clause group_clause having_clause
         model_clause order_clause forupdate_clause action => make_select
 
 UpdateStmt ::=
@@ -282,6 +282,9 @@ from_list ::=
     | from_elem
 
 from_elem ::=
+    aliased_flashback_from_elem join_clause action => append_joinlist
+
+aliased_flashback_from_elem ::=
     flashback_from_elem ALIAS_CLAUSE action => alias_node
 
 flashback_from_elem ::=
@@ -316,11 +319,11 @@ subjoin_ident ::=
     | '(' subjoin ')' action => second
 
 join_clause ::=
-    join_list action => make_joinclause
+    join_list
     | EMPTY action => ::undef
 
 join_list ::=
-    join_list join_elem action => append_join
+    join_list join_elem action => append_el_1_2
     | join_elem
 
 join_elem ::=
@@ -1006,12 +1009,14 @@ sub append_function_arg {
     return $nodes;
 }
 
-sub append_join {
-    my (undef, $joins, $join) = @_;
+sub append_joinlist {
+    my (undef, $from, $joins) = @_;
 
-    push(@{$joins}, $join);
+    return $from unless (defined($joins));
 
-    return $joins;
+    push(@{$from}, @{$joins});
+
+    return $from;
 }
 
 sub append_orderbyclause {
@@ -1464,12 +1469,6 @@ sub make_intervalkind {
     return $node;
 }
 
-sub make_joinclause {
-    my (undef, $joins) = @_;
-
-    return make_clause('JOIN', $joins);
-}
-
 sub make_joinon {
     my (undef, undef, $quallist) = @_;
     my $node = make_node('join_on');
@@ -1657,6 +1656,8 @@ sub make_priorqual {
     return node_to_array($node);
 }
 
+# Make a new qual node. If this node is an SQL89 join element, always return it
+# in the form a = b(+)
 sub make_qual {
     my (undef, $left, $join_op1, $op, $right, $join_op2) = @_;
     my $qual = make_node('qual');

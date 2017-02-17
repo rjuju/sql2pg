@@ -85,53 +85,60 @@ sub error {
     exit 1;
 }
 
+# Search if the given table name (real name or alias) exists in an array on
+# from_elem.  If found, return the matching node and entry position in the
+# array, otherwise undef and -1.
 sub find_table_in_array {
     my ($name, $array) = @_;
+    my $i = 0;
 
-    return undef unless (defined($array));
+    return (undef, -1) unless (defined($array));
 
     # first, check if a table has the wanted name as alias to avoid returning
     # the wrong one
     foreach my $t (@{$array}) {
         if (isA($t, 'ident')) {
             if (defined($t->{alias}) and $t->{alias} eq $name) {
-                return($t);
+                return($t, $i);
             }
         } elsif (isA($t, 'join')) {
             if (defined($t->{ident}->{alias}) and $t->{ident}->{alias} eq $name) {
-                return($t);
+                return($t, $i);
             }
         } elsif (isA($t, 'SUBQUERY')) {
             if (defined($t->{alias}) and $t->{alias} eq $name) {
-                return($t);
+                return($t, $i);
             }
         } else {
             error('Node type ' . $t->{type} . ' unexpected', $t);
         }
+        $i++;
     }
 
+    $i=0;
     # no, then look for real table name
     foreach my $t (@{$array}) {
         if (isA($t, 'ident')) {
             if ($t->{attribute} eq $name) {
-                return($t);
+                return($t, $i);
             }
         } elsif (isA($t, 'join')) {
             # ignore if the join ident isn't an ident (probably a subquery),
             # because only the alias can be referred
             next unless(isA($t->{ident}, 'ident'));
             if ($t->{ident}->{attribute} eq $name) {
-                return($t);
+                return($t, $i);
             }
         } elsif (isA($t, 'SUBQUERY')) {
             # only alias can be used as reference for a SUBQUERY
         } else {
             error("Node unexpected", $t);
         }
+        $i++;
     }
 
     # not found, say it to caller
-    return undef;
+    return (undef, -1);
 }
 
 sub generate_alias {
@@ -361,7 +368,6 @@ sub handle_missing_alias {
 sub handle_nonsqljoin {
     my ($stmt) = @_;
     my $joins = [];
-    my $finaljoins = [];
     my $quals;
     my $last_fail = undef;
 
@@ -379,7 +385,7 @@ sub handle_nonsqljoin {
         $t = splice_table_from_fromlist($qual->{right}->{table},
                                         $stmt->{FROM}->{content});
 
-        $t = find_table_in_array($qual->{right}->{table}, $joins)
+        ($t, undef) = find_table_in_array($qual->{right}->{table}, $joins)
             unless(defined($t));
 
         assert((defined($t)), "could not find relation "
@@ -423,15 +429,13 @@ sub handle_nonsqljoin {
         }
     }
 
-    # Start to build the join_clause to be able to add joins in the right order
-    $stmt->{JOIN} = make_clause('JOIN', $finaljoins);
-
     # We now have all the join node, make sure we add them in the right order
     while (scalar(@{$joins}) > 0) {
         # Take the last element
         my $join = pop(@{$joins});
         my $left;
         my $right;
+        my $pos;
 
         # XXX The quallist can contain multiple entries, assume there are not
         # different dependancies in all of them
@@ -444,9 +448,11 @@ sub handle_nonsqljoin {
         $right = @{$join->{cond}->{quallist}}[0]->{right};
         assert((isA($right, 'ident')), "right node is not an ident", $right);
 
-        if (table_in_from_join($left->{table}, $stmt)) {
-            # We found the dependency, add the join and reset last_fail
-            push(@{$stmt->{JOIN}->{content}}, $join);
+        (undef, $pos) = find_table_in_array($left->{table},
+                                            $stmt->{FROM}->{content});
+        if ($pos >= 0) {
+            # We found the dependency, add the join after it and reset last_fail
+            splice @{$stmt->{FROM}->{content}}, $pos+1, 0, $join;
             $last_fail = undef;
         } else {
             # dependency not found, check if we looped all pending join without
@@ -845,21 +851,6 @@ sub splice_table_from_fromlist {
 
     # not found, say it to caller
     return undef;
-}
-
-sub table_in_from_join {
-    my ($name, $stmt) = @_;
-    my $t;
-
-    assert((defined($name)), "No name provided");
-
-    # Check if the wanted table is in the join_clause
-    $t = find_table_in_array($name, $stmt->{JOIN}->{content});
-    return 1 if defined($t);
-
-    # No, check in the from_clause
-    $t = find_table_in_array($name, $stmt->{FROM}->{content});
-    return (defined($t));
 }
 
 sub translate_bindvar {

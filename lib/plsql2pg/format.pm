@@ -165,7 +165,18 @@ sub format_frame_boundary {
 
 sub format_FROM {
     my ($from) = @_;
-    my $out = format_standard_clause($from, ', ');
+    my $out = '';
+
+    foreach my $node (@{$from->{content}}) {
+        if ($out ne '') {
+            if (isA($node, 'join')) {
+                $out .= ' ';
+            } else {
+                $out .= ', ';
+            }
+        }
+        $out .= format_node($node);
+    }
 
     return undef if ($out eq 'dual');
     return "FROM " . $out;
@@ -291,12 +302,6 @@ sub format_join {
     $out .= ' ' . format_node($join->{cond}) if defined($join->{cond});
 
     return $out;
-}
-
-sub format_JOIN {
-    my ($join) = @_;
-
-    return format_standard_clause($join, ' ');
 }
 
 sub format_join_on {
@@ -469,7 +474,7 @@ sub format_rollupcube {
 
 sub format_select {
     my ($stmt) = @_;
-    my @clauselist = ('WITH', 'SELECT', 'FROM', 'JOIN', 'WHERE', 'GROUPBY',
+    my @clauselist = ('WITH', 'SELECT', 'FROM', 'WHERE', 'GROUPBY',
         'HAVING', 'ORDERBY', 'FORUPDATE', 'LIMIT', 'OFFSET');
     my $nodes;
     my $out = '';

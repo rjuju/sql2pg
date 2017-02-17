@@ -59,6 +59,7 @@ SELECT a = 1 OR b = 2 AS v1, (a = 1 OR b = 2) AS v2 FROM t ;
 EXPLAIN DELETE FROM t WHERE id < 10 ;
 -- 1 FIXME for this statement
 -- FIXME: EXPLAIN clause ignored: SET STATEMENT_ID = 'del stmt' INTO del_tables
+SELECT * FROM a LEFT JOIN a1 ON a.id = a1.id LEFT JOIN a2 ON a1.id = a2.id, b LEFT JOIN b1 ON b.id >= b1.id LEFT JOIN b2 ON b1.id = b2.id AND b1.id2 = b2.id2 WHERE  AND a.id = b.id ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement
