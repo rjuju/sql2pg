@@ -45,7 +45,7 @@ select * from a, a1, a2, b, b1, b2 where a.id = a1.id(+) and a1.id = a2.id(+) an
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
 UPDATE t1 SET val = 't' WHERE id = 1 RETURNING (id%2), * INTO a,b REJECT LIMIT 3;
-SELECT first_value(val ignore nulls) over (partition by deptno order by val) from t;
+SELECT first_value(val ignore nulls) over (partition by deptno order by val) from t order siblings by 1;
 SELECT lag(val respect nulls, 1, -1) over () from t;
 SELECT lag(val, 1) respect nulls over () from t;
 SELECT val from t partition by (dt) right outer join t2 on (t2.id = t.id);

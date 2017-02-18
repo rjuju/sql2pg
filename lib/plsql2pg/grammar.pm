@@ -598,8 +598,12 @@ multi_column_elem ::=
     | LITERAL action => discard
 
 order_clause ::=
-    ORDER BY order_list action => make_orderbyclause
+    ORDER siblings_clause BY order_list action => make_orderbyclause
     | EMPTY action => ::undef
+
+siblings_clause ::=
+    SIBLINGS
+    | EMPTY
 
 order_list ::=
     simple_order_list
@@ -848,6 +852,7 @@ SELECT      ~ 'SELECT':ic
 :lexeme     ~ SELECT pause => after event => keyword
 SET         ~ 'SET':ic
 SETS        ~ 'SETS':ic
+SIBLINGS    ~ 'SIBLINGS':ic
 SINGLE      ~ 'SINGLE':ic
 SKIP        ~ 'SKIP':ic
 START       ~ 'START':ic
@@ -1610,7 +1615,11 @@ sub make_orderby {
 }
 
 sub make_orderbyclause {
-    my (undef, undef, undef, $orderbys) = @_;
+    my (undef, undef, $siblings, undef, $orderbys) = @_;
+
+    if (defined($siblings)) {
+        add_fixme('SIBLINGS clause of ORDER BY ignored');
+    }
 
     return make_clause('ORDERBY', $orderbys);
 }

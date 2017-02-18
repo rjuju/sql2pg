@@ -71,8 +71,9 @@ UPDATE t1 SET val = 't' WHERE id = 1 ;
 -- 2 FIXME for this statement
 -- FIXME: Returning clause ignored: "RETURNING (id % 2), * INTO a, b"
 -- FIXME: Error logging clause ignored: "REJECT LIMIT 3"
-SELECT first_value(val) OVER (PARTITION BY deptno ORDER BY val ASC) FROM t ;
--- 1 FIXME for this statement
+SELECT first_value(val) OVER (PARTITION BY deptno ORDER BY val ASC) FROM t ORDER BY 1 ASC ;
+-- 2 FIXME for this statement
+-- FIXME: SIBLINGS clause of ORDER BY ignored
 -- FIXME: NULLS clause ignored: "IGNORE NULLS"
 SELECT lag(val, 1, -1) OVER () FROM t ;
 -- 1 FIXME for this statement
