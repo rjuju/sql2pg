@@ -540,6 +540,11 @@ sub handle_rownum {
         # XXX Should I handle queries with conflicting rownum clauses?
         $stmt->{$clause->{type}} = $clause;
     }
+
+    # Compute real LIMIT if an OFFSET is also present
+    if (defined($stmt->{LIMIT}) and defined($stmt->{OFFSET})) {
+        $stmt->{LIMIT}->{content}->{val} -= $stmt->{OFFSET}->{content}->{val};
+    }
 }
 
 sub inverse_operator {
