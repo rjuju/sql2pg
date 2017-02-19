@@ -1722,7 +1722,7 @@ sub make_qual {
 
 sub make_qualprior {
     my (undef, $left, $op, undef, $right, $join_op) = @_;
-    my $node = plsql2pg::make_qual(undef, $left, undef, $op, $right, $join_op);
+    my $node = make_qual(undef, $left, undef, $op, $right, $join_op);
 
     plsql2pg::utils::assert_one_el($node);
 
