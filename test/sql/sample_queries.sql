@@ -29,7 +29,7 @@ select id, case id when 0 then 'blah' else id % 3 > 1 end as val from t;
 select id, case when val = 0 then 'nothing' when val < 100 then 'little' when val >=100 then 'lot' end from t;
 select trim(leading ' ' from v) from t where id > (select count(*) from t2);
 select count(*) from t where val like '%the_val%' escape '\' and rownum <= 5 or val like (fct(val)) for update skip locked;
-with s (id, val) as (select 1, 'val' from dual) select * from s;
+with s (id, val) as (select 1, 'val' from dual) search breadth first by id nulls first, val asc set id select * from s;
 select * from dual, (((((t t1 left join (select 1 from t2) tt using (((id)))))) right join t using (id)));
 select count(*) from t where val in ('a', 'b') or val not in (('test')) or not exists (select 1 from t2 where t2.id = t1.id) or exists (((((select 1 from t3 where t3.id=t1.id)))));
 select null, 1, (1, (select count(*) from t)) from t2 where id1 is not and ((((id2 is not null))));

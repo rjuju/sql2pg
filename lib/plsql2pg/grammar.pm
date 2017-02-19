@@ -87,7 +87,8 @@ with_list ::=
     | with_elem
 
 with_elem ::=
-    ident parens_field_list AS '(' SelectStmt ')' action => make_with
+    ident parens_field_list AS '(' SelectStmt ')' search_clause
+        action => make_with
 
 parens_field_list ::=
     '(' field_list ')' action => second
@@ -97,14 +98,21 @@ field_list ::=
     field_list ',' IDENT action => append_el_1_3
     | IDENT
 
-distinct_elem ::=
-    ALL
-    | UNIQUE
-    | DISTINCT
+search_clause ::=
+    SEARCH DEPTH FIRST BY simple_order_list SET IDENT
+        action => make_searchclause
+    | SEARCH BREADTH FIRST BY simple_order_list SET IDENT
+        action => make_searchclause
+    | EMPTY
 
 select_clause ::=
     distinct_elem target_list action => make_distinct_selectclause
     | target_list action => make_selectclause
+
+distinct_elem ::=
+    ALL
+    | UNIQUE
+    | DISTINCT
 
 target_list ::=
     node_target_list action => make_target_list
@@ -748,6 +756,7 @@ AT          ~ 'AT':ic
 AUTOMATIC   ~ 'AUTOMATIC':ic
 BETWEEN     ~ 'BETWEEN':ic
 BLOCK       ~ 'BLOCK':ic
+BREADTH     ~ 'BREADTH':ic
 BY          ~ 'BY':ic
 CASE        ~ 'CASE':ic
 CONNECT     ~ 'CONNECT':ic
@@ -761,6 +770,7 @@ DECREMENT   ~ 'DECREMENT':ic
 DELETE      ~ 'DELETE':ic
 :lexeme     ~ DELETE pause => after event => keyword
 DENSE_RANK  ~ 'DENSE_RANK':ic
+DEPTH       ~ 'DEPTH':ic
 DESC        ~ 'DESC':ic
 DIMENSION   ~ 'DIMENSION':ic
 DISTINCT    ~ 'DISTINCT':ic
@@ -845,6 +855,7 @@ ROWS        ~ 'ROWS':ic
 RULES       ~ 'RULES':ic
 SAMPLE      ~ 'SAMPLE':ic
 SCN         ~ 'SCN':ic
+SEARCH      ~ 'SEARCH':ic
 SECOND      ~ 'SECOND':ic
 SEED        ~ 'SEED':ic
 SEQUENTIAL  ~ 'SEQUENTIAL':ic
@@ -1742,6 +1753,16 @@ sub make_sample_seed {
     my (undef, undef, undef, $seed, undef) = @_;
 
     return $seed;
+}
+
+sub make_searchclause {
+    my (undef, undef, $kw, undef, undef, $list, undef, $ident) = @_;
+    my $out = 'SEARCH ';
+
+    $out .= uc($kw) . ' FIRST BY ' . format_array($list, ', ')
+        . ' SET ' . format_node($ident);
+
+    add_fixme('SEARCH clause ignored: ' . $out);
 }
 
 sub make_select {
