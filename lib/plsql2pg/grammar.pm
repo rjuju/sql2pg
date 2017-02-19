@@ -179,6 +179,8 @@ at_time_zone ::=
 
 simple_target_el ::=
     a_expr
+    | CONNECT_BY_ROOT IDENT action => make_connectby_ident
+    | CONNECT_BY_ISLEAF IDENT action => make_connectby_ident
     | interval
 
 a_expr ::=
@@ -462,6 +464,7 @@ join_op ::=
 
 hierarchical_clause ::=
     startwith_clause connectby_clause action => make_hierarchicalclause
+    | connectby_clause startwith_clause action => make_hierarchicalclause
     | connectby_clause action => make_hierarchicalclause
     | EMPTY action => ::undef
 
@@ -769,6 +772,8 @@ BREADTH     ~ 'BREADTH':ic
 BY          ~ 'BY':ic
 CASE        ~ 'CASE':ic
 CONNECT     ~ 'CONNECT':ic
+CONNECT_BY_ROOT ~ 'CONNECT_BY_ROOT':ic
+CONNECT_BY_ISLEAF ~ 'CONNECT_BY_ISLEAF':ic
 CROSS       ~ 'CROSS':ic
 CUBE        ~ 'CUBE':ic
 :lexeme     ~ CUBE priority => 1
@@ -1167,6 +1172,14 @@ sub make_connectby {
     return make_clause('CONNECTBY', $quals);
 }
 
+sub make_connectby_ident {
+    my (undef, $kw, $ident) = @_;
+
+    add_fixme('Clause ' . $kw . 'ignored');
+
+    return $ident;
+}
+
 sub make_cycleclause {
     my (undef, undef, $idents, undef, $ident, undef, $value, undef, $default) = @_;
     my $out = 'CYCLE ';
@@ -1437,12 +1450,8 @@ sub make_hierarchicalclause {
     my (undef, $clause1, $clause2) = @_;
     my $node = make_node('connectby');
 
-    if (defined($clause2)) {
-        $node->{startwith} = $clause1;
-        $node->{connectby} = $clause2;
-    } else {
-        $node->{connectby} = $clause1;
-    }
+    $node->{$clause1->{type}} = $clause1;
+    $node->{$clause2->{type}} = $clause2 if (defined($clause2));
 
     return make_clause('HIERARCHICAL', $node);
 }

@@ -189,15 +189,15 @@ sub handle_connectby {
 
     # if a START WITH clause was present, transfer it to the WHERE clause of
     # the LHS
-    if (defined($clause->{content}->{startwith})) {
+    if (defined($clause->{content}->{STARTWITH})) {
         $quals = make_node('quallist');
-        $quals->{quallist} = $clause->{content}->{startwith}->{content};
+        $quals->{quallist} = $clause->{content}->{STARTWITH}->{content};
         $lhs->{WHERE} = make_clause('WHERE', $quals);
     }
 
     # transfer the CONNECT BY clause to the RHS
     $quals = make_node('quallist');
-    $quals->{quallist} = $clause->{content}->{connectby}->{content};
+    $quals->{quallist} = $clause->{content}->{CONNECTBY}->{content};
 
     # if a qual's ident is tagged as PRIOR, qualify it with the recursion alias
     foreach my $q (@{$quals->{quallist}}) {
