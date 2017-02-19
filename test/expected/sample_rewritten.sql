@@ -37,8 +37,9 @@ SELECT id, CASE WHEN val = 0 THEN 'nothing' WHEN val < 100 THEN 'little' WHEN va
 SELECT trim(leading ' ' from v) FROM t WHERE id > (SELECT count(*) FROM t2) ;
 SELECT count(*) FROM t WHERE val LIKE '%the_val%' ESCAPE '\' OR val LIKE (fct(val)) FOR UPDATE SKIP LOCKED LIMIT 5 ;
 WITH s (id, val) AS (SELECT 1, 'val') SELECT * FROM s ;
--- 1 FIXME for this statement
+-- 2 FIXME for this statement
 -- FIXME: SEARCH clause ignored: SEARCH BREADTH FIRST BY id ASC NULLS FIRST, val ASC SET id
+-- FIXME: CYCLE clause ignored: CYCLE id2, id3 SET id4 TO '1' DEFAULT '0'
 SELECT * FROM dual, ((t AS t1 LEFT JOIN (SELECT 1 FROM t2) AS tt USING (id)) AS subquery2 RIGHT JOIN t USING (id)) AS subquery1 ;
 SELECT count(*) FROM t WHERE val IN ('a', 'b') OR val NOT IN ('test') OR NOT EXISTS (SELECT 1 FROM t2 WHERE t2.id = t1.id) OR EXISTS (SELECT 1 FROM t3 WHERE t3.id = t1.id) ;
 SELECT NULL, 1, (1, (SELECT count(*) FROM t)) FROM t2 WHERE id1 IS not AND (id2 IS NOT NULL) ;

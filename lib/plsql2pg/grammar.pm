@@ -87,7 +87,7 @@ with_list ::=
     | with_elem
 
 with_elem ::=
-    ident parens_field_list AS '(' SelectStmt ')' search_clause
+    ident parens_field_list AS '(' SelectStmt ')' search_clause cycle_clause
         action => make_with
 
 parens_field_list ::=
@@ -104,6 +104,15 @@ search_clause ::=
     | SEARCH BREADTH FIRST BY simple_order_list SET IDENT
         action => make_searchclause
     | EMPTY
+
+cycle_clause ::=
+    CYCLE IDENTS SET IDENT TO cycle_value DEFAULT cycle_value
+        action => make_cycleclause
+    | EMPTY
+
+cycle_value ::=
+    LITERAL
+    | NUMBER
 
 select_clause ::=
     distinct_elem target_list action => make_distinct_selectclause
@@ -764,9 +773,11 @@ CROSS       ~ 'CROSS':ic
 CUBE        ~ 'CUBE':ic
 :lexeme     ~ CUBE priority => 1
 CURRENT     ~ 'CURRENT':ic
+CYCLE       ~ 'CYCLE':ic
 DATE        ~ 'DATE':ic
 DAY         ~ 'DAY':ic
 DECREMENT   ~ 'DECREMENT':ic
+DEFAULT     ~ 'DEFAULT':ic
 DELETE      ~ 'DELETE':ic
 :lexeme     ~ DELETE pause => after event => keyword
 DENSE_RANK  ~ 'DENSE_RANK':ic
@@ -1154,6 +1165,16 @@ sub make_connectby {
     }
 
     return make_clause('CONNECTBY', $quals);
+}
+
+sub make_cycleclause {
+    my (undef, undef, $idents, undef, $ident, undef, $value, undef, $default) = @_;
+    my $out = 'CYCLE ';
+
+    $out .= format_array($idents, ', ') . ' SET ' . format_node($ident)
+        . ' TO ' . format_node($value) . ' DEFAULT ' . format_node($default);
+
+    add_fixme('CYCLE clause ignored: ' . $out);
 }
 
 sub make_delete {
