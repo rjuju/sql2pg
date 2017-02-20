@@ -193,6 +193,8 @@ a_expr ::=
     # use "NOT NULL" as a_expr instead of using "IS NOT" as an operator avoid
     # ambiguity (otherwise NOT would be considered as an ident)
     | NOT NULL action => make_keyword
+    # only valid in PIVOT clause, assume original query is correct
+    | ANY action => make_keyword
 
 case_when ::=
     CASE when_expr else_expr END action => make_case_when
@@ -301,13 +303,14 @@ from_list ::=
     | from_elem
 
 from_elem ::=
-    aliased_flashback_from_elem join_clause action => append_joinlist
+    aliased_flashback_from_elem join_clause pivot_unpivot
+        action => append_joinlist
 
 aliased_flashback_from_elem ::=
     flashback_from_elem ALIAS_CLAUSE action => alias_node
 
 flashback_from_elem ::=
-    simple_from_elem flashback_clause action => add_flashback
+    simple_from_elem pivot_unpivot flashback_clause action => add_flashback
 
 simple_from_elem ::=
     IDENT sample_clause action => add_sample_clause
@@ -387,6 +390,61 @@ parens_using_list ::=
 
 using_el ::=
     a_expr ALIAS_CLAUSE action => alias_node
+
+pivot_unpivot ::=
+    pivot_clause
+    | unpivot_clause
+    | EMPTY
+
+pivot_clause ::=
+    PIVOT xml '(' pivot_list ALIAS_CLAUSE pivot_for pivot_in ')'
+        action => make_pivotclause
+
+xml ::=
+    XML
+    | EMPTY
+
+pivot_list ::=
+    pivot_list ',' pivot_elem action => discard
+    | pivot_elem action => discard
+
+pivot_elem ::=
+    IDENT '(' target_el ')' ALIAS_CLAUSE action => discard
+
+pivot_for ::=
+    FOR IDENT action => discard
+    | FOR parens_column_list action => discard
+
+pivot_in ::=
+    IN '(' target_list ')' action => discard
+    | IN '(' SelectStmt ')' action => discard
+
+unpivot_clause ::=
+    UNPIVOT inc_exc_nul '(' IDENT pivot_for unpivot_in ')'
+        action => make_unpivotclause
+    | UNPIVOT inc_exc_nul '(' parens_column_list pivot_for unpivot_in ')'
+        action => make_unpivotclause
+
+inc_exc_nul ::=
+    INCLUDE NULLS action => discard
+    | EXCLUDE NULLS action => discard
+    | EMPTY
+
+unpivot_in ::=
+    IN '(' unpivot_in_list ')' action => discard
+
+unpivot_in_list ::=
+    unpivot_in_list ',' unpivot_in_elem
+    | unpivot_in_elem
+
+unpivot_in_elem ::=
+    IDENT unpivot_in_alias action => discard
+    | parens_column_list unpivot_in_alias action => discard
+
+unpivot_in_alias ::=
+    AS LITERAL action => discard
+    | AS '(' LITERALS ')' action => discard
+    | EMPTY
 
 where_clause ::=
     WHERE qual_list action => make_whereclause
@@ -762,6 +820,7 @@ NUMBER ::=
 # keywords
 ALL         ~ 'ALL':ic
 AND         ~ 'AND':ic
+ANY         ~ 'ANY':ic
 AS          ~ 'AS':ic
 ASC         ~ 'ASC':ic
 AT          ~ 'AT':ic
@@ -794,6 +853,7 @@ ELSE        ~ 'ELSE':ic
 END         ~ 'END':ic
 ERRORS      ~ 'ERRORS':ic
 ESCAPE      ~ 'ESCAPE':ic
+EXCLUDE     ~ 'EXCLUDE':ic
 EXISTS      ~ 'EXISTS':ic
 EXPLAIN     ~ 'EXPLAIN':ic
 :lexeme     ~ EXPLAIN pause => after event => keyword
@@ -808,6 +868,7 @@ HAVING      ~ 'HAVING':ic
 HOUR        ~ 'HOUR':ic
 IGNORE      ~ 'IGNORE':ic
 IN          ~ 'IN':ic
+INCLUDE     ~ 'INCLUDE':ic
 INCREMENT   ~ 'INCREMENT':ic
 INNER       ~ 'INNER':ic
 INTERVAL    ~ 'INTERVAL':ic
@@ -853,6 +914,7 @@ ON          ~ 'ON':ic
 OUTER       ~ 'OUTER':ic
 OVER        ~ 'OVER':ic
 PARTITION   ~ 'PARTITION':ic
+PIVOT       ~ 'PIVOT':ic
 PLAN        ~ 'PLAN':ic
 PRECEDING   ~ 'PRECEDING':ic
 PRIOR       ~ 'PRIOR':ic
@@ -893,6 +955,7 @@ UNBOUNDED   ~ 'UNBOUNDED':ic
 UNIQUE      ~ 'UNIQUE':ic
 UNION       ~ 'UNION':ic
 UNLIMITED   ~ 'UNLIMITED':ic
+UNPIVOT     ~ 'UNPIVOT':ic
 UNTIL       ~ 'UNTIL':ic
 UPDATE      ~ 'UPDATE':ic
 :lexeme     ~ UPDATE pause => after event => keyword
@@ -906,6 +969,7 @@ WHERE       ~ 'WHERE':ic
 WAIT        ~ 'WAIT':ic
 WITH        ~ 'WITH':ic
 :lexeme     ~ WITH pause => after event => keyword
+XML         ~'XML':ic
 ZONE        ~ 'ZONE':ic
 
 SEMICOLON   ~ ';'
@@ -981,7 +1045,7 @@ o_pre_final_stars           ~ [*]*
 END_OF_DSL
 
 sub add_flashback {
-    my (undef, $node, $flashback) = @_;
+    my (undef, $node, $pivot, $flashback) = @_;
 
     return $node unless (defined($flashback));
     my $info = 'Flashback clause ignored for table "'
@@ -1042,7 +1106,7 @@ sub append_function_arg {
 }
 
 sub append_joinlist {
-    my (undef, $from, $joins) = @_;
+    my (undef, $from, $joins, $pivot) = @_;
 
     return $from unless (defined($joins));
 
@@ -1693,6 +1757,10 @@ sub make_partitionclause {
     return make_clause('PARTITIONBY', $tlist);
 }
 
+sub make_pivotclause {
+    add_fixme('PIVOT clause ignored');
+}
+
 sub make_priorqual {
     my (undef, undef, $left, $op, $right, $join_op) = @_;
     my $node = make_qual(undef, $left, undef, $op, $right, $join_op);
@@ -1875,6 +1943,10 @@ sub make_timezoneexpr {
     my (undef, undef, undef, undef, $val) = @_;
 
     return $val;
+}
+
+sub make_unpivotclause {
+    add_fixme('UNPIVOT clause ignored');
 }
 
 sub make_update {

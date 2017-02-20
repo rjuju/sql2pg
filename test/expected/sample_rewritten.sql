@@ -90,4 +90,7 @@ SELECT val FROM t RIGHT JOIN t2 ON (t2.id = t.id) ;
 SELECT a, b, c FROM (SELECT * FROM t1 INNER JOIN b USING (id)) AS subquery1 ;
 -- 1 FIXME for this statement
 -- FIXME: MODEL claused ignored
+SELECT * FROM a INNER JOIN b AS a2 USING (id) ORDER BY 1 ASC ;
+-- 1 FIXME for this statement
+-- FIXME: UNPIVOT clause ignored
 -- I don't belong to any query

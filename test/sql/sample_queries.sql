@@ -50,4 +50,5 @@ SELECT lag(val respect nulls, 1, -1) over () from t;
 SELECT lag(val, 1) respect nulls over () from t;
 SELECT val from t partition by (dt) right outer join t2 on (t2.id = t.id);
 select a,b,c from (select * from t1 join b using (id)) model dimension by (a,b) measures (c) rules (f[a,b] = 4, g[a,c] = val(2));
+select * from a join b a2 using (id) unpivot (value for value_type in (a,b) ) ORDER BY 1;
 -- I don't belong to any query
