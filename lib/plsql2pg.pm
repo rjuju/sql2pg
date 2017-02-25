@@ -24,6 +24,7 @@ use plsql2pg::grammar;
 use plsql2pg::format;
 use plsql2pg::utils;
 
+my $VERSION = '0.1';
 our $input;
 
 # Ugly way to try to preserve comments: keep track of statement count, and push
@@ -125,6 +126,14 @@ sub get_comment {
     my ($kind) = @_;
 
     return $comments{$stmtno}{$kind};
+}
+
+sub version {
+    return "plsql2pg version $VERSION\n";
+}
+
+sub version_num {
+    return $VERSION;
 }
 
 1;
