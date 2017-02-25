@@ -41,6 +41,8 @@ select a,b,c from t sample block (3) seed (.2)"S";
 select a = 1 OR b = 2 v1,(a = 1 OR b = 2)v2 from t;
 explain plan set statement_id = 'del stmt' into del_tables for delete from t where id < 10;
 select * from a, a1, a2, b, b1, b2 where a.id = a1.id(+) and a1.id = a2.id(+) and a.id = b.id and b1.id = b2.id(+) and b2.id2(+) = b1.id2 and b1.id(+) < b.id;
+CREAte table nsp.t as select 1 from dual;
+create or replace view v as select * from nsp.t;
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);

@@ -26,6 +26,7 @@ raw_stmt ::=
     | DeleteStmt
     | InsertStmt
     | ExplainStmt
+    | CreateStmt
 
 ExplainStmt ::=
     EXPLAIN PLAN explain_set explain_into FOR raw_stmt
@@ -70,6 +71,10 @@ InsertStmt ::=
     # parens_column_list should only allow single col name, not FQN ident
     INSERT INTO from_elem parens_column_list insert_data error_logging_clause
         action => make_insert
+
+CreateStmt ::=
+    CreateTableAs
+    | CreateViewAs
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -800,6 +805,18 @@ err_log_list ::=
     '(' target_list ')' action => second
     | EMPTY
 
+
+CreateTableAs ::=
+    CREATE TABLE IDENT AS SelectStmt action => make_createtableas
+
+CreateViewAs ::=
+    CREATE or_replace_clause VIEW IDENT AS SelectStmt
+        action => make_createviewas
+
+or_replace_clause ::=
+    OR REPLACE action => concat
+    | EMPTY
+
 sign ::=
     '-'
     | '+'
@@ -833,6 +850,7 @@ CASE        ~ 'CASE':ic
 CONNECT     ~ 'CONNECT':ic
 CONNECT_BY_ROOT ~ 'CONNECT_BY_ROOT':ic
 CONNECT_BY_ISLEAF ~ 'CONNECT_BY_ISLEAF':ic
+CREATE      ~ 'CREATE':ic
 CROSS       ~ 'CROSS':ic
 CUBE        ~ 'CUBE':ic
 :lexeme     ~ CUBE priority => 1
@@ -921,6 +939,7 @@ PRIOR       ~ 'PRIOR':ic
 RANGE       ~ 'RANGE':ic
 REFERENCE   ~ 'REFERENCE':ic
 REJECT      ~ 'REJECT':ic
+REPLACE     ~ 'REPLACE':ic
 RESPECT     ~ 'RESPECT':ic
 RETURN      ~ 'RETURN':ic
 RETURNING   ~ 'RETURNING':ic
@@ -946,6 +965,7 @@ SINGLE      ~ 'SINGLE':ic
 SKIP        ~ 'SKIP':ic
 START       ~ 'START':ic
 STATEMENT_ID~ 'STATEMENT_ID':ic
+TABLE       ~ 'TABLE':ic
 THEN        ~ 'THEN':ic
 :lexeme     ~ THEN priority => 1
 TIME        ~ 'TIME':ic
@@ -964,6 +984,7 @@ UPSERT      ~ 'UPSERT':ic
 USING       ~ 'USING':ic
 VALUES      ~ 'VALUES':ic
 VERSIONS    ~ 'VERSIONS':ic
+VIEW        ~'VIEW':ic
 WHEN        ~ 'WHEN':ic
 WHERE       ~ 'WHERE':ic
 WAIT        ~ 'WAIT':ic
@@ -1242,6 +1263,29 @@ sub make_connectby_ident {
     add_fixme('Clause ' . $kw . 'ignored');
 
     return $ident;
+}
+
+sub make_createtableas {
+    my (undef, undef, undef, $ident, undef, $stmt) = @_;
+    my $node = make_node('createobject');
+
+    $node->{kind} = 'TABLE';
+    $node->{ident} = $ident;
+    $node->{stmt} = $stmt;
+
+    return node_to_array($node);
+}
+
+sub make_createviewas {
+    my (undef, undef, $replace, undef, $ident, undef, $stmt) = @_;
+    my $node = make_node('createobject');
+
+    $node->{kind} = 'VIEW';
+    $node->{replace} = $replace;
+    $node->{ident} = $ident;
+    $node->{stmt} = $stmt;
+
+    return node_to_array($node);
 }
 
 sub make_cycleclause {

@@ -91,6 +91,20 @@ sub format_comments {
     return $out;
 }
 
+sub format_createobject {
+    my ($node) = @_;
+    my $out = 'CREATE';
+
+    $out .= ' ' . $node->{replace} if (defined($node->{replace}));
+    $out .= ' ' . uc($node->{kind}) . ' ' . format_node($node->{ident});
+
+    if (defined($node->{stmt})) {
+        $out .= ' AS ' . format_node($node->{stmt});
+    }
+
+    return $out;
+}
+
 sub format_delete {
     my ($stmt) = @_;
     my $out = 'DELETE FROM ';
