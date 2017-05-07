@@ -26,6 +26,17 @@ sub format_alias {
     return '';
 }
 
+sub format_alterobject {
+    my ($node) = @_;
+    my $out = 'ALTER';
+
+    $out .= ' ' . uc($node->{kind}) . ' ' . format_node($node->{ident});
+    $out .= ' SET' . format_node($node->{param});
+    $out .= 'TO ' . format_node($node->{val});
+
+    return $out;
+}
+
 sub format_appended_quals {
     my ($node) = @_;
 

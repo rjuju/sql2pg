@@ -25,6 +25,7 @@ stmt ::=
 raw_stmt ::=
     UseStmt
     | CreateStmt
+    | AlterStmt
 
 UseStmt ::=
     USE IDENT action => make_usestmt
@@ -35,13 +36,32 @@ CreateStmt ::=
 CreateDbStmt ::=
     CREATE DATABASE IDENT action => make_createdb
 
-## sign ::=
-##     '-'
-##     | '+'
-##     | EMPTY
-##
-## INTEGER ::=
-##     sign integer action => make_number
+AlterStmt ::=
+    AlterDbStmt
+
+AlterDbStmt ::=
+    ALTER DATABASE IDENT SET alter_db_param alter_db_value action => make_alterdb
+
+alter_db_param ::=
+    COMPATIBILITY_LEVEL
+    | ANSI_WARNINGS
+    | ARITHABORT
+    | READ_WRITE
+
+alter_db_value ::=
+    '=' INTEGER action => second
+    | OFF action => make_keyword
+    | EMPTY
+
+EMPTY ::= action => ::undef
+
+sign ::=
+    '-'
+    | '+'
+    | EMPTY
+
+INTEGER ::=
+    sign integer action => make_number
 ##     | bindvar action => make_bindvar
 ##
 ## FLOAT ::=
@@ -53,19 +73,27 @@ CreateDbStmt ::=
 ##     | FLOAT
 
 # keywords
+ALTER       ~ 'ALTER':ic
+:lexeme     ~ ALTER pause => after event => keyword
+ARITHABORT  ~ 'ARITHABORT':ic
+ANSI_WARNINGS ~ 'ANSI_WARNINGS':ic
+COMPATIBILITY_LEVEL ~ 'COMPATIBILITY_LEVEL':ic
 CREATE      ~ 'CREATE':ic
 :lexeme     ~ CREATE pause => after event => keyword
 DATABASE    ~ 'DATABASE':ic
 GO          ~ 'GO':ic
 ## IS          ~ 'IS':ic
+OFF         ~ 'OFF':ic
+READ_WRITE  ~ 'READ_WRITE':ic
 SEPARATOR   ~ ';' GO
             | GO
 :lexeme     ~ SEPARATOR pause => after event => new_query
+SET         ~ 'SET':ic
 USE         ~ 'USE':ic
 
 # everything else
-## digits      ~ [0-9]+
-## integer     ~ digits
+digits      ~ [0-9]+
+integer     ~ digits
 ##             | digits expcast
 ## float       ~ digits '.' digits
 ##             | digits '.' digits expcast
@@ -206,6 +234,26 @@ sub make_alias {
     my (undef, $as, $alias) = @_;
 
     return quote_ident(get_alias($as, $alias));
+}
+
+sub make_alterdb {
+    my (undef, undef, undef, $ident, undef, $param, $val) = @_;
+    my $node = make_node('alterobject');
+
+    if (($param eq 'COMPATIBILITY_LEVEL')
+        or ($param eq 'ANSI_WARNINGS')
+        or ($param eq 'ARITHABORT')
+    ) {
+        add_fixme("ALTER DATABASE ignored: $param unhandled");
+        return;
+    }
+
+    $node->{kind} = 'DATABASE';
+    $node->{ident} = $ident;
+    $node->{param} = $param;
+    $node->{val} = $val;
+
+    return node_to_array($node);
 }
 
 sub make_createdb {
