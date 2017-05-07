@@ -24,6 +24,7 @@ use Data::Dumper;
 use sql2pg::format;
 use sql2pg::common;
 use sql2pg::plsql::grammar;
+use sql2pg::tsql::grammar;
 
 my $VERSION = '0.1';
 our $input;
