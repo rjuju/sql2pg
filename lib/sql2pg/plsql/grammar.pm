@@ -1,4 +1,4 @@
-package plsql2pg::grammar;
+package sql2pg::plsql::grammar;
 #------------------------------------------------------------------------------
 # Project  : Multidatabase to PostgreSQL SQL converter
 # Name     : sql2pg
@@ -11,10 +11,13 @@ use warnings;
 use 5.010;
 
 use Data::Dumper;
-use plsql2pg::format;
-use plsql2pg::utils;
+use sql2pg::plsql::utils;
+use sql2pg::format;
+use sql2pg::common;
 
-our $dsl = <<'END_OF_DSL';
+#$sql2pg::dsl = <<'END_OF_DSL';
+sub dsl {
+    return <<'END_OF_DSL';
 lexeme default = latm => 1
 
 :start ::= stmtmulti
@@ -1070,6 +1073,7 @@ o_pre_final_stars           ~ [*]*
 
 
 END_OF_DSL
+}
 
 sub add_flashback {
     my (undef, $node, $pivot, $flashback) = @_;
@@ -1098,7 +1102,7 @@ sub add_sample_clause {
 sub alias_node {
     my (undef, $node, $alias) = @_;
 
-    plsql2pg::utils::assert_one_el($node);
+    assert_one_el($node);
 
     @{$node}[0]->{alias} = $alias;
 
@@ -1124,7 +1128,7 @@ sub append_el_1_3 {
 sub append_function_arg {
     my (undef, $nodes, $el) = @_;
 
-    plsql2pg::utils::assert_one_el($nodes);
+    assert_one_el($nodes);
     assert_isA(@{$nodes}[0], 'function_arg');
 
     push(@{@{$nodes}[0]->{arg}}, @{$el});
@@ -1162,19 +1166,19 @@ sub append_qual {
 sub call_format_stmts {
     my (undef, $stmts) = @_;
 
-    return format_stmts($stmts, $plsql2pg::input);
+    return format_stmts($stmts, $sql2pg::input);
 }
 
 sub combine_parens_select {
     my (undef, $nodes, $raw_op, undef, $stmt, undef) = @_;
 
-    return plsql2pg::utils::combine_and_parens_select($nodes, $raw_op, $stmt);
+    return sql2pg::common::combine_and_parens_select($nodes, $raw_op, $stmt);
 }
 
 sub combine_select {
     my (undef, $nodes, $raw_op, $stmt) = @_;
 
-    return plsql2pg::utils::combine_and_parens_select($nodes, $raw_op, $stmt);
+    return sql2pg::common::combine_and_parens_select($nodes, $raw_op, $stmt);
 }
 
 sub concat {
@@ -1198,7 +1202,7 @@ sub discard {
 sub make_alias {
     my (undef, $as, $alias) = @_;
 
-    return plsql2pg::utils::get_alias($as, $alias);
+    return quote_ident(get_alias($as, $alias));
 }
 
 sub make_at_time_zone {
@@ -1506,10 +1510,11 @@ sub make_function {
     my (undef, $ident, undef, $args, undef, undef, undef, $windowclause) = @_;
     my $func = make_node('function');
 
-    plsql2pg::utils::assert_one_el($ident);
+    assert_one_el($ident);
     $func->{ident} = pop(@{$ident});
     $func->{args} = $args;
     $func->{window} = $windowclause;
+    $func->{hook} = 'sql2pg::plsql::utils::handle_function';
 
     return node_to_array($func);
 }
@@ -1518,9 +1523,10 @@ sub make_function_arg {
     my (undef, $el) = @_;
     my $node = make_node('function_arg');
 
-    plsql2pg::utils::assert_one_el($el);
+    assert_one_el($el);
 
     $node->{arg} = $el;
+    $node->{hook} = 'sql2pg::plsql::utils::handle_respect_ignore_nulls';
 
     return node_to_array($node);
 }
@@ -1532,7 +1538,7 @@ sub make_groupby {
     if (isA($elem, 'target_list')) {
         $groupby->{elem} = $elem;
     } else {
-        plsql2pg::utils::assert_one_el($elem);
+        assert_one_el($elem);
         $groupby->{elem} = pop(@{$elem});
     }
 
@@ -1576,15 +1582,15 @@ sub make_ident {
     my $ident = make_node('ident');
 
     if (defined($attribute)) {
-        $ident->{pop(@atts)} = plsql2pg::utils::quote_ident($attribute);
+        $ident->{pop(@atts)} = quote_ident($attribute);
     }
 
     if (defined($schema)) {
-        $ident->{pop(@atts)} = plsql2pg::utils::quote_ident($schema);
+        $ident->{pop(@atts)} = quote_ident($schema);
     }
 
     if (defined($table)) {
-        $ident->{pop(@atts)} = plsql2pg::utils::quote_ident($table);
+        $ident->{pop(@atts)} = quote_ident($table);
     }
 
     return node_to_array($ident);
@@ -1605,7 +1611,7 @@ sub make_interval {
     my (undef, undef, $literal, $kind, undef, $kind2) = @_;
     my $node = make_node('interval');
 
-    plsql2pg::utils::assert_one_el($literal);
+    assert_one_el($literal);
 
     $node->{literal} = pop(@{$literal});
     $node->{kind} = $kind;
@@ -1683,7 +1689,7 @@ sub make_like {
     my (undef, undef, $like, undef, $escape) = @_;
     my $out = 'LIKE ' . format_node($like);
 
-    plsql2pg::utils::assert_one_el($escape) if (defined($escape));
+    assert_one_el($escape) if (defined($escape));
 
     $out .= ' ESCAPE ' . format_node(pop(@{$escape})) if (defined($escape));
 
@@ -1754,7 +1760,7 @@ sub make_orderby {
     my (undef, $elem, $order, $nulls) = @_;
     my $orderby = make_node('orderby');
 
-    plsql2pg::utils::assert_one_el($elem);
+    assert_one_el($elem);
 
     if (not defined($order)) {
         $order = 'ASC' unless defined($order);
@@ -1815,7 +1821,7 @@ sub make_priorqual {
     my (undef, undef, $left, $op, $right, $join_op) = @_;
     my $node = make_qual(undef, $left, undef, $op, $right, $join_op);
 
-    plsql2pg::utils::assert_one_el($node);
+    assert_one_el($node);
 
     $node= pop(@{$node});
 
@@ -1851,7 +1857,7 @@ sub make_qualprior {
     my (undef, $left, $op, undef, $right, $join_op) = @_;
     my $node = make_qual(undef, $left, undef, $op, $right, $join_op);
 
-    plsql2pg::utils::assert_one_el($node);
+    assert_one_el($node);
 
     $node = pop(@{$node});
     $node->{prior} = 'right';
@@ -1924,6 +1930,8 @@ sub make_select {
         $token = shift(@args);
         $stmt->{$token->{type}} = $token if defined($token);
     }
+
+    $stmt->{hook} = 'sql2pg::plsql::utils::select_hook';
 
     return node_to_array($stmt);
 }

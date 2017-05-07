@@ -15,7 +15,7 @@ use Getopt::Long;
 
 # XXX remove this when a proper Makefile.pl will be added
 use lib dirname(dirname abs_path $0) . '/lib';
-use plsql2pg;
+use sql2pg;
 
 my %cfg;
 my @options = (
@@ -47,7 +47,7 @@ show_help_and_die (1) unless (GetOptions(\%cfg, @options));
 show_help_and_die (0) if ($cfg{help});
 
 if ($cfg{version}) {
-    print plsql2pg::version() if ($cfg{version});
+    print sql2pg::version() if ($cfg{version});
     exit 0;
 }
 
@@ -68,8 +68,8 @@ my @content = <$fh>;
 close($fh);
 $input = join('', @content);
 
-my $converter = new plsql2pg();
-my $translated = $converter->convert($input);
+my $converter = new sql2pg();
+my $translated = $converter->convert($input, 'plsql');
 
 print $translated;
 

@@ -1,4 +1,4 @@
-package plsql2pg;
+package sql2pg;
 #------------------------------------------------------------------------------
 # Project  : Multidatabase to PostgreSQL SQL converter
 # Name     : sql2pg
@@ -21,9 +21,9 @@ use Marpa::R2;
 # need at least Marpa::R2 2.076000 for case insensitive L0 rules
 
 use Data::Dumper;
-use plsql2pg::grammar;
-use plsql2pg::format;
-use plsql2pg::utils;
+use sql2pg::format;
+use sql2pg::common;
+use sql2pg::plsql::grammar;
 
 my $VERSION = '0.1';
 our $input;
@@ -53,17 +53,25 @@ sub init {
 }
 
 sub convert {
-    my ($self, $sql) = @_;
+    my ($self, $sql, $lang) = @_;
+    my $dsl;
+    my $func = "sql2pg::" . $lang . "::grammar::dsl";
+
+    no strict;
+    $dsl = &$func();
+    use strict;
 
     $input = $sql;
 
     my $grammar = Marpa::R2::Scanless::G->new( {
         default_action => '::first',
-        source => \$plsql2pg::grammar::dsl
+        source => \$dsl
     } );
 
-    my $slr = Marpa::R2::Scanless::R->new(
-            { grammar => $grammar, semantics_package => 'plsql2pg::grammar' } );
+    my $slr = Marpa::R2::Scanless::R->new( {
+        grammar => $grammar,
+        semantics_package => 'sql2pg::' . $lang . '::grammar'
+    } );
 
     my $length = length $input;
     my $pos = $slr->read( \$input );
@@ -130,7 +138,7 @@ sub get_comment {
 }
 
 sub version {
-    return "plsql2pg version $VERSION\n";
+    return "sql2pg version $VERSION\n";
 }
 
 sub version_num {

@@ -1,4 +1,4 @@
-package plsql2pg::format;
+package sql2pg::format;
 #------------------------------------------------------------------------------
 # Project  : Multidatabase to PostgreSQL SQL converter
 # Name     : sql2pg
@@ -14,8 +14,8 @@ BEGIN {
 }
 
 use Data::Dumper;
-use plsql2pg;
-use plsql2pg::utils;
+use sql2pg;
+use sql2pg::common;
 
 our @fixme;
 
@@ -91,7 +91,7 @@ sub format_comments {
 
     foreach my $event (@{$comments}) {
         my ($name, $start, $end, undef) = @{$event};
-        $out .= substr($plsql2pg::input, $start, $end - $start) . "\n";
+        $out .= substr($sql2pg::input, $start, $end - $start) . "\n";
     }
 
     return $out;
@@ -212,9 +212,12 @@ sub format_function {
     my ($func) = @_;
     my $out = undef;
     my $ident;
+    my $hook = $func->{hook};
 
     # first transform function to pg compatible if needed
-    plsql2pg::utils::handle_function($func);
+    no strict;
+    &$hook($func);
+    use strict;
 
     foreach my $arg (@{$func->{args}}) {
         $out .= ', ' if defined($out);
@@ -233,9 +236,14 @@ sub format_function {
 
 sub format_function_arg {
     my ($node) = @_;
+    my $hook = $node->{hook};
     my $out = '';
 
-    plsql2pg::utils::handle_respect_ignore_nulls($node);
+    if ($hook) {
+        no strict;
+        &$hook($node);
+        use strict;
+    }
 
     foreach my $a (@{$node->{arg}}) {
         $out .= ' ' unless($out eq '');
@@ -378,7 +386,7 @@ sub format_node {
 
     return ' ' . $node . ' ' if (not ref($node));
 
-    plsql2pg::utils::prune_parens($node);
+    sql2pg::common::prune_parens($node);
 
     $func = "format_" . $node->{type};
 
@@ -496,20 +504,18 @@ sub format_select {
     my ($stmt) = @_;
     my @clauselist = ('WITH', 'SELECT', 'FROM', 'WHERE', 'GROUPBY',
         'HAVING', 'ORDERBY', 'FORUPDATE', 'LIMIT', 'OFFSET');
+    my $hook = $stmt->{hook};
     my $nodes;
     my $out = '';
 
-    # transform (+) qual to LEFT JOIN
-    plsql2pg::utils::handle_nonsqljoin($stmt);
+    # Handle specific language rewriting
+    if ($hook) {
+        no strict;
+        $stmt = &$hook($stmt);
+        use strict;
+    }
 
-    # transform ROWNUM where clauses to LIMIT/OFFSET
-    plsql2pg::utils::handle_rownum($stmt);
-
-    $stmt = plsql2pg::utils::handle_connectby($stmt);
-
-    plsql2pg::utils::handle_missing_alias($stmt);
-
-    plsql2pg::utils::handle_forupdate_clause($stmt);
+    sql2pg::common::handle_missing_alias($stmt);
 
     foreach my $current (@clauselist) {
         if (defined($stmt->{$current})) {
@@ -560,7 +566,7 @@ sub format_SUBQUERY {
     # alias on subquery in mandatory in pg, should have been generated if
     # needed in handle_missing_alias, but this function doesn't really try hard
     # to reach all possible subqueries, so check here also
-    $alias = ' AS ' . plsql2pg::utils::generate_alias() if ($alias eq '');
+    $alias = ' AS ' . sql2pg::common::generate_alias() if ($alias eq '');
 
     $out .= $alias;
 
@@ -629,7 +635,8 @@ sub format_stmts {
     $out .= " ;\n";
 
     # Add a fixme for each unused bindvar
-    plsql2pg::utils::warn_useless_bindvars();
+    # FIXME make it specific to oracle sql
+    sql2pg::common::warn_useless_bindvars();
 
     $comments = get_comment('fixme');
 
@@ -649,7 +656,7 @@ sub format_stmts {
 
     # reset all neeed global vars, must be at the end the this function to
     # avoid weird corner case resetting vars in the middle of a statement
-    plsql2pg::utils::new_statement();
+    sql2pg::common::new_statement();
 
     return $out;
 }
