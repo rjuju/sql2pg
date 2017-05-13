@@ -27,7 +27,7 @@ raw_stmt ::=
     | IgnoredStmt
     | CreateStmt
     | AlterStmt
-    | CreateRoleStmt
+    | ExecSql
 
 CombinedSelectStmt ::=
     SelectStmt order_clause action => append_orderbyclause
@@ -60,6 +60,8 @@ set_param ::=
 
 CreateStmt ::=
     CreateDbStmt
+    | CreateRoleStmt
+    | CreateSchema
 
 CreateDbStmt ::=
     CREATE DATABASE IDENT action => make_createdb
@@ -87,6 +89,16 @@ ON_OFF ::=
 
 CreateRoleStmt ::=
     INE CREATE ROLE IDENT action => make_createrole
+
+CreateSchema ::=
+    CREATE SCHEMA IDENT authorization_clause action => make_createschema
+
+authorization_clause ::=
+    AUTHORIZATION IDENT action => second
+    | EMPTY
+
+ExecSql ::=
+    INE EXEC executesql LITERAL_DELIM raw_stmt LITERAL_DELIM action => extract_sql
 
 SingleSelectStmt ::=
     SELECT select_clause from_clause where_clause action => make_select
@@ -336,14 +348,18 @@ NUMBER ::=
     | FLOAT
 
 INE ::=
-    # for now, just ignore the stmt
+    # for now, just ignore the stmt and assume it's the intended query for a
+    # postgres' IF NOT EXISTS utlity statement
     IF NOT EXISTS '(' SingleSelectStmt ')'
     | EMPTY
+
+LITERAL_DELIM ::=
+    [']
+    | 'N' [']
 
 # keywords
 ALTER       ~ 'ALTER':ic
 :lexeme     ~ ALTER pause => after event => keyword
-ALIAS       ~ 'AIAS':ic
 ALL         ~ 'ALL':ic
 AND         ~ 'AND':ic
 ARITHABORT  ~ 'ARITHABORT':ic
@@ -352,6 +368,7 @@ ANSI_PADDING  ~ 'ANSI_PADDING':ic
 ANSI_WARNINGS ~ 'ANSI_WARNINGS':ic
 AS          ~ 'AS':ic
 ASC         ~ 'ASC':ic
+AUTHORIZATION ~ 'AUTHORIZATION':ic
 BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
 COMPATIBILITY_LEVEL ~ 'COMPATIBILITY_LEVEL':ic
@@ -361,6 +378,7 @@ CROSS       ~ 'CROSS':ic
 DATABASE    ~ 'DATABASE':ic
 DESC        ~ 'DESC':ic
 ESCAPE      ~ 'ESCAPE':ic
+EXEC        ~ 'EXEC':ic
 EXISTS      ~ 'EXISTS':ic
 FIRST       ~ 'FIRST':ic
 FROM        ~ 'FROM':ic
@@ -390,6 +408,7 @@ QUOTED_IDENTIFIER ~ 'QUOTED_IDENTIFIER':ic
 READ_WRITE  ~ 'READ_WRITE':ic
 RIGHT       ~ 'RIGHT':ic
 ROLE        ~ 'ROLE':ic
+SCHEMA      ~ 'SCHEMA':ic
 SELECT      ~ 'SELECT':ic
 SEPARATOR   ~ ';' GO
             | GO
@@ -423,9 +442,9 @@ float       ~ digits '.' digits
 ##             | 'f'
 ##             | 'F'
 
-## ALIAS   ~ unquoted_start unquoted_chars
-##         | quoted_ident
-##         | bracketed_ident
+ALIAS   ~ unquoted_start unquoted_chars
+        | quoted_ident
+        | bracketed_ident
 
 unquoted_ident ~ unquoted_start unquoted_chars
 unquoted_start ~ [a-zA-Z]
@@ -444,6 +463,8 @@ ident   ~ unquoted_ident
         | '*'
 
 bindvar ~ '@' unquoted_ident
+
+executesql ~ 'sys.sp_executesql'
 
 literal         ~ literal_delim literal_chars literal_delim
                 | 'N' literal_delim literal_chars literal_delim
@@ -564,6 +585,16 @@ sub discard {
     return 0;
 }
 
+sub extract_sql {
+    my (undef, $ine, undef, undef, undef, $stmt, undef) = @_;
+
+    assert_one_el($stmt);
+
+    @{$stmt}[0]->{ine} = 1 if ($ine);
+
+    return $stmt;
+}
+
 sub make_alias {
     my (undef, $as, $alias) = @_;
 
@@ -638,6 +669,18 @@ sub make_createrole {
     # ignore INE
     $node->{kind} = 'ROLE';
     $node->{ident} = $ident;
+    $node->{ine} = $ine;
+
+    return node_to_array($node);
+}
+
+sub make_createschema {
+    my (undef, undef, undef, $ident, $auth) = @_;
+    my $node = make_node('createobject');
+
+    $node->{kind} = 'SCHEMA';
+    $node->{ident} = $ident;
+    $node->{auth} = $auth;
 
     return node_to_array($node);
 }

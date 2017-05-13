@@ -113,10 +113,16 @@ sub format_createobject {
     my $out = 'CREATE';
 
     $out .= ' ' . $node->{replace} if (defined($node->{replace}));
-    $out .= ' ' . uc($node->{kind}) . ' ' . format_node($node->{ident});
+    $out .= ' ' . uc($node->{kind});
+    $out .= ' IF NOT EXISTS' if ($node->{ine});
+    $out .= ' ' . format_node($node->{ident});
 
     if (defined($node->{stmt})) {
         $out .= ' AS ' . format_node($node->{stmt});
+    }
+
+    if ($node->{auth}) {
+        $out .= ' AUTHORIZATION ' . format_node($node->{auth});
     }
 
     return $out;
