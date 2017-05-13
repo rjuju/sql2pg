@@ -1,10 +1,17 @@
-plsql2pg
-========
+sql2pg
+======
+
+/!\ WARNING /!\
+
+This project is still a work in progress,  SQL grammar are big and complex.  If
+you encounter some statements that are not handled, please report an issue with
+a self contained case and a link to the grammar reference.
 
 Overview
 --------
 
-plsql2pg is a parser that converts Oracle SQL to PostgreSQL compatible SQL.
+sql2pg is a parser that converts various flavor of SQL to PostgreSQL compatible
+SQL.
 
 It'll convert automatically most of specific keywords (CONNECT BY, (+)...),
 type, functions and so on.
@@ -15,9 +22,19 @@ after its problematic query.
 Dependencies
 ------------
 
-plsql2pg requires Marpa::R2, at least version 2.076000.
+sql2pg requires Marpa::R2, at least version 2.076000.
 
 Usage
 -----
 
-psql2pg queries.sql > rewritten_queries.sql
+For Oracle SQL:
+
+```bash
+plsql2pg.pl queries.sql > rewritten_queries.sql
+```
+
+For SQL Server SQL:
+
+```bash
+tsql2pg.pl queries.sql > rewritten_queries.sql
+```
