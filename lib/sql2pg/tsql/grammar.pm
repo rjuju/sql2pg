@@ -68,6 +68,7 @@ CreateStmt ::=
     CreateDbStmt
     | CreateRoleStmt
     | CreateSchema
+    | CreateType
 
 CreateDbStmt ::=
     CREATE DATABASE IDENT action => make_createdb
@@ -101,6 +102,16 @@ CreateSchema ::=
 
 authorization_clause ::=
     AUTHORIZATION IDENT action => second
+    | EMPTY
+
+CreateType ::=
+    INE CREATE TYPE IDENT FROM datatype action => make_domain
+
+datatype ::=
+    IDENT typmod NOT_NULL action => make_datatype
+
+typmod ::=
+    '(' number_list ')' action => second
     | EMPTY
 
 ExecSql ::=
@@ -353,6 +364,10 @@ NUMBER ::=
     INTEGER
     | FLOAT
 
+number_list ::=
+    number_list ',' NUMBER action => append_el_1_3
+    | NUMBER
+
 INE ::=
     # for now, just ignore the stmt and assume it's the intended query for a
     # postgres' IF NOT EXISTS utlity statement
@@ -362,6 +377,10 @@ INE ::=
 LITERAL_DELIM ::=
     [']
     | 'N' [']
+
+NOT_NULL ::=
+    NOT NULL action => concat
+    | EMPTY
 
 # keywords
 ALTER       ~ 'ALTER':ic
@@ -420,6 +439,7 @@ SEPARATOR   ~ ';' GO
             | GO
 :lexeme     ~ SEPARATOR pause => after event => new_query
 SET         ~ 'SET':ic
+TYPE        ~ 'TYPE':ic
 USE         ~ 'USE':ic
 UNION       ~ 'UNION':ic
 USING       ~ 'USING':ic
@@ -691,6 +711,28 @@ sub make_createschema {
     return node_to_array($node);
 }
 
+sub make_datatype {
+    my (undef, $ident, $typmod, $notnull) = @_;
+    my $node = make_node('datatype');
+
+    $node->{ident} = $ident;
+    $node->{typmod} = $typmod;
+    $node->{notnull} = $notnull;
+
+    return node_to_array($node);
+}
+
+sub make_domain {
+    my (undef, $ine, undef, undef, $ident, undef, $datatype) = @_;
+    my $node = make_node('createobject');
+
+    $node->{kind} = 'DOMAIN';
+    $node->{ident} = $ident;
+    $node->{datatype} = $datatype;
+
+    return node_to_array($node);
+}
+
 sub make_existsqual {
     my (undef, $op, undef, $subq, undef) = @_;
     my $qual = make_node('qual');
@@ -777,13 +819,7 @@ sub make_literal {
 }
 
 sub make_normaljoin {
-    my (undef, $partitionby, $jointype, undef, $ident, $alias, $cond) = @_;
-
-    if (defined($partitionby)) {
-        add_fixme('Partition clause ignored for outer join on table '
-                 . format_node($ident)
-                 .': ' . format_node($partitionby));
-    }
+    my (undef, $jointype, undef, $ident, $alias, $cond) = @_;
 
     return make_join($jointype, $ident, $alias, $cond);
 }

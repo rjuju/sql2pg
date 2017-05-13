@@ -121,9 +121,25 @@ sub format_createobject {
         $out .= ' AS ' . format_node($node->{stmt});
     }
 
+    if ($node->{datatype}) {
+        $out .= ' AS ' . format_node($node->{datatype});
+    }
+
     if ($node->{auth}) {
         $out .= ' AUTHORIZATION ' . format_node($node->{auth});
     }
+
+    return $out;
+}
+
+sub format_datatype {
+    my ($node) = @_;
+    my $out;
+
+    # FIXME return original type, need hooks to convert them to pg
+    $out = format_node($node->{ident});
+    $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
+    $out .= format_node($node->{notnull}) if ($node->{notnull});
 
     return $out;
 }
