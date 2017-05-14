@@ -65,10 +65,10 @@ set_param ::=
     | QUOTED_IDENTIFIER
 
 CreateStmt ::=
-    CreateDbStmt
-    | CreateRoleStmt
-    | CreateSchemaStmt
-    | CreateTypeStmt
+    INE CreateDbStmt action => add_ine
+    | INE CreateRoleStmt action => add_ine
+    | INE CreateSchemaStmt action => add_ine
+    | INE CreateTypeStmt action => add_ine
 
 CreateDbStmt ::=
     CREATE DATABASE IDENT action => make_createdb
@@ -95,7 +95,7 @@ ON_OFF ::=
     | OFF action => make_keyword
 
 CreateRoleStmt ::=
-    INE CREATE ROLE IDENT action => make_createrole
+    CREATE ROLE IDENT action => make_createrole
 
 CreateSchemaStmt ::=
     CREATE SCHEMA IDENT authorization_clause action => make_createschema
@@ -105,7 +105,7 @@ authorization_clause ::=
     | EMPTY
 
 CreateTypeStmt ::=
-    INE CREATE TYPE IDENT FROM datatype action => make_domain
+    CREATE TYPE IDENT FROM datatype action => make_domain
 
 datatype ::=
     IDENT typmod NOT_NULL action => make_datatype
@@ -522,6 +522,16 @@ END_OF_DSL
 }
 
 
+sub add_ine {
+    my (undef, $ine, $stmt) = @_;
+
+    assert_one_el($stmt);
+
+    @{$stmt}[0]->{ine} = 1 if ($ine);
+
+    return $stmt;
+}
+
 sub alias_node {
     my (undef, $node, $alias) = @_;
 
@@ -689,13 +699,11 @@ sub make_createdb {
 }
 
 sub make_createrole {
-    my (undef, $ine, undef, undef, $ident) = @_;
+    my (undef, undef, undef, $ident) = @_;
     my $node = make_node('createobject');
 
-    # ignore INE
     $node->{kind} = 'ROLE';
     $node->{ident} = $ident;
-    $node->{ine} = $ine;
 
     return node_to_array($node);
 }
@@ -723,7 +731,7 @@ sub make_datatype {
 }
 
 sub make_domain {
-    my (undef, $ine, undef, undef, $ident, undef, $datatype) = @_;
+    my (undef, undef, undef, $ident, undef, $datatype) = @_;
     my $node = make_node('createobject');
 
     $node->{kind} = 'DOMAIN';
