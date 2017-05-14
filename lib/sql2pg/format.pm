@@ -126,7 +126,7 @@ sub format_createobject {
     }
 
     if ($node->{cols}) {
-        $out .= "(\n" . format_array($node->{cols}, ",\n") . "\n)";
+        $out .= " (\n    " . format_array($node->{cols}, ",\n    ") . "\n)";
     }
 
     if ($node->{auth}) {
@@ -138,13 +138,12 @@ sub format_createobject {
 
 sub format_datatype {
     my ($node) = @_;
+    my $hook = $node->{hook};
     my $out;
 
-    # FIXME return original type, need hooks to convert them to pg and handle
-    # identity
-    $out = format_node($node->{ident});
-    $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
-    $out .= format_node($node->{notnull}) if ($node->{notnull});
+    no strict;
+    $out = &$hook($node);
+    use strict;
 
     return $out;
 }

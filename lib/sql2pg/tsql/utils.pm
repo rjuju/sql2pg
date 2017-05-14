@@ -19,6 +19,29 @@ use sql2pg::format;
 use sql2pg::common;
 
 
+sub handle_datatype {
+    my ($node) = @_;
+    my $out;
+    my $ident = $node->{ident};
+
+    # Handle identity clause
+    if ($node->{identity}) {
+        assert((not defined $ident->{table}),
+            "Column with IDENTITY should not be schema qualified", $node);
+
+        if (lc($ident->{attribute}) eq 'int') {
+            $out .= 'serial';
+        } elsif (lc($ident->{attribute}) eq 'bigint') {
+            $out .= 'bigserial';
+        }
+    }
+    $out = format_node($node->{ident}) unless($out);
+
+    $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
+    $out .= format_node($node->{nullnotnull}) if ($node->{nullnotnull});
+
+    return $out;
+}
 # Handle ident conversion from oracle to pg
 sub quote_ident {
     my ($ident) = @_;

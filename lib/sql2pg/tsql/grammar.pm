@@ -111,6 +111,8 @@ CreateTypeStmt ::=
     CREATE TYPE IDENT FROM datatype action => make_domain
 
 datatype ::=
+    # identity is only legal in tbl_coldef, assume original statement is
+    # correct
     IDENT typmod identity NULL_NOT_NULL action => make_datatype
 
 identity ::=
@@ -819,13 +821,14 @@ sub make_createtable {
 }
 
 sub make_datatype {
-    my (undef, $ident, $typmod, $identity, $notnull) = @_;
+    my (undef, $ident, $typmod, $identity, $nullnotnull) = @_;
     my $node = make_node('datatype');
 
-    $node->{ident} = $ident;
+    $node->{ident} = pop(@{$ident});
     $node->{typmod} = $typmod;
     $node->{identity} = $identity;
-    $node->{notnull} = $notnull;
+    $node->{nullnotnull} = $nullnotnull;
+    $node->{hook} = 'sql2pg::tsql::utils::handle_datatype';
 
     return node_to_array($node);
 }
