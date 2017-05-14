@@ -70,6 +70,7 @@ CreateStmt ::=
     | CreateSchemaStmt
     | CreateTypeStmt
     | CreateTableStmt
+    | CreateIndexStmt
     | INE CreateStmt action => add_ine
     | INE (BEGIN) CreateStmt (END) action => add_ine
 
@@ -164,6 +165,14 @@ tbl_conwith ::=
 
 tbl_conwith_elem ::=
     IGNORE_DUP_KEY
+
+CreateIndexStmt ::=
+    CREATE clustering INDEX IDENT ON IDENT '(' simple_order_list ')'
+        tbl_conwith action => make_createindex
+
+clustering ::=
+    CLUSTERED
+    | NONCLUSTERED
 
 ExecSqlStmt ::=
     EXEC executesql LITERAL_DELIM raw_stmt LITERAL_DELIM action => extract_sql
@@ -515,6 +524,7 @@ IDENTITY    ~ 'IDENTITY':ic
 IF          ~ 'IF':ic
 IGNORE_DUP_KEY ~ 'IGNORE_DUP_KEY':ic
 IN          ~ 'IN':ic
+INDEX       ~ 'INDEX':ic
 INNER       ~ 'INNER':ic
 INTERSECT   ~ 'INTERSECT':ic
 ## IS          ~ 'IS':ic
@@ -524,6 +534,7 @@ LEFT        ~ 'LEFT':ic
 LIKE        ~ 'LIKE':ic
 MINUS       ~ 'MINUS':ic
 NATURAL     ~ 'NATURAL':ic
+NONCLUSTERED ~ 'NONCLUSTERED':ic
 NOT         ~ 'NOT':ic
 NULL        ~ 'NULL':ic
 NULLS       ~ 'NULLS':ic
@@ -823,6 +834,19 @@ sub make_createdb {
     return node_to_array($node);
 }
 
+sub make_createindex {
+    my (undef, undef, undef, undef, $idxname, undef, $ident, undef, $cols,
+        undef) = @_;
+    my $node = make_node('createobject');
+
+    $node->{kind} = 'INDEX';
+    $node->{ident} = $idxname;
+    $node->{on} = $ident;
+    $node->{cols} = $cols;
+
+    return node_to_array($node);
+}
+
 sub make_createrole {
     my (undef, undef, undef, $ident) = @_;
     my $node = make_node('createobject');
@@ -834,9 +858,10 @@ sub make_createrole {
 }
 
 sub make_createschema {
-    my (undef, undef, undef, $ident, $auth) = @_;
+    my (undef, $clustering, undef, $ident, $auth) = @_;
     my $node = make_node('createobject');
 
+    # ignore clustering
     $node->{kind} = 'SCHEMA';
     $node->{ident} = $ident;
     $node->{auth} = $auth;
