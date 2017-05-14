@@ -69,6 +69,7 @@ CreateStmt ::=
     | CreateRoleStmt
     | CreateSchemaStmt
     | CreateTypeStmt
+    | CreateTableStmt
     | INE CreateStmt action => add_ine
     | INE (BEGIN) CreateStmt (END) action => add_ine
 
@@ -110,11 +111,29 @@ CreateTypeStmt ::=
     CREATE TYPE IDENT FROM datatype action => make_domain
 
 datatype ::=
-    IDENT typmod NOT_NULL action => make_datatype
+    IDENT typmod identity NULL_NOT_NULL action => make_datatype
+
+identity ::=
+    IDENTITY typmod action => second
+    | EMPTY
 
 typmod ::=
     '(' number_list ')' action => second
     | EMPTY
+
+CreateTableStmt ::=
+    CREATE TABLE IDENT '(' tbl_cols ')' tbl_on action => make_createtable
+
+tbl_cols ::=
+    tbl_cols ',' tbl_coldef action => append_el_1_3
+    | tbl_coldef
+
+tbl_coldef ::=
+    IDENT datatype action => make_tbl_coldef
+
+tbl_on ::=
+    # ignore it
+    ON IDENT
 
 ExecSqlStmt ::=
     EXEC executesql LITERAL_DELIM raw_stmt LITERAL_DELIM action => extract_sql
@@ -423,8 +442,9 @@ LITERAL_DELIM ::=
     [']
     | 'N' [']
 
-NOT_NULL ::=
-    NOT NULL action => concat
+NULL_NOT_NULL ::=
+    NULL action => upper
+    | NOT NULL action => concat
     | EMPTY
 
 # keywords
@@ -459,6 +479,7 @@ FROM        ~ 'FROM':ic
 FULL        ~ 'FULL':ic
 GO          ~ 'GO':ic
 JOIN        ~ 'JOIN':ic
+IDENTITY    ~ 'IDENTITY':ic
 IF          ~ 'IF':ic
 IN          ~ 'IN':ic
 INNER       ~ 'INNER':ic
@@ -495,6 +516,7 @@ SEPARATOR   ~ ';' GO
             | ';'
 :lexeme     ~ SEPARATOR pause => after event => new_query
 SET         ~ 'SET':ic
+TABLE       ~ 'TABLE':ic
 TYPE        ~ 'TYPE':ic
 USE         ~ 'USE':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
@@ -785,12 +807,24 @@ sub make_createschema {
     return node_to_array($node);
 }
 
+sub make_createtable {
+    my (undef, undef, undef, $ident, undef, $cols, undef, undef) = @_;
+    my $node = make_node('createobject');
+
+    $node->{kind} = 'TABLE';
+    $node->{ident} = $ident;
+    $node->{cols} = $cols;
+
+    return node_to_array($node);
+}
+
 sub make_datatype {
-    my (undef, $ident, $typmod, $notnull) = @_;
+    my (undef, $ident, $typmod, $identity, $notnull) = @_;
     my $node = make_node('datatype');
 
     $node->{ident} = $ident;
     $node->{typmod} = $typmod;
+    $node->{identity} = $identity;
     $node->{notnull} = $notnull;
 
     return node_to_array($node);
@@ -1141,6 +1175,16 @@ sub make_target_list {
     $node->{tlist} = $tlist;
 
     return $node;
+}
+
+sub make_tbl_coldef {
+    my (undef, $ident, $datatype) = @_;
+    my $node = make_node('tbl_coldef');
+
+    $node->{ident} = $ident;
+    $node->{datatype} = $datatype;
+
+    return node_to_array($node);
 }
 
 sub make_usestmt {

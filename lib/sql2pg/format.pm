@@ -125,6 +125,10 @@ sub format_createobject {
         $out .= ' AS ' . format_node($node->{datatype});
     }
 
+    if ($node->{cols}) {
+        $out .= "(\n" . format_array($node->{cols}, ",\n") . "\n)";
+    }
+
     if ($node->{auth}) {
         $out .= ' AUTHORIZATION ' . format_node($node->{auth});
     }
@@ -136,7 +140,8 @@ sub format_datatype {
     my ($node) = @_;
     my $out;
 
-    # FIXME return original type, need hooks to convert them to pg
+    # FIXME return original type, need hooks to convert them to pg and handle
+    # identity
     $out = format_node($node->{ident});
     $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
     $out .= format_node($node->{notnull}) if ($node->{notnull});
@@ -618,6 +623,15 @@ sub format_target_list {
 
     $out = $tlist->{distinct} . ' ' if (defined($tlist->{distinct}));
     $out .= format_array($tlist->{tlist}, ', ');
+
+    return $out;
+}
+
+sub format_tbl_coldef {
+    my ($node) = @_;
+    my $out = format_node($node->{ident});
+
+    $out .= ' ' . format_node($node->{datatype});
 
     return $out;
 }
