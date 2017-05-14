@@ -80,7 +80,7 @@ AlterStmt ::=
     AlterDbStmt
 
 AlterDbStmt ::=
-    ALTER DATABASE IDENT SET alter_db_param alter_db_value action => make_alterdb
+    ALTER DATABASE IDENT SET alter_db_param param_value action => make_alterdb
 
 alter_db_param ::=
     COMPATIBILITY_LEVEL
@@ -88,9 +88,10 @@ alter_db_param ::=
     | ARITHABORT
     | READ_WRITE
 
-alter_db_value ::=
+param_value ::=
     '=' INTEGER action => second
-    | ON_OFF action => make_keyword
+    | '=' ON_OFF
+    | ON_OFF
     | EMPTY
 
 ON_OFF ::=
@@ -126,16 +127,43 @@ typmod ::=
 CreateTableStmt ::=
     CREATE TABLE IDENT '(' tbl_cols ')' tbl_on action => make_createtable
 
+tbl_on ::=
+    # ignore it
+    ON IDENT
+
 tbl_cols ::=
     tbl_cols ',' tbl_coldef action => append_el_1_3
     | tbl_coldef
 
 tbl_coldef ::=
     IDENT datatype action => make_tbl_coldef
+    | tbl_condef
 
-tbl_on ::=
-    # ignore it
-    ON IDENT
+tbl_condef ::=
+    CONSTRAINT IDENT tbl_contype clustered '(' tbl_conlist ')' tbl_conwith
+        action => make_tbl_condef
+
+tbl_contype ::=
+    PRIMARY KEY action => concat
+
+clustered ::=
+    CLUSTERED
+    | EMPTY
+
+tbl_conlist ::=
+    tbl_conlist ',' tbl_conelem action => append_el_1_3
+    | tbl_conelem
+
+tbl_conelem ::=
+    # ignore ordering
+    IDENT ordering action => ::first
+
+tbl_conwith ::=
+    # ignore
+    WITH '(' tbl_conwith_elem param_value ')' ON IDENT action => discard
+
+tbl_conwith_elem ::=
+    IGNORE_DUP_KEY
 
 ExecSqlStmt ::=
     EXEC executesql LITERAL_DELIM raw_stmt LITERAL_DELIM action => extract_sql
@@ -464,7 +492,9 @@ AUTHORIZATION ~ 'AUTHORIZATION':ic
 BEGIN       ~ 'BEGIN':ic
 BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
+CLUSTERED   ~ 'CLUSTERED':ic
 COMPATIBILITY_LEVEL ~ 'COMPATIBILITY_LEVEL':ic
+CONSTRAINT  ~ 'CONSTRAINT':ic
 CREATE      ~ 'CREATE':ic
 :lexeme     ~ CREATE pause => after event => keyword
 CURRENT     ~ 'CURRENT':ic
@@ -483,10 +513,12 @@ GO          ~ 'GO':ic
 JOIN        ~ 'JOIN':ic
 IDENTITY    ~ 'IDENTITY':ic
 IF          ~ 'IF':ic
+IGNORE_DUP_KEY ~ 'IGNORE_DUP_KEY':ic
 IN          ~ 'IN':ic
 INNER       ~ 'INNER':ic
 INTERSECT   ~ 'INTERSECT':ic
 ## IS          ~ 'IS':ic
+KEY         ~ 'KEY':ic
 LAST        ~ 'LAST':ic
 LEFT        ~ 'LEFT':ic
 LIKE        ~ 'LIKE':ic
@@ -504,6 +536,7 @@ OUTER       ~ 'OUTER':ic
 OVER        ~ 'OVER':ic
 PARTITION   ~ 'PARTITION':ic
 PRECEDING   ~ 'PRECEDING':ic
+PRIMARY     ~ 'PRIMARY':ic
 QUOTED_IDENTIFIER ~ 'QUOTED_IDENTIFIER':ic
 RANGE       ~ 'RANGE':ic
 ROW         ~ 'ROW':ic
@@ -513,10 +546,6 @@ RIGHT       ~ 'RIGHT':ic
 ROLE        ~ 'ROLE':ic
 SCHEMA      ~ 'SCHEMA':ic
 SELECT      ~ 'SELECT':ic
-SEPARATOR   ~ ';' GO
-            | GO
-            | ';'
-:lexeme     ~ SEPARATOR pause => after event => new_query
 SET         ~ 'SET':ic
 TABLE       ~ 'TABLE':ic
 TYPE        ~ 'TYPE':ic
@@ -525,6 +554,12 @@ UNBOUNDED   ~ 'UNBOUNDED':ic
 UNION       ~ 'UNION':ic
 USING       ~ 'USING':ic
 WHERE       ~ 'WHERE':ic
+WITH        ~ 'WITH':ic
+
+SEPARATOR   ~ ';' GO
+            | GO
+            | ';'
+:lexeme     ~ SEPARATOR pause => after event => new_query
 
 # everything else
 digits      ~ [0-9]+
@@ -1186,6 +1221,18 @@ sub make_tbl_coldef {
 
     $node->{ident} = $ident;
     $node->{datatype} = $datatype;
+
+    return node_to_array($node);
+}
+
+sub make_tbl_condef {
+    my (undef, undef, $ident, $contype, undef, undef, $conlist, undef, undef)
+        = @_;
+    my $node = make_node('tbl_condef');
+
+    $node->{ident} = $ident;
+    $node->{contype} = $contype;
+    $node->{conlist} = $conlist;
 
     return node_to_array($node);
 }

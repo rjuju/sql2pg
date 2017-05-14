@@ -635,6 +635,18 @@ sub format_tbl_coldef {
     return $out;
 }
 
+sub format_tbl_condef {
+    my ($node) = @_;
+    my $out = 'CONSTRAINT ';
+
+    $out .= format_node($node->{ident});
+    $out .= ' ' . $node->{contype};
+
+    $out .= ' (' . format_array($node->{conlist}, ',') . ')';
+
+    return $out;
+}
+
 sub format_using {
     my ($node) = @_;
     my $out = undef;
