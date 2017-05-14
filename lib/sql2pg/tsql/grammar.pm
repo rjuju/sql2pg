@@ -437,6 +437,7 @@ SCHEMA      ~ 'SCHEMA':ic
 SELECT      ~ 'SELECT':ic
 SEPARATOR   ~ ';' GO
             | GO
+            | ';'
 :lexeme     ~ SEPARATOR pause => after event => new_query
 SET         ~ 'SET':ic
 TYPE        ~ 'TYPE':ic
