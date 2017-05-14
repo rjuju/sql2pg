@@ -65,10 +65,12 @@ set_param ::=
     | QUOTED_IDENTIFIER
 
 CreateStmt ::=
-    INE CreateDbStmt action => add_ine
-    | INE CreateRoleStmt action => add_ine
-    | INE CreateSchemaStmt action => add_ine
-    | INE CreateTypeStmt action => add_ine
+    CreateDbStmt
+    | CreateRoleStmt
+    | CreateSchemaStmt
+    | CreateTypeStmt
+    | INE CreateStmt action => add_ine
+    | INE (BEGIN) CreateStmt (END) action => add_ine
 
 CreateDbStmt ::=
     CREATE DATABASE IDENT action => make_createdb
@@ -115,7 +117,8 @@ typmod ::=
     | EMPTY
 
 ExecSqlStmt ::=
-    INE EXEC executesql LITERAL_DELIM raw_stmt LITERAL_DELIM action => extract_sql
+    EXEC executesql LITERAL_DELIM raw_stmt LITERAL_DELIM action => extract_sql
+    | INE ExecSqlStmt action => add_ine
 
 SingleSelectStmt ::=
     SELECT select_clause from_clause where_clause action => make_select
@@ -321,6 +324,7 @@ a_expr ::=
     IDENT
     | NUMBER
     | LITERAL
+    | function
     | NULL action => make_keyword
     # use "NOT NULL" as a_expr instead of using "IS NOT" as an operator avoid
     # ambiguity (otherwise NOT would be considered as an ident)
@@ -368,11 +372,52 @@ number_list ::=
     number_list ',' NUMBER action => append_el_1_3
     | NUMBER
 
+function ::=
+    IDENT '(' function_args ')' window_clause action => make_function
+
+function_args ::=
+    function_args ',' function_arg action => append_el_1_3
+    | function_arg
+    | EMPTY action => ::undef
+
+function_arg ::=
+    # this is ambiguous for nested function call
+    function_arg target_el action => append_function_arg
+    | target_el action => make_function_arg
+
+window_clause ::=
+    OVER '(' partition_clause order_clause frame_clause ')' action => make_overclause
+    | EMPTY
+
+partition_clause ::=
+    # alias not legals in this target_list, assume original query is correct
+    PARTITION BY target_list action => make_partitionclause
+    | EMPTY action => ::undef
+
+# should only be legal if an order_clause is present in the OVER clause
+frame_clause ::=
+    RANGE_ROWS frame_start action => make_frame_simple
+    | RANGE_ROWS BETWEEN frame_start AND frame_end action => make_frame_between
+    | EMPTY action => ::undef
+
+RANGE_ROWS ::=
+    RANGE action => upper
+    | ROWS action => upper
+
+frame_start ::=
+    UNBOUNDED PRECEDING action => make_frame_boundary
+    | CURRENT ROW action => make_frame_boundary
+    | NUMBER PRECEDING action => make_frame_boundary
+
+frame_end ::=
+    UNBOUNDED FOLLOWING action => make_frame_boundary
+    | CURRENT ROW action => make_frame_boundary
+    | NUMBER FOLLOWING action => make_frame_boundary
+
 INE ::=
     # for now, just ignore the stmt and assume it's the intended query for a
     # postgres' IF NOT EXISTS utlity statement
     IF NOT EXISTS '(' SingleSelectStmt ')'
-    | EMPTY
 
 LITERAL_DELIM ::=
     [']
@@ -394,18 +439,22 @@ ANSI_WARNINGS ~ 'ANSI_WARNINGS':ic
 AS          ~ 'AS':ic
 ASC         ~ 'ASC':ic
 AUTHORIZATION ~ 'AUTHORIZATION':ic
+BEGIN       ~ 'BEGIN':ic
 BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
 COMPATIBILITY_LEVEL ~ 'COMPATIBILITY_LEVEL':ic
 CREATE      ~ 'CREATE':ic
 :lexeme     ~ CREATE pause => after event => keyword
+CURRENT     ~ 'CURRENT':ic
 CROSS       ~ 'CROSS':ic
 DATABASE    ~ 'DATABASE':ic
 DESC        ~ 'DESC':ic
+END         ~ 'END':ic
 ESCAPE      ~ 'ESCAPE':ic
 EXEC        ~ 'EXEC':ic
 EXISTS      ~ 'EXISTS':ic
 FIRST       ~ 'FIRST':ic
+FOLLOWING   ~ 'FOLLOWING':ic
 FROM        ~ 'FROM':ic
 FULL        ~ 'FULL':ic
 GO          ~ 'GO':ic
@@ -429,7 +478,13 @@ ONLY        ~ 'ONLY':ic
 OR          ~ 'OR':ic
 ORDER       ~ 'ORDER':ic
 OUTER       ~ 'OUTER':ic
+OVER        ~ 'OVER':ic
+PARTITION   ~ 'PARTITION':ic
+PRECEDING   ~ 'PRECEDING':ic
 QUOTED_IDENTIFIER ~ 'QUOTED_IDENTIFIER':ic
+RANGE       ~ 'RANGE':ic
+ROW         ~ 'ROW':ic
+ROWS        ~ 'ROWS':ic
 READ_WRITE  ~ 'READ_WRITE':ic
 RIGHT       ~ 'RIGHT':ic
 ROLE        ~ 'ROLE':ic
@@ -442,6 +497,7 @@ SEPARATOR   ~ ';' GO
 SET         ~ 'SET':ic
 TYPE        ~ 'TYPE':ic
 USE         ~ 'USE':ic
+UNBOUNDED   ~ 'UNBOUNDED':ic
 UNION       ~ 'UNION':ic
 USING       ~ 'USING':ic
 WHERE       ~ 'WHERE':ic
@@ -559,6 +615,17 @@ sub append_el_1_3 {
     return $nodes;
 }
 
+sub append_function_arg {
+    my (undef, $nodes, $el) = @_;
+
+    assert_one_el($nodes);
+    assert_isA(@{$nodes}[0], 'function_arg');
+
+    push(@{@{$nodes}[0]->{arg}}, @{$el});
+
+    return $nodes;
+}
+
 sub append_joinlist {
     my (undef, $from, $joins, $pivot) = @_;
 
@@ -623,11 +690,9 @@ sub discard {
 }
 
 sub extract_sql {
-    my (undef, $ine, undef, undef, undef, $stmt, undef) = @_;
+    my (undef, undef, undef, undef, $stmt, undef) = @_;
 
     assert_one_el($stmt);
-
-    @{$stmt}[0]->{ine} = 1 if ($ine);
 
     return $stmt;
 }
@@ -758,6 +823,81 @@ sub make_existsqual {
     return node_to_array($qual);
 }
 
+sub make_frame_boundary {
+    my (undef, $el1, $el2) = @_;
+    my $node = make_node('frame_boundary');
+
+    # use keyword node to avoid extra space around them
+    $el1 = make_keyword(undef, $el1) if (not ref($el1));
+    $el2 = make_keyword(undef, $el2);
+
+    $node->{el1} = $el1;
+    $node->{el2} = $el2;
+
+    return $node;
+}
+
+sub make_frame_between {
+    my (undef, $rangerows, undef, $frame_start, undef, $frame_end) = @_;
+    my $node = make_node('frame');
+
+    $node->{rangerows} = $rangerows;
+    $node->{frame_start} = $frame_start;
+    $node->{frame_end} = $frame_end;
+
+    return $node;
+}
+
+sub make_frame_simple {
+    my (undef, $rangerows, $frame_start) = @_;
+    my $node = make_node('frame');
+
+    $node->{rangerows} = $rangerows;
+    $node->{frame_start} = $frame_start;
+
+    return $node;
+}
+
+sub make_fromclause {
+    my (undef, undef, $froms) = @_;
+
+    return make_clause('FROM', $froms);
+}
+
+sub make_fromonly {
+    my (undef, undef, undef, $node, undef) = @_;
+    my $only = make_node('from_only');
+
+    $only->{node} = $node;
+
+    return node_to_array($only);
+}
+
+sub make_function {
+    my (undef, $ident, undef, $args, undef, $windowclause) = @_;
+    my $func = make_node('function');
+
+    assert_one_el($ident);
+    $func->{ident} = pop(@{$ident});
+    $func->{args} = $args;
+    $func->{window} = $windowclause;
+    # FIXME write this functions
+    #$func->{hook} = 'sql2pg::tsql::utils::handle_function';
+
+    return node_to_array($func);
+}
+
+sub make_function_arg {
+    my (undef, $el) = @_;
+    my $node = make_node('function_arg');
+
+    assert_one_el($el);
+
+    $node->{arg} = $el;
+
+    return node_to_array($node);
+}
+
 sub make_ident {
     my (undef, $table, undef, $schema, undef, $attribute) = @_;
     my @atts = ('schema', 'table', 'attribute');
@@ -817,6 +957,27 @@ sub make_keyword {
     return node_to_array($node);
 }
 
+sub make_like {
+    my (undef, undef, $like, undef, $escape) = @_;
+    my $out = 'LIKE ' . format_node($like);
+
+    assert_one_el($escape) if (defined($escape));
+
+    $out .= ' ESCAPE ' . format_node(pop(@{$escape})) if (defined($escape));
+
+    return $out;
+}
+
+sub make_likeexpr {
+    my (undef, $el, $like) = @_;
+    my $node = make_node('likeexpr');
+
+    $node->{el} = $el;
+    $node->{like} = $like;
+
+    return node_to_array($node);
+}
+
 sub make_literal {
     my (undef, $value, $alias) = @_;
     my $literal = make_node('literal');
@@ -849,6 +1010,12 @@ sub make_number {
     return node_to_array($number);
 }
 
+sub make_opexpr {
+    my (undef, $left, $op, $right) = @_;
+
+    return make_node_opexpr($left, $op, $right);
+}
+
 sub make_orderby {
     my (undef, $elem, $order, $nulls) = @_;
     my $orderby = make_node('orderby');
@@ -872,6 +1039,25 @@ sub make_orderbyclause {
     my (undef, undef, $orderbys) = @_;
 
     return make_clause('ORDERBY', $orderbys);
+}
+
+sub make_overclause {
+    my (undef, undef, undef, $partition, $order, $frame, undef) = @_;
+    my $clause;
+    my $content = [];
+
+    push(@{$content}, $partition) if defined($partition);
+    push(@{$content}, $order) if defined($order);
+    push(@{$content}, $frame) if defined($frame);
+    $clause = make_clause('OVERCLAUSE', $content);
+
+    return $clause;
+}
+
+sub make_partitionclause {
+    my (undef, undef, undef, $tlist) = @_;
+
+    return make_clause('PARTITIONBY', $tlist);
 }
 
 sub make_qual {
@@ -939,68 +1125,6 @@ sub make_subquery {
     return node_to_array($clause);
 }
 
-sub make_usestmt {
-    my (undef, undef, $ident) = @_;
-
-    add_fixme("Statement USE " . format_node($ident) . " ignored");
-
-    return;
-}
-
-sub parens_node {
-    my (undef, undef, $node, undef) = @_;
-
-    return _parens_node($node);
-}
-
-sub second {
-    my (undef, undef, $node) = @_;
-
-    return $node;
-}
-
-sub make_fromclause {
-    my (undef, undef, $froms) = @_;
-
-    return make_clause('FROM', $froms);
-}
-
-sub make_fromonly {
-    my (undef, undef, undef, $node, undef) = @_;
-    my $only = make_node('from_only');
-
-    $only->{node} = $node;
-
-    return node_to_array($only);
-}
-
-sub make_like {
-    my (undef, undef, $like, undef, $escape) = @_;
-    my $out = 'LIKE ' . format_node($like);
-
-    assert_one_el($escape) if (defined($escape));
-
-    $out .= ' ESCAPE ' . format_node(pop(@{$escape})) if (defined($escape));
-
-    return $out;
-}
-
-sub make_likeexpr {
-    my (undef, $el, $like) = @_;
-    my $node = make_node('likeexpr');
-
-    $node->{el} = $el;
-    $node->{like} = $like;
-
-    return node_to_array($node);
-}
-
-sub make_opexpr {
-    my (undef, $left, $op, $right) = @_;
-
-    return make_node_opexpr($left, $op, $right);
-}
-
 sub make_target_qual_list {
     my (undef, $quals) = @_;
     my $node = make_node('target_quallist');
@@ -1019,6 +1143,14 @@ sub make_target_list {
     return $node;
 }
 
+sub make_usestmt {
+    my (undef, undef, $ident) = @_;
+
+    add_fixme("Statement USE " . format_node($ident) . " ignored");
+
+    return;
+}
+
 sub make_whereclause {
     my (undef, undef, $quals) = @_;
     my $quallist = make_node('quallist');
@@ -1026,6 +1158,18 @@ sub make_whereclause {
     $quallist->{quallist} = $quals;
 
     return make_clause('WHERE', $quallist);
+}
+
+sub parens_node {
+    my (undef, undef, $node, undef) = @_;
+
+    return _parens_node($node);
+}
+
+sub second {
+    my (undef, undef, $node) = @_;
+
+    return $node;
 }
 
 sub upper {
