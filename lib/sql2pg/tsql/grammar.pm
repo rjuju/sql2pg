@@ -33,7 +33,7 @@ raw_stmt ::=
     | IgnoredStmt
     | CreateStmt
     | AlterStmt
-    | ExecSql
+    | ExecSqlStmt
 
 CombinedSelectStmt ::=
     SelectStmt order_clause action => append_orderbyclause
@@ -67,8 +67,8 @@ set_param ::=
 CreateStmt ::=
     CreateDbStmt
     | CreateRoleStmt
-    | CreateSchema
-    | CreateType
+    | CreateSchemaStmt
+    | CreateTypeStmt
 
 CreateDbStmt ::=
     CREATE DATABASE IDENT action => make_createdb
@@ -97,14 +97,14 @@ ON_OFF ::=
 CreateRoleStmt ::=
     INE CREATE ROLE IDENT action => make_createrole
 
-CreateSchema ::=
+CreateSchemaStmt ::=
     CREATE SCHEMA IDENT authorization_clause action => make_createschema
 
 authorization_clause ::=
     AUTHORIZATION IDENT action => second
     | EMPTY
 
-CreateType ::=
+CreateTypeStmt ::=
     INE CREATE TYPE IDENT FROM datatype action => make_domain
 
 datatype ::=
@@ -114,7 +114,7 @@ typmod ::=
     '(' number_list ')' action => second
     | EMPTY
 
-ExecSql ::=
+ExecSqlStmt ::=
     INE EXEC executesql LITERAL_DELIM raw_stmt LITERAL_DELIM action => extract_sql
 
 SingleSelectStmt ::=
