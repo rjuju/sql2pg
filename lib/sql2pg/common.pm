@@ -167,6 +167,8 @@ sub get_alias {
 sub handle_missing_alias {
     my ($stmt) = @_;
 
+    return unless(defined $stmt->{FROM});
+
     foreach my $w (@{$stmt->{FROM}->{content}}) {
         if ( isA($w, 'SUBQUERY') and (not defined($w->{alias})) ) {
             $w->{alias} = generate_alias();

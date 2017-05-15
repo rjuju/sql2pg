@@ -71,6 +71,7 @@ CreateStmt ::=
     | CreateTypeStmt
     | CreateTableStmt
     | CreateIndexStmt
+    | CreateViewStmt
     | INE CreateStmt action => add_ine
     | INE (BEGIN) CreateStmt (END) action => add_ine
 
@@ -174,8 +175,11 @@ clustering ::=
     CLUSTERED
     | NONCLUSTERED
 
+CreateViewStmt ::=
+    CREATE VIEW IDENT AS SelectStmt action => make_createview
+
 ExecSqlStmt ::=
-    EXEC executesql LITERAL_DELIM raw_stmt LITERAL_DELIM action => extract_sql
+    EXEC EXECUTESQL LITERAL_DELIM raw_stmt LITERAL_DELIM action => extract_sql
     | INE ExecSqlStmt action => add_ine
 
 SingleSelectStmt ::=
@@ -230,6 +234,7 @@ like_clause ::=
 
 from_clause ::=
     FROM from_list action => make_fromclause
+    | EMPTY
 
 from_list ::=
     from_list ',' from_elem action => append_el_1_3
@@ -486,6 +491,10 @@ NULL_NOT_NULL ::=
     | NOT NULL action => concat
     | EMPTY
 
+EXECUTESQL ::=
+    executesql
+    | executesql bindvar '='
+
 # keywords
 ALTER       ~ 'ALTER':ic
 :lexeme     ~ ALTER pause => after event => keyword
@@ -564,6 +573,7 @@ USE         ~ 'USE':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
 UNION       ~ 'UNION':ic
 USING       ~ 'USING':ic
+VIEW        ~ 'VIEW':ic
 WHERE       ~ 'WHERE':ic
 WITH        ~ 'WITH':ic
 
@@ -618,6 +628,7 @@ ident   ~ unquoted_ident
 bindvar ~ '@' unquoted_ident
 
 executesql ~ 'sys.sp_executesql'
+            | 'dbo.sp_executesql'
 
 literal         ~ literal_delim literal_chars literal_delim
                 | 'N' literal_delim literal_chars literal_delim
@@ -880,6 +891,17 @@ sub make_createtable {
     return node_to_array($node);
 }
 
+sub make_createview {
+    my (undef, undef, undef, $ident, undef, $stmt) = @_;
+    my $node = make_node('createobject');
+
+    $node->{kind} = 'VIEW';
+    $node->{ident} = $ident;
+    $node->{stmt} = $stmt;
+
+    return node_to_array($node);
+}
+
 sub make_datatype {
     my (undef, $ident, $typmod, $identity, $nullnotnull) = @_;
     my $node = make_node('datatype');
@@ -978,8 +1000,7 @@ sub make_function {
     $func->{ident} = pop(@{$ident});
     $func->{args} = $args;
     $func->{window} = $windowclause;
-    # FIXME write this functions
-    #$func->{hook} = 'sql2pg::tsql::utils::handle_function';
+    $func->{hook} = 'sql2pg::tsql::utils::handle_function';
 
     return node_to_array($func);
 }

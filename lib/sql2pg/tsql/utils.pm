@@ -42,6 +42,13 @@ sub handle_datatype {
 
     return $out;
 }
+
+sub handle_function {
+    my ($node) = @_;
+
+    # FIXME write this function
+}
+
 # Handle ident conversion from oracle to pg
 sub quote_ident {
     my ($ident) = @_;
