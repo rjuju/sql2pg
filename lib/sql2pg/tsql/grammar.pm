@@ -387,11 +387,30 @@ a_expr ::=
     IDENT
     | NUMBER
     | LITERAL
+    | case_when
     | function
     | NULL action => make_keyword
     # use "NOT NULL" as a_expr instead of using "IS NOT" as an operator avoid
     # ambiguity (otherwise NOT would be considered as an ident)
     | NOT NULL action => make_keyword
+
+case_when ::=
+    CASE when_expr else_expr END action => make_case_when
+
+when_expr ::=
+    when_list
+    | function_arg when_list action => append_el_1_2
+
+when_list ::=
+    when_list when_elem action => append_el_1_2
+    | when_elem
+
+when_elem ::=
+    WHEN function_arg THEN function_arg action => make_when
+
+else_expr ::=
+    ELSE target_el action => make_else
+    | EMPTY
 
 
 
@@ -495,6 +514,7 @@ EXECUTESQL ::=
     executesql
     | executesql bindvar '='
 
+
 # keywords
 ALTER       ~ 'ALTER':ic
 :lexeme     ~ ALTER pause => after event => keyword
@@ -510,6 +530,7 @@ AUTHORIZATION ~ 'AUTHORIZATION':ic
 BEGIN       ~ 'BEGIN':ic
 BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
+CASE        ~ 'CASE':ic
 CLUSTERED   ~ 'CLUSTERED':ic
 COMPATIBILITY_LEVEL ~ 'COMPATIBILITY_LEVEL':ic
 CONSTRAINT  ~ 'CONSTRAINT':ic
@@ -519,6 +540,7 @@ CURRENT     ~ 'CURRENT':ic
 CROSS       ~ 'CROSS':ic
 DATABASE    ~ 'DATABASE':ic
 DESC        ~ 'DESC':ic
+ELSE        ~ 'ELSE':ic
 END         ~ 'END':ic
 ESCAPE      ~ 'ESCAPE':ic
 EXEC        ~ 'EXEC':ic
@@ -568,12 +590,14 @@ SCHEMA      ~ 'SCHEMA':ic
 SELECT      ~ 'SELECT':ic
 SET         ~ 'SET':ic
 TABLE       ~ 'TABLE':ic
+THEN        ~ 'THEN':ic
 TYPE        ~ 'TYPE':ic
 USE         ~ 'USE':ic
 UNBOUNDED   ~ 'UNBOUNDED':ic
 UNION       ~ 'UNION':ic
 USING       ~ 'USING':ic
 VIEW        ~ 'VIEW':ic
+WHEN        ~ 'WHEN':ic
 WHERE       ~ 'WHERE':ic
 WITH        ~ 'WITH':ic
 
@@ -835,6 +859,16 @@ sub make_bindvar {
     return node_to_array($node);
 }
 
+sub make_case_when {
+    my (undef, undef, $whens, $else, undef) = @_;
+    my $node = make_node('case_when');
+
+    $node->{whens} = $whens;
+    $node->{else} = $else;
+
+    return node_to_array($node);
+}
+
 sub make_createdb {
     my (undef, undef, undef, $db) = @_;
     my $node = make_node('createobject');
@@ -924,6 +958,16 @@ sub make_domain {
     $node->{datatype} = $datatype;
 
     return node_to_array($node);
+}
+
+sub make_else {
+  my (undef, undef, $el) = @_;
+  my $node = make_node('else');
+
+  $node->{el} = $el;
+
+  # There can only be one else, so don't array it
+  return $node;
 }
 
 sub make_existsqual {
@@ -1289,6 +1333,16 @@ sub make_usestmt {
     add_fixme("Statement USE " . format_node($ident) . " ignored");
 
     return;
+}
+
+sub make_when {
+    my (undef, undef, $el1, undef, $el2) = @_;
+    my $node = make_node('when');
+
+    $node->{el1} = $el1;
+    $node->{el2} = $el2;
+
+    return node_to_array($node);
 }
 
 sub make_whereclause {
