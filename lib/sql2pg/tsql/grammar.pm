@@ -72,6 +72,7 @@ CreateStmt ::=
     | CreateTableStmt
     | CreateIndexStmt
     | CreateViewStmt
+    | CreateProcStmt
     | INE CreateStmt action => add_ine
     | INE (BEGIN) CreateStmt (END) action => add_ine
 
@@ -178,9 +179,26 @@ clustering ::=
 CreateViewStmt ::=
     CREATE VIEW IDENT AS SelectStmt action => make_createview
 
+CreateProcStmt ::=
+    CREATE PROCEDURE IDENT '(' proargs ')' AS (BEGIN) prostmts (END)
+        action => make_createproc
+    | CREATE PROCEDURE IDENT '(' proargs ')' AS prostmts
+        action => make_createproc
+
+prostmts ::=
+    raw_stmt* separator => SEPARATOR action => ::array
+
+proargs ::=
+    proargs ',' proarg
+    | proarg
+
+proarg ::=
+    bindvar datatype action => make_proarg
+
 ExecSqlStmt ::=
     EXEC EXECUTESQL LITERAL_DELIM raw_stmt LITERAL_DELIM action => extract_sql
     | INE ExecSqlStmt action => add_ine
+    | INE (BEGIN) ExecSqlStmt (END) action => add_ine
 
 SingleSelectStmt ::=
     SELECT select_clause from_clause where_clause action => make_select
@@ -579,6 +597,7 @@ OVER        ~ 'OVER':ic
 PARTITION   ~ 'PARTITION':ic
 PRECEDING   ~ 'PRECEDING':ic
 PRIMARY     ~ 'PRIMARY':ic
+PROCEDURE   ~ 'PROCEDURE':ic
 QUOTED_IDENTIFIER ~ 'QUOTED_IDENTIFIER':ic
 RANGE       ~ 'RANGE':ic
 ROW         ~ 'ROW':ic
@@ -588,6 +607,7 @@ RIGHT       ~ 'RIGHT':ic
 ROLE        ~ 'ROLE':ic
 SCHEMA      ~ 'SCHEMA':ic
 SELECT      ~ 'SELECT':ic
+:lexeme     ~ SELECT pause => after event => keyword
 SET         ~ 'SET':ic
 TABLE       ~ 'TABLE':ic
 THEN        ~ 'THEN':ic
@@ -657,6 +677,9 @@ executesql ~ 'sys.sp_executesql'
 literal         ~ literal_delim literal_chars literal_delim
                 | 'N' literal_delim literal_chars literal_delim
 literal_delim   ~ [']
+                # awful kludge to support literal in execsql
+                # assume original query is valid
+                | ['] [']
 literal_chars   ~ [^']*
 
 OPERATOR    ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
@@ -898,6 +921,18 @@ sub make_createrole {
 
     $node->{kind} = 'ROLE';
     $node->{ident} = $ident;
+
+    return node_to_array($node);
+}
+
+sub make_createproc {
+    my (undef, undef, undef, $ident, undef, $args, undef, undef, $stmts,
+        undef) = @_;
+    my $node = make_node('procedure');
+
+    $node->{ident} = $ident;
+    $node->{args} = $args;
+    $node->{stmts} = $stmts;
 
     return node_to_array($node);
 }
@@ -1144,7 +1179,12 @@ sub make_literal {
     my (undef, $value, $alias) = @_;
     my $literal = make_node('literal');
 
-    $literal->{value} = substr($value, 1, -1); # remove the quotes
+    # remove the quotes, may be doubled if was in CREATE PROCEDURE
+    if (substr($value, 0, 2) eq "''") {
+        $literal->{value} = substr($value, 2, -2);
+    } else {
+        $literal->{value} = substr($value, 1, -1);
+    }
     $literal->{alias} = $alias;
 
     return node_to_array($literal);
@@ -1220,6 +1260,17 @@ sub make_partitionclause {
     my (undef, undef, undef, $tlist) = @_;
 
     return make_clause('PARTITIONBY', $tlist);
+}
+
+sub make_proarg {
+    my (undef, $name, $datatype) = @_;
+    my $node = make_node('proarg');
+
+    # remove @ from name and cast it to ident
+    $node->{name} = make_ident(undef, substr($name, 1));
+    $node->{datatype} = $datatype;
+
+    return node_to_array($node);
 }
 
 sub make_qual {

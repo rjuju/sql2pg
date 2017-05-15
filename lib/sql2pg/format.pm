@@ -498,6 +498,28 @@ sub format_PARTITIONBY {
     return "PARTITION BY " . format_standard_clause($partitionby, ', ');
 }
 
+sub format_proarg {
+    my ($arg) = @_;
+    my $out;
+
+    $out .= format_node($arg->{name}) . ' ' . format_node($arg->{datatype});
+
+    return $out;
+}
+sub format_procedure {
+    my ($proc) = @_;
+    my $out = 'CREATE FUNCTION';
+
+    $out .= ' ' . format_node($proc->{ident});
+    $out .= ' (' . format_array($proc->{args}, ',') . ") AS\n";
+    $out .= "\$_\$\nBEGIN\n";
+    if ($proc->{stmts}) {
+        $out .= format_array($proc->{stmts}, " ;\n");
+    }
+    $out .= " ;\nEND;\n\$_\$ language plpgsql";
+    return $out;
+}
+
 sub format_qual {
     my ($qual) = @_;
     my $out = '';
