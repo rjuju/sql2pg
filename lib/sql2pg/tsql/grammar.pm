@@ -443,6 +443,7 @@ IDENT ::=
     ident '.' ident '.' ident action => make_ident
     | ident '.' ident action => make_ident
     | ident action => make_ident
+    | IDENT COLLATE IDENT action => add_collation
 
 ALIASED_IDENT ::=
     IDENT ALIAS_CLAUSE action => alias_node
@@ -550,6 +551,7 @@ BETWEEN     ~ 'BETWEEN':ic
 BY          ~ 'BY':ic
 CASE        ~ 'CASE':ic
 CLUSTERED   ~ 'CLUSTERED':ic
+COLLATE     ~ 'COLLATE':ic
 COMPATIBILITY_LEVEL ~ 'COMPATIBILITY_LEVEL':ic
 CONSTRAINT  ~ 'CONSTRAINT':ic
 CREATE      ~ 'CREATE':ic
@@ -706,6 +708,16 @@ o_pre_final_stars           ~ [*]*
 END_OF_DSL
 }
 
+
+sub add_collation {
+    my (undef, $ident, undef, $collation) = @_;
+
+    assert_one_el($ident);
+    assert_one_el($collation);
+    @{$ident}[0]->{collation} = pop(@{$collation});
+
+    return $ident;
+}
 
 sub add_ine {
     my (undef, $ine, $stmt) = @_;

@@ -329,6 +329,9 @@ sub format_ident {
     }
 
     $out .= format_node($ident->{sample}) if (defined($ident->{sample}));
+    # FIXME handle collation name translation
+    $out .= ' COLLATE ' . format_ident($ident->{collation})
+        if (defined($ident->{collation}));
     $out .= format_alias($ident->{alias});
 
     return $out;
