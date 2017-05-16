@@ -129,6 +129,8 @@ identity ::=
 
 typmod ::=
     '(' number_list ')' action => second
+    # drop it, [varchar](max) is only a varvhar in pg
+    | '(' MAX ')' action => ::undef
     | EMPTY
 
 CreateTableStmt ::=
@@ -592,6 +594,7 @@ KEY         ~ 'KEY':ic
 LAST        ~ 'LAST':ic
 LEFT        ~ 'LEFT':ic
 LIKE        ~ 'LIKE':ic
+MAX         ~ 'MAX':ic
 MINUS       ~ 'MINUS':ic
 NATURAL     ~ 'NATURAL':ic
 NONCLUSTERED ~ 'NONCLUSTERED':ic
