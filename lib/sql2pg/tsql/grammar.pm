@@ -184,6 +184,9 @@ CreateProcStmt ::=
         action => make_createproc
     | CREATE PROCEDURE IDENT '(' proargs ')' AS prostmts
         action => make_createproc
+    | CREATE PROCEDURE IDENT AS (BEGIN) prostmts (END)
+        action => make_createproc_noarg
+    | CREATE PROCEDURE IDENT AS prostmts action => make_createproc_noarg
 
 prostmts ::=
     raw_stmt* separator => SEPARATOR action => ::array
@@ -938,12 +941,21 @@ sub make_createrole {
 }
 
 sub make_createproc {
-    my (undef, undef, undef, $ident, undef, $args, undef, undef, $stmts,
-        undef) = @_;
+    my (undef, undef, undef, $ident, undef, $args, undef, undef, $stmts) = @_;
     my $node = make_node('procedure');
 
     $node->{ident} = $ident;
     $node->{args} = $args;
+    $node->{stmts} = $stmts;
+
+    return node_to_array($node);
+}
+
+sub make_createproc_noarg {
+    my (undef, undef, undef, $ident, undef, $stmts) = @_;
+    my $node = make_node('procedure');
+
+    $node->{ident} = $ident;
     $node->{stmts} = $stmts;
 
     return node_to_array($node);

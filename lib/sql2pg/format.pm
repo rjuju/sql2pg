@@ -514,7 +514,10 @@ sub format_procedure {
     my $out = 'CREATE FUNCTION';
 
     $out .= ' ' . format_node($proc->{ident});
-    $out .= ' (' . format_array($proc->{args}, ',') . ") AS\n";
+    $out .= '(';
+
+    $out .= format_array($proc->{args}, ',') if ($node->{args});
+    $out .= ")\nRETURNS FIXME AS\n";
     $out .= "\$_\$\nBEGIN\n";
     if ($proc->{stmts}) {
         $out .= format_array($proc->{stmts}, " ;\n");
