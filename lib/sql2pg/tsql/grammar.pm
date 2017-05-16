@@ -119,6 +119,10 @@ datatype ::=
     # correct
     IDENT typmod identity NULL_NOT_NULL action => make_datatype
 
+col_default ::=
+    DEFAULT '(' target_el ')' action => make_coldefault
+    | EMPTY
+
 identity ::=
     IDENTITY typmod action => second
     | EMPTY
@@ -139,7 +143,7 @@ tbl_cols ::=
     | tbl_coldef
 
 tbl_coldef ::=
-    IDENT datatype action => make_tbl_coldef
+    IDENT datatype col_default action => make_tbl_coldef
     | tbl_condef
 
 tbl_condef ::=
@@ -563,6 +567,7 @@ CREATE      ~ 'CREATE':ic
 CURRENT     ~ 'CURRENT':ic
 CROSS       ~ 'CROSS':ic
 DATABASE    ~ 'DATABASE':ic
+DEFAULT     ~ 'DEFAULT':ic
 DESC        ~ 'DESC':ic
 ELSE        ~ 'ELSE':ic
 END         ~ 'END':ic
@@ -1382,11 +1387,12 @@ sub make_target_list {
 }
 
 sub make_tbl_coldef {
-    my (undef, $ident, $datatype) = @_;
+    my (undef, $ident, $datatype, $default) = @_;
     my $node = make_node('tbl_coldef');
 
     $node->{ident} = $ident;
     $node->{datatype} = $datatype;
+    $node->{default} = $default;
 
     return node_to_array($node);
 }
@@ -1399,6 +1405,15 @@ sub make_tbl_condef {
     $node->{ident} = $ident;
     $node->{contype} = $contype;
     $node->{conlist} = $conlist;
+
+    return node_to_array($node);
+}
+
+sub make_coldefault {
+    my (undef, undef, undef, $el, undef) = @_;
+    my $node = make_node('coldefault');
+
+    $node->{el} = $el;
 
     return node_to_array($node);
 }

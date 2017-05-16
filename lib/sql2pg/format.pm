@@ -659,6 +659,7 @@ sub format_tbl_coldef {
     my $out = format_node($node->{ident});
 
     $out .= ' ' . format_node($node->{datatype});
+    $out .= format_node($node->{default}) . ' ' if ($node->{default});
 
     return $out;
 }
@@ -673,6 +674,12 @@ sub format_tbl_condef {
     $out .= ' (' . format_array($node->{conlist}, ',') . ')';
 
     return $out;
+}
+
+sub format_coldefault {
+    my ($node) = @_;
+
+    return 'DEFAULT (' . format_node($node->{el}) . ')';
 }
 
 sub format_using {
