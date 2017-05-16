@@ -528,7 +528,8 @@ LITERAL_DELIM ::=
     | 'N' [']
 
 NULL_NOT_NULL ::=
-    NULL action => upper
+    # no need for NULL in pg column definitions
+    NULL action => ::undef
     | NOT NULL action => concat
     | EMPTY
 
