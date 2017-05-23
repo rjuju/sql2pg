@@ -82,8 +82,9 @@ InsertStmt ::=
         action => make_insert
 
 CreateStmt ::=
-    CreateTableAs
-    | CreateViewAs
+    CreateTableAsStmt
+    | CreateTableStmt
+    | CreateViewAsStmt
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -233,7 +234,7 @@ interval ::=
     | INTERVAL LITERAL interval_kind TO interval_kind action => make_interval
 
 interval_kind ::=
-    interval_unit interval_typmod action => make_intervalkind
+    interval_unit typmod action => make_intervalkind
 
 interval_unit ::=
     DAY
@@ -241,7 +242,7 @@ interval_unit ::=
     | MINUTE
     | SECOND
 
-interval_typmod ::=
+typmod ::=
     '(' number_list ')' action => second
     | EMPTY
 
@@ -815,15 +816,58 @@ err_log_list ::=
     | EMPTY
 
 
-CreateTableAs ::=
+CreateTableStmt ::=
+    CREATE TABLE IDENT ('(') tbl_cols (')') tbl_tblspc
+        action => make_createtable
+
+tbl_cols ::=
+    tbl_cols ',' tbl_coldef action => append_el_1_3
+    | tbl_coldef
+
+tbl_coldef ::=
+    IDENT datatype col_default col_check action => make_tbl_coldef
+
+tbl_tblspc ::=
+    TABLESPACE IDENT action => second
+    | EMPTY
+
+datatype ::=
+    # identity is only legal in tbl_coldef, assume original statement is
+    # correct
+    IDENT typmod NOT_NULL action => make_datatype
+
+col_default ::=
+    DEFAULT ('(') target_el (')') action => make_coldefault
+    | EMPTY
+
+col_check ::=
+    CHECK ('(') target_el (')') deferrable_clause action => make_col_check
+    | EMPTY
+
+deferrable_clause ::=
+    DEFERRABLE action => upper
+    | DEFERRABLE INITIALLY DEFERRED action => concat
+    | DEFERRABLE INITIALLY IMMEDIATE action => concat
+    | NOT DEFERRABLE action => upper
+    | NOT DEFERRABLE INITIALLY DEFERRED action => concat
+    | NOT DEFERRABLE INITIALLY IMMEDIATE action => concat
+    | EMPTY
+
+CreateTableAsStmt ::=
     CREATE TABLE IDENT AS SelectStmt action => make_createtableas
 
-CreateViewAs ::=
+CreateViewAsStmt ::=
     CREATE or_replace_clause VIEW IDENT AS SelectStmt
         action => make_createviewas
 
 or_replace_clause ::=
     OR REPLACE action => concat
+    | EMPTY
+
+NOT_NULL ::=
+    NOT NULL action => concat
+    # only valid in check constraints, assume original query is valid
+    | IS NOT NULL action => concat
     | EMPTY
 
 sign ::=
@@ -843,6 +887,9 @@ NUMBER ::=
     INTEGER
     | FLOAT
 
+OPERATOR ::=
+    operator action => upper
+
 # keywords
 ALL         ~ 'ALL':ic
 AND         ~ 'AND':ic
@@ -856,6 +903,7 @@ BLOCK       ~ 'BLOCK':ic
 BREADTH     ~ 'BREADTH':ic
 BY          ~ 'BY':ic
 CASE        ~ 'CASE':ic
+CHECK       ~ 'CHECK':ic
 CONNECT     ~ 'CONNECT':ic
 CONNECT_BY_ROOT ~ 'CONNECT_BY_ROOT':ic
 CONNECT_BY_ISLEAF ~ 'CONNECT_BY_ISLEAF':ic
@@ -869,6 +917,8 @@ DATE        ~ 'DATE':ic
 DAY         ~ 'DAY':ic
 DECREMENT   ~ 'DECREMENT':ic
 DEFAULT     ~ 'DEFAULT':ic
+DEFERRABLE  ~ 'DEFERRABLE':ic
+DEFERRED    ~ 'DEFERRED':ic
 DELETE      ~ 'DELETE':ic
 :lexeme     ~ DELETE pause => after event => keyword
 DENSE_RANK  ~ 'DENSE_RANK':ic
@@ -894,15 +944,18 @@ GROUPING    ~ 'GROUPING':ic
 HAVING      ~ 'HAVING':ic
 HOUR        ~ 'HOUR':ic
 IGNORE      ~ 'IGNORE':ic
+IMMEDIATE   ~ 'IMMEDIATE':ic
 IN          ~ 'IN':ic
 INCLUDE     ~ 'INCLUDE':ic
 INCREMENT   ~ 'INCREMENT':ic
 INNER       ~ 'INNER':ic
+INITIALLY   ~ 'INITIALLY':ic
 INTERVAL    ~ 'INTERVAL':ic
 INSERT      ~ 'INSERT':ic
 :lexeme     ~ INSERT pause => after event => keyword
 INTERSECT   ~ 'INTERSECT':ic
 INTO        ~ 'INTO':ic
+_IS         ~ 'IS':ic
 IS          ~ 'IS':ic
 ITERATE     ~ 'ITERATE':ic
 JOIN        ~ 'JOIN':ic
@@ -975,6 +1028,7 @@ SKIP        ~ 'SKIP':ic
 START       ~ 'START':ic
 STATEMENT_ID~ 'STATEMENT_ID':ic
 TABLE       ~ 'TABLE':ic
+TABLESPACE  ~ 'TABLESPACE':ic
 THEN        ~ 'THEN':ic
 :lexeme     ~ THEN priority => 1
 TIME        ~ 'TIME':ic
@@ -1051,8 +1105,8 @@ literal         ~ literal_delim literal_chars literal_delim
 literal_delim   ~ [']
 literal_chars   ~ [^']*
 
-OPERATOR    ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
-            | '+' | '-' | '*' | '/' | '||' | IS
+operator    ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
+            | '+' | '-' | '*' | '/' | '||' | _IS
 
 :discard                    ~ discard
 discard                     ~ whitespace
@@ -1257,6 +1311,25 @@ sub make_case_when {
     return node_to_array($node);
 }
 
+sub make_col_check {
+    my (undef, undef, $el, $deferrable) = @_;
+    my $node = make_node('colcheck');
+
+    $node->{el} = $el;
+    # drop deferrable, not supported by pg
+
+    return node_to_array($node);
+}
+
+sub make_coldefault {
+    my (undef, undef, $el);
+    my $node = make_node('coldefault');
+
+    $node->{el} = $el;
+
+    return node_to_array($node);
+}
+
 sub make_connectby {
     my (undef, undef, undef, $nocycle, $quals) = @_;
 
@@ -1273,6 +1346,18 @@ sub make_connectby_ident {
     add_fixme('Clause ' . $kw . 'ignored');
 
     return $ident;
+}
+
+sub make_createtable {
+    my (undef, undef, undef, $ident, $cols, $tblspc) = @_;
+    my $node = make_node('createobject');
+
+    $node->{kind} = 'TABLE';
+    $node->{ident} = $ident;
+    $node->{cols} = $cols;
+    $node->{tblspc} = $tblspc;
+
+    return node_to_array($node);
 }
 
 sub make_createtableas {
@@ -1306,6 +1391,18 @@ sub make_cycleclause {
         . ' TO ' . format_node($value) . ' DEFAULT ' . format_node($default);
 
     add_fixme('CYCLE clause ignored: ' . $out);
+}
+
+sub make_datatype {
+    my (undef, $ident, $typmod, $notnull) = @_;
+    my $node = make_node('datatype');
+
+    $node->{ident} = pop(@{$ident});
+    $node->{typmod} = $typmod;
+    $node->{nullnotnull} = $notnull;
+    $node->{hook} = 'sql2pg::plsql::utils::handle_datatype';
+
+    return node_to_array($node);
 }
 
 sub make_delete {
@@ -1995,6 +2092,18 @@ sub make_target_list {
     $node->{tlist} = $tlist;
 
     return $node;
+}
+
+sub make_tbl_coldef {
+    my (undef, $ident, $datatype, $default, $colcheck) = @_;
+    my $node = make_node('tbl_coldef');
+
+    $node->{ident} = $ident;
+    $node->{datatype} = $datatype;
+    $node->{default} = $default;
+    $node->{colcheck} = $colcheck;
+
+    return node_to_array($node);
 }
 
 sub make_timezoneexpr {

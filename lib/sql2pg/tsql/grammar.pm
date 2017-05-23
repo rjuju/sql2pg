@@ -120,7 +120,7 @@ datatype ::=
     IDENT typmod identity NULL_NOT_NULL action => make_datatype
 
 col_default ::=
-    DEFAULT '(' target_el ')' action => make_coldefault
+    DEFAULT ('(') target_el (')') action => make_coldefault
     | EMPTY
 
 identity ::=
@@ -1413,7 +1413,7 @@ sub make_tbl_condef {
 }
 
 sub make_coldefault {
-    my (undef, undef, undef, $el, undef) = @_;
+    my (undef, undef, $el) = @_;
     my $node = make_node('coldefault');
 
     $node->{el} = $el;

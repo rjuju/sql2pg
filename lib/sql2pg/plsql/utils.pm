@@ -96,6 +96,19 @@ sub handle_connectby {
     return $stmt;
 }
 
+sub handle_datatype {
+    my ($node) = @_;
+    my $out;
+    my $ident = $node->{ident};
+
+    $out = format_node($node->{ident});
+
+    $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
+    $out .= format_node($node->{nullnotnull}) if ($node->{nullnotnull});
+
+    return $out;
+}
+
 # Oracle wants column name, pg wants table name, try to figure it out.  It's
 # done here just in case original query only provided column name without
 # reference to column and there was only one table ref.

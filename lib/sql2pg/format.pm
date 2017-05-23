@@ -133,6 +133,10 @@ sub format_createobject {
         $out .= ' AUTHORIZATION ' . format_node($node->{auth});
     }
 
+    if ($node->{tblspc}) {
+        $out .= ' TABLESPACE ' . format_node($node->{tblspc});
+    }
+
     return $out;
 }
 
@@ -660,6 +664,7 @@ sub format_tbl_coldef {
 
     $out .= ' ' . format_node($node->{datatype});
     $out .= format_node($node->{default}) . ' ' if ($node->{default});
+    $out .= ' ' . format_node($node->{colcheck}) . ' ' if ($node->{colcheck});
 
     return $out;
 }
@@ -674,6 +679,12 @@ sub format_tbl_condef {
     $out .= ' (' . format_array($node->{conlist}, ',') . ')';
 
     return $out;
+}
+
+sub format_colcheck {
+    my ($node) = @_;
+
+    return 'CHECK (' . format_node($node->{el}) . ')';
 }
 
 sub format_coldefault {
