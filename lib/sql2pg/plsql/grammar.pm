@@ -831,17 +831,18 @@ tbl_cols ::=
     | tbl_coldef
 
 tbl_coldef ::=
-    IDENT datatype col_default check_clause action => make_tbl_coldef
+    IDENT datatype col_default check_clause NOT_NULL action => make_tbl_coldef
 
 tblspc_clause ::=
     TABLESPACE IDENT action => second
     | EMPTY
 
 datatype ::=
-    IDENT typmod NOT_NULL action => make_datatype
+    IDENT typmod action => make_datatype
 
 col_default ::=
     DEFAULT ('(') target_el (')') action => make_coldefault
+    | DEFAULT target_el action => make_coldefault
     | EMPTY
 
 check_clause ::=
@@ -1412,7 +1413,7 @@ sub make_check_clause {
 }
 
 sub make_coldefault {
-    my (undef, undef, $el);
+    my (undef, undef, $el) = @_;
     my $node = make_node('coldefault');
 
     $node->{el} = $el;
@@ -1508,14 +1509,13 @@ sub make_cycleclause {
 }
 
 sub make_datatype {
-    my (undef, $ident, $typmod, $notnull) = @_;
+    my (undef, $ident, $typmod) = @_;
     my $node = make_node('datatype');
 
     assert_one_el($ident);
 
     $node->{ident} = pop(@{$ident});
     $node->{typmod} = $typmod;
-    $node->{nullnotnull} = $notnull;
     $node->{hook} = 'sql2pg::plsql::utils::handle_datatype';
 
     return node_to_array($node);
@@ -2232,7 +2232,7 @@ sub make_target_list {
 }
 
 sub make_tbl_coldef {
-    my (undef, $ident, $datatype, $default, $check) = @_;
+    my (undef, $ident, $datatype, $default, $check, $notnull) = @_;
     my $node = make_node('tbl_coldef');
 
     # PG doesn't handle DEFERRABLE in such case, drop it if any
@@ -2249,6 +2249,7 @@ sub make_tbl_coldef {
     $node->{datatype} = $datatype;
     $node->{default} = $default;
     $node->{check} = $check;
+    $node->{notnull} = $notnull;
 
     return node_to_array($node);
 }
