@@ -101,7 +101,15 @@ sub handle_datatype {
     my $out;
     my $ident = $node->{ident};
 
-    $out = format_node($node->{ident});
+    if (lc($ident->{attribute}) eq 'date') {
+        $ident->{attribute} = 'timestamp';
+    } elsif (lc($ident->{attribute}) eq 'varchar2') {
+        $ident->{attribute} = 'varchar';
+    } elsif (lc($ident->{attribute}) eq 'number') {
+        $ident->{attribute} = 'numeric';
+    }
+
+    $out = format_node($ident);
 
     $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
     $out .= format_node($node->{nullnotnull}) if ($node->{nullnotnull});

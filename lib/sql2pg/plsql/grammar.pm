@@ -908,6 +908,7 @@ CONNECT     ~ 'CONNECT':ic
 CONNECT_BY_ROOT ~ 'CONNECT_BY_ROOT':ic
 CONNECT_BY_ISLEAF ~ 'CONNECT_BY_ISLEAF':ic
 CREATE      ~ 'CREATE':ic
+:lexeme     ~ CREATE pause => after event => keyword
 CROSS       ~ 'CROSS':ic
 CUBE        ~ 'CUBE':ic
 :lexeme     ~ CUBE priority => 1
@@ -1396,6 +1397,8 @@ sub make_cycleclause {
 sub make_datatype {
     my (undef, $ident, $typmod, $notnull) = @_;
     my $node = make_node('datatype');
+
+    assert_one_el($ident);
 
     $node->{ident} = pop(@{$ident});
     $node->{typmod} = $typmod;
