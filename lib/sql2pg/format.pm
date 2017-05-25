@@ -146,6 +146,7 @@ sub format_createobject {
     my $out = 'CREATE';
 
     $out .= ' ' . $node->{replace} if (defined($node->{replace}));
+    $out .= ' UNIQUE' if ($node->{unique});
     $out .= ' ' . uc($node->{kind});
     $out .= ' IF NOT EXISTS' if ($node->{ine});
     $out .= ' ' . format_node($node->{ident});

@@ -876,8 +876,12 @@ or_replace_clause ::=
     | EMPTY
 
 CreateIndexStmt ::=
-    CREATE INDEX IDENT ON IDENT ('(') simple_order_list (')') tblspc_clause
-        action => make_createindex
+    CREATE _UNIQUE INDEX IDENT ON IDENT ('(') simple_order_list (')')
+        tblspc_clause action => make_createindex
+
+_UNIQUE ::=
+    UNIQUE
+    | EMPTY
 
 AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
@@ -1463,10 +1467,11 @@ sub make_connectby_ident {
 }
 
 sub make_createindex {
-    my (undef, undef, undef, $idxname, undef, $on, $cols, $tblspc) = @_;
+    my (undef, undef, $unique, undef, $idxname, undef, $on, $cols, $tblspc) = @_;
     my $node = make_node('createobject');
 
     $node->{kind} = 'INDEX';
+    $node->{unique} = $unique;
     $node->{ident} = $idxname;
     $node->{on} = $on;
     $node->{cols} = $cols;
