@@ -96,6 +96,16 @@ sub format_combine_op {
     return ' ' . uc($op->{op}) . ' ';
 }
 
+# Handle COMMENT ON statement
+sub format_comment {
+    my ($node) = @_;
+
+    return "COMMENT ON "
+        . $node->{object} . ' ' . format_node($node->{ident})
+        . " IS " . format_node($node->{comment});
+}
+
+# Handle comments found in SQL source
 sub format_comments {
     my ($comments) = @_;
     my $out = '';

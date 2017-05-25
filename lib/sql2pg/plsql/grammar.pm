@@ -35,7 +35,7 @@ raw_stmt ::=
     | DeleteStmt
     | InsertStmt
     | ExplainStmt
-    | CreateStmt
+    | DDLStmt
 
 ExplainStmt ::=
     EXPLAIN PLAN explain_set explain_into FOR raw_stmt
@@ -80,6 +80,10 @@ InsertStmt ::=
     # parens_column_list should only allow single col name, not FQN ident
     INSERT INTO from_elem parens_column_list insert_data error_logging_clause
         action => make_insert
+
+DDLStmt ::=
+    CreateStmt
+    | CommentStmt
 
 CreateStmt ::=
     CreateTableAsStmt
@@ -864,6 +868,13 @@ or_replace_clause ::=
     OR REPLACE action => concat
     | EMPTY
 
+CommentStmt ::=
+    COMMENT ON comment_obj IDENT IS LITERAL action => make_comment
+
+comment_obj ::=
+    TABLE action => upper
+    | COLUMN action => upper
+
 NOT_NULL ::=
     NOT NULL action => concat
     # only valid in check constraints, assume original query is valid
@@ -904,6 +915,9 @@ BREADTH     ~ 'BREADTH':ic
 BY          ~ 'BY':ic
 CASE        ~ 'CASE':ic
 CHECK       ~ 'CHECK':ic
+COLUMN      ~ 'COLUMN':ic
+COMMENT     ~ 'COMMENT':ic
+:lexeme     ~ COMMENT pause => after event => keyword
 CONNECT     ~ 'CONNECT':ic
 CONNECT_BY_ROOT ~ 'CONNECT_BY_ROOT':ic
 CONNECT_BY_ISLEAF ~ 'CONNECT_BY_ISLEAF':ic
@@ -1327,6 +1341,17 @@ sub make_coldefault {
     my $node = make_node('coldefault');
 
     $node->{el} = $el;
+
+    return node_to_array($node);
+}
+
+sub make_comment {
+    my (undef, undef, undef, $object, $ident, undef, $comment) = @_;
+    my $node = make_node('comment');
+
+    $node->{object} = $object;
+    $node->{ident} = $ident;
+    $node->{comment} = $comment;
 
     return node_to_array($node);
 }
