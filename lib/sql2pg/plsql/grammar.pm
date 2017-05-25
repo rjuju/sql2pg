@@ -838,8 +838,6 @@ tblspc_clause ::=
     | EMPTY
 
 datatype ::=
-    # identity is only legal in tbl_coldef, assume original statement is
-    # correct
     IDENT typmod NOT_NULL action => make_datatype
 
 col_default ::=
