@@ -887,10 +887,13 @@ AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
 
 AT_action ::=
-    ADD CONSTRAINT IDENT AT_constraint (USING INDEX) tblspc_clause
+    ADD CONSTRAINT IDENT AT_constraint _USING_INDEX tblspc_clause
         action => make_AT_add_constraint
-    | ADD CONSTRAINT IDENT AT_constraint tblspc_clause
-        action => make_AT_add_constraint
+
+_USING_INDEX ::=
+    USING INDEX action => discard
+    | USING INDEX IDENT action => third
+    | EMPTY
 
 AT_constraint ::=
     check_clause
@@ -1341,7 +1344,7 @@ sub make_altertable {
 }
 
 sub make_AT_add_constraint {
-    my (undef, undef, undef, $ident, $constraint, $tblspc) = @_;
+    my (undef, undef, undef, $ident, $constraint, $using, $tblspc) = @_;
     my $node = make_node('AT_action');
 
     assert_one_el($constraint);
@@ -1361,6 +1364,7 @@ sub make_AT_add_constraint {
     $node->{kind} = 'ADD CONSTRAINT';
     $node->{ident} = $ident;
     $node->{action} = $constraint;
+    $node->{using} = $using;
     $node->{tblspc} = $tblspc;
 
     return node_to_array($node);
@@ -2376,6 +2380,12 @@ sub parens_node {
 
 sub second {
     my (undef, undef, $node) = @_;
+
+    return $node;
+}
+
+sub third {
+    my (undef, undef, undef, $node) = @_;
 
     return $node;
 }

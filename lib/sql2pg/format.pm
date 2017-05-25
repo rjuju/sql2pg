@@ -73,6 +73,7 @@ sub format_AT_action {
     $out = $node->{kind};
     $out .= ' ' . format_node($node->{ident});
     $out .= ' ' . format_node($node->{action});
+    $out .= ' USING INDEX ' . format_node($node->{using}) if ($node->{using});
     # we don't use TABLESPACE information if any was present
 
     return $out;
