@@ -36,6 +36,7 @@ raw_stmt ::=
     | InsertStmt
     | ExplainStmt
     | DDLStmt
+    | TransacStmt
 
 ExplainStmt ::=
     EXPLAIN PLAN explain_set explain_into FOR raw_stmt
@@ -91,6 +92,11 @@ CreateStmt ::=
     | CreateTableStmt
     | CreateViewAsStmt
     | CreateIndexStmt
+
+TransacStmt ::=
+    BEGIN action => make_keyword
+    | COMMIT action => make_keyword
+    | ROLLBACK action => make_keyword
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -942,6 +948,8 @@ AS          ~ 'AS':ic
 ASC         ~ 'ASC':ic
 AT          ~ 'AT':ic
 AUTOMATIC   ~ 'AUTOMATIC':ic
+BEGIN       ~ 'BEGIN';
+:lexeme     ~ BEGIN pause => after event => keyword
 BETWEEN     ~ 'BETWEEN':ic
 BLOCK       ~ 'BLOCK':ic
 BREADTH     ~ 'BREADTH':ic
@@ -951,6 +959,8 @@ CHECK       ~ 'CHECK':ic
 COLUMN      ~ 'COLUMN':ic
 COMMENT     ~ 'COMMENT':ic
 :lexeme     ~ COMMENT pause => after event => keyword
+COMMIT      ~ 'COMMIT';
+:lexeme     ~ COMMIT pause => after event => keyword
 CONNECT     ~ 'CONNECT':ic
 CONNECT_BY_ROOT ~ 'CONNECT_BY_ROOT':ic
 CONNECT_BY_ISLEAF ~ 'CONNECT_BY_ISLEAF':ic
@@ -1061,6 +1071,8 @@ RETURN      ~ 'RETURN':ic
 RETURNING   ~ 'RETURNING':ic
 RIGHT       ~ 'RIGHT':ic
 :lexeme     ~ RIGHT priority => 1
+ROLLBACK    ~ 'ROLLBACK';
+:lexeme     ~ ROLLBACK pause => after event => keyword
 ROLLUP      ~ 'ROLLUP':ic
 :lexeme     ~ ROLLUP priority => 1
 ROW         ~ 'ROW':ic
