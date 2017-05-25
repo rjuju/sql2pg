@@ -83,6 +83,7 @@ InsertStmt ::=
 
 DDLStmt ::=
     CreateStmt
+    | AlterTableStmt
     | CommentStmt
 
 CreateStmt ::=
@@ -830,7 +831,7 @@ tbl_cols ::=
     | tbl_coldef
 
 tbl_coldef ::=
-    IDENT datatype col_default col_check action => make_tbl_coldef
+    IDENT datatype col_default check_clause action => make_tbl_coldef
 
 tblspc_clause ::=
     TABLESPACE IDENT action => second
@@ -845,8 +846,8 @@ col_default ::=
     DEFAULT ('(') target_el (')') action => make_coldefault
     | EMPTY
 
-col_check ::=
-    CHECK ('(') target_el (')') deferrable_clause action => make_col_check
+check_clause ::=
+    CHECK ('(') target_el (')') deferrable_clause action => make_check_clause
     | EMPTY
 
 deferrable_clause ::=
@@ -872,6 +873,12 @@ or_replace_clause ::=
 CreateIndexStmt ::=
     CREATE INDEX IDENT ON IDENT ('(') simple_order_list (')') tblspc_clause
         action => make_createindex
+
+AlterTableStmt ::=
+    ALTER TABLE IDENT AT_action action => make_altertable
+
+AT_action ::=
+    ADD CONSTRAINT IDENT check_clause action => make_AT_add_checkconstraint
 
 CommentStmt ::=
     COMMENT ON comment_obj IDENT IS LITERAL action => make_comment
@@ -907,7 +914,10 @@ OPERATOR ::=
     operator action => upper
 
 # keywords
+ADD         ~ 'ADD':ic
 ALL         ~ 'ALL':ic
+ALTER       ~ 'ALTER':ic
+:lexeme     ~ ALTER pause => after event => keyword
 AND         ~ 'AND':ic
 ANY         ~ 'ANY':ic
 AS          ~ 'AS':ic
@@ -926,6 +936,7 @@ COMMENT     ~ 'COMMENT':ic
 CONNECT     ~ 'CONNECT':ic
 CONNECT_BY_ROOT ~ 'CONNECT_BY_ROOT':ic
 CONNECT_BY_ISLEAF ~ 'CONNECT_BY_ISLEAF':ic
+CONSTRAINT  ~'CONSTRAINT':ic
 CREATE      ~ 'CREATE':ic
 :lexeme     ~ CREATE pause => after event => keyword
 CROSS       ~ 'CROSS':ic
@@ -1280,6 +1291,35 @@ sub make_alias {
     return quote_ident(get_alias($as, $alias));
 }
 
+sub make_altertable {
+    my (undef, undef, undef, $ident, $action) = @_;
+    my $node = make_node('alterobject');
+
+    $node->{kind} = 'TABLE';
+    $node->{ident} = $ident;
+    $node->{action} = $action;
+
+    return node_to_array($node);
+}
+
+sub make_AT_add_checkconstraint {
+    my (undef, undef, undef, $ident, $check) = @_;
+    my $node = make_node('AT_action');
+
+    assert_one_el($check);
+    $check = pop(@{$check});
+
+    # PG doesn't handle DEFERRABLE in such case, drop it if any
+    if (exists $check->{deferrable}) {
+        delete $check->{deferrable};
+    }
+    $node->{kind} = 'ADD CONSTRAINT';
+    $node->{ident} = $ident;
+    $node->{action} = $check;
+
+    return node_to_array($node);
+}
+
 sub make_at_time_zone {
     my (undef, $kw, $el, $expr) = @_;
     my $node = make_node('at_time_zone');
@@ -1332,12 +1372,12 @@ sub make_case_when {
     return node_to_array($node);
 }
 
-sub make_col_check {
+sub make_check_clause {
     my (undef, undef, $el, $deferrable) = @_;
-    my $node = make_node('colcheck');
+    my $node = make_node('check_clause');
 
     $node->{el} = $el;
-    # drop deferrable, not supported by pg
+    $node->{deferrable} = $deferrable;
 
     return node_to_array($node);
 }
@@ -2142,13 +2182,23 @@ sub make_target_list {
 }
 
 sub make_tbl_coldef {
-    my (undef, $ident, $datatype, $default, $colcheck) = @_;
+    my (undef, $ident, $datatype, $default, $check) = @_;
     my $node = make_node('tbl_coldef');
+
+    # PG doesn't handle DEFERRABLE in such case, drop it if any
+    if ($check) {
+        assert_one_el($check);
+        $check = pop(@{$check});
+
+        if (exists $check->{deferrable}) {
+            delete $check->{deferrable};
+        }
+    }
 
     $node->{ident} = $ident;
     $node->{datatype} = $datatype;
     $node->{default} = $default;
-    $node->{colcheck} = $colcheck;
+    $node->{check} = $check;
 
     return node_to_array($node);
 }

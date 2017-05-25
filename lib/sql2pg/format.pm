@@ -55,6 +55,27 @@ sub format_array {
     return $out;
 }
 
+sub format_alterobject {
+    my ($node) = @_;
+    my $out = "ALTER $node->{kind} ";
+
+    $out .= format_node($node->{ident});
+    $out .= ' ' . format_node($node->{action});
+
+    return $out;
+}
+
+sub format_AT_action {
+    my ($node) = @_;
+    my $out;
+
+    $out = $node->{kind};
+    $out .= ' ' . format_node($node->{ident});
+    $out .= ' ' . format_node($node->{action});
+
+    return $out;
+}
+
 sub format_at_time_zone {
     my ($node) = @_;
     my $out = '';
@@ -678,7 +699,7 @@ sub format_tbl_coldef {
 
     $out .= ' ' . format_node($node->{datatype});
     $out .= format_node($node->{default}) . ' ' if ($node->{default});
-    $out .= ' ' . format_node($node->{colcheck}) . ' ' if ($node->{colcheck});
+    $out .= ' ' . format_node($node->{check}) if ($node->{check});
 
     return $out;
 }
@@ -695,10 +716,14 @@ sub format_tbl_condef {
     return $out;
 }
 
-sub format_colcheck {
+sub format_check_clause {
     my ($node) = @_;
+    my $out;
 
-    return 'CHECK (' . format_node($node->{el}) . ')';
+    $out = 'CHECK (' . format_node($node->{el}) . ')';
+    $out .= " $node->{deferrable}" if ($node->{deferrable});
+
+    return $out;
 }
 
 sub format_coldefault {
