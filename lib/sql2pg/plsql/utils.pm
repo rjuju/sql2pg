@@ -107,6 +107,9 @@ sub handle_datatype {
         $ident->{attribute} = 'varchar';
     } elsif (lc($ident->{attribute}) eq 'number') {
         $ident->{attribute} = 'numeric';
+    } elsif (lc($ident->{attribute}) eq 'raw') {
+        $ident->{attribute} = 'bytea';
+        delete $node->{typmod} if (exists $node->{typmod});
     }
 
     $out = format_node($ident);
