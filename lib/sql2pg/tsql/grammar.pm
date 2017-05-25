@@ -175,7 +175,7 @@ tbl_conwith_elem ::=
     IGNORE_DUP_KEY
 
 CreateIndexStmt ::=
-    CREATE clustering INDEX IDENT ON IDENT '(' simple_order_list ')'
+    CREATE clustering INDEX IDENT ON IDENT ('(') simple_order_list (')')
         tbl_conwith action => make_createindex
 
 clustering ::=
@@ -927,13 +927,12 @@ sub make_createdb {
 }
 
 sub make_createindex {
-    my (undef, undef, undef, undef, $idxname, undef, $ident, undef, $cols,
-        undef) = @_;
+    my (undef, undef, undef, undef, $ident, $on, $cols, undef) = @_;
     my $node = make_node('createobject');
 
     $node->{kind} = 'INDEX';
-    $node->{ident} = $idxname;
-    $node->{on} = $ident;
+    $node->{ident} = $ident;
+    $node->{on} = $on;
     $node->{cols} = $cols;
 
     return node_to_array($node);

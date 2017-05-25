@@ -89,6 +89,7 @@ CreateStmt ::=
     CreateTableAsStmt
     | CreateTableStmt
     | CreateViewAsStmt
+    | CreateIndexStmt
 
 ALIAS_CLAUSE ::=
     AS ALIAS action => make_alias
@@ -821,7 +822,7 @@ err_log_list ::=
 
 
 CreateTableStmt ::=
-    CREATE TABLE IDENT ('(') tbl_cols (')') tbl_tblspc
+    CREATE TABLE IDENT ('(') tbl_cols (')') tblspc_clause
         action => make_createtable
 
 tbl_cols ::=
@@ -831,7 +832,7 @@ tbl_cols ::=
 tbl_coldef ::=
     IDENT datatype col_default col_check action => make_tbl_coldef
 
-tbl_tblspc ::=
+tblspc_clause ::=
     TABLESPACE IDENT action => second
     | EMPTY
 
@@ -867,6 +868,10 @@ CreateViewAsStmt ::=
 or_replace_clause ::=
     OR REPLACE action => concat
     | EMPTY
+
+CreateIndexStmt ::=
+    CREATE INDEX IDENT ON IDENT ('(') simple_order_list (')') tblspc_clause
+        action => make_createindex
 
 CommentStmt ::=
     COMMENT ON comment_obj IDENT IS LITERAL action => make_comment
@@ -963,6 +968,7 @@ IMMEDIATE   ~ 'IMMEDIATE':ic
 IN          ~ 'IN':ic
 INCLUDE     ~ 'INCLUDE':ic
 INCREMENT   ~ 'INCREMENT':ic
+INDEX       ~ 'INDEX':ic
 INNER       ~ 'INNER':ic
 INITIALLY   ~ 'INITIALLY':ic
 INTERVAL    ~ 'INTERVAL':ic
@@ -1372,6 +1378,19 @@ sub make_connectby_ident {
     add_fixme('Clause ' . $kw . 'ignored');
 
     return $ident;
+}
+
+sub make_createindex {
+    my (undef, undef, undef, $idxname, undef, $on, $cols, $tblspc) = @_;
+    my $node = make_node('createobject');
+
+    $node->{kind} = 'INDEX';
+    $node->{ident} = $idxname;
+    $node->{on} = $on;
+    $node->{cols} = $cols;
+    $node->{tblspc} = $tblspc;
+
+    return node_to_array($node);
 }
 
 sub make_createtable {

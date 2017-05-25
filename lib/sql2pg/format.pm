@@ -135,6 +135,10 @@ sub format_createobject {
         $out .= ' AS ' . format_node($node->{datatype});
     }
 
+    if ($node->{on}) {
+        $out .= ' ON ' . format_node($node->{on});
+    }
+
     if ($node->{cols}) {
         $out .= " (\n    " . format_array($node->{cols}, ",\n    ") . "\n)";
     }
