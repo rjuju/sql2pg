@@ -230,6 +230,8 @@ sub handle_function {
         }
 
         $func->{ident}->{attribute} = 'date_trunc';
+    } elsif ($funcname eq 'sys_guid') {
+        $func->{ident}->{attribute} = 'uuid_generate_v4';
     }
 
     return $func;

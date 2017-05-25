@@ -2256,6 +2256,9 @@ sub make_tbl_coldef {
     my (undef, $ident, $datatype, $default, $check, $notnull) = @_;
     my $node = make_node('tbl_coldef');
 
+    assert_one_el($datatype);
+    $datatype = pop(@{$datatype});
+
     # PG doesn't handle DEFERRABLE in such case, drop it if any
     if ($check) {
         assert_one_el($check);
@@ -2263,6 +2266,25 @@ sub make_tbl_coldef {
 
         if (exists $check->{deferrable}) {
             delete $check->{deferrable};
+        }
+    }
+
+    # FIXME kludge to replace raw(x) datatype to something else based on
+    # default clause if any.
+    # NOTE: this is done before any hook is called, so it's based on the
+    # original values
+    if ($datatype->{ident}->{attribute} eq 'raw' and $default) {
+        assert_one_el($default);
+        $default = pop(@{$default});
+        assert_one_el($default->{el});
+        $default->{el} = pop(@{$default->{el}});
+
+        # is the check clause a specific function call?
+        if (isA($default->{el}, 'function')) {
+            if ($default->{el}->{ident}->{attribute} eq 'sys_guid') {
+                $datatype->{ident}->{attribute} = 'uuid';
+                delete $datatype->{typmod} if ($datatype->{typmod});
+            }
         }
     }
 
