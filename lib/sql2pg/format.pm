@@ -61,6 +61,7 @@ sub format_alterobject {
 
     $out .= format_node($node->{ident});
     $out .= ' ' . format_node($node->{action});
+    $out .= ' TABLESPACE ' . format_node($node->{tblspc}) if ($node->{tblspc});
 
     return $out;
 }
@@ -730,6 +731,16 @@ sub format_coldefault {
     my ($node) = @_;
 
     return 'DEFAULT (' . format_node($node->{el}) . ')';
+}
+
+sub format_unique_clause {
+    my ($node) = @_;
+    my $out = 'UNIQUE (';
+
+    $out .= format_array($node->{idents}, ', ');
+    $out .= ')';
+
+    return $out;
 }
 
 sub format_using {

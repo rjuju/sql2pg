@@ -879,6 +879,11 @@ AlterTableStmt ::=
 
 AT_action ::=
     ADD CONSTRAINT IDENT check_clause action => make_AT_add_checkconstraint
+    | ADD CONSTRAINT IDENT unique_clause (USING INDEX) tblspc_clause
+        action => make_AT_add_uniqueconstraint
+
+unique_clause ::=
+    UNIQUE ('(') IDENTS (')') action => make_unique_clause
 
 CommentStmt ::=
     COMMENT ON comment_obj IDENT IS LITERAL action => make_comment
@@ -1316,6 +1321,18 @@ sub make_AT_add_checkconstraint {
     $node->{kind} = 'ADD CONSTRAINT';
     $node->{ident} = $ident;
     $node->{action} = $check;
+
+    return node_to_array($node);
+}
+
+sub make_AT_add_uniqueconstraint {
+    my (undef, undef, undef, $ident, $unique, $tblspc) = @_;
+    my $node = make_node('alterobject');
+
+    $node->{kind} = 'ADD CONSTRAINT';
+    $node->{ident} = $ident;
+    $node->{action} = $unique;
+    $node->{tblspc} = $tblspc;
 
     return node_to_array($node);
 }
@@ -2207,6 +2224,15 @@ sub make_timezoneexpr {
     my (undef, undef, undef, undef, $val) = @_;
 
     return $val;
+}
+
+sub make_unique_clause {
+    my (undef, undef, $idents) = @_;
+    my $node = make_node('unique_clause');
+
+    $node->{idents} = $idents;
+
+    return node_to_array($node);
 }
 
 sub make_unpivotclause {
