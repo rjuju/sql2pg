@@ -878,12 +878,26 @@ AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
 
 AT_action ::=
-    ADD CONSTRAINT IDENT check_clause action => make_AT_add_checkconstraint
-    | ADD CONSTRAINT IDENT unique_clause (USING INDEX) tblspc_clause
-        action => make_AT_add_uniqueconstraint
+    ADD CONSTRAINT IDENT AT_constraint (USING INDEX) tblspc_clause
+        action => make_AT_add_constraint
+    | ADD CONSTRAINT IDENT AT_constraint tblspc_clause
+        action => make_AT_add_constraint
+
+AT_constraint ::=
+    check_clause
+    | unique_clause
+    | pk_clause
+    | fk_clause
 
 unique_clause ::=
     UNIQUE ('(') IDENTS (')') action => make_unique_clause
+
+pk_clause ::=
+    PRIMARY KEY ('(') IDENTS (')') action => make_pk_clause
+
+fk_clause ::=
+    (FOREIGN KEY) ('(') IDENTS (')') (REFERENCES) IDENT ('(') IDENTS (')')
+        deferrable_clause action => make_fk_clause
 
 CommentStmt ::=
     COMMENT ON comment_obj IDENT IS LITERAL action => make_comment
@@ -973,6 +987,7 @@ EXPLAIN     ~ 'EXPLAIN':ic
 FIRST       ~ 'FIRST':ic
 FOLLOWING   ~ 'FOLLOWING':ic
 FOR         ~ 'FOR':ic
+FOREIGN     ~ 'FOREIGN':ic
 FULL        ~ 'FULL':ic
 FROM        ~ 'FROM':ic
 GROUP       ~ 'GROUP':ic
@@ -997,6 +1012,7 @@ IS          ~ 'IS':ic
 ITERATE     ~ 'ITERATE':ic
 JOIN        ~ 'JOIN':ic
 KEEP        ~ 'KEEP':ic
+KEY         ~ 'KEY':ic
 LAST        ~ 'LAST':ic
 LEFT        ~ 'LEFT':ic
 :lexeme     ~ LEFT priority => 1
@@ -1034,9 +1050,11 @@ PARTITION   ~ 'PARTITION':ic
 PIVOT       ~ 'PIVOT':ic
 PLAN        ~ 'PLAN':ic
 PRECEDING   ~ 'PRECEDING':ic
+PRIMARY     ~ 'PRIMARY':ic
 PRIOR       ~ 'PRIOR':ic
 RANGE       ~ 'RANGE':ic
 REFERENCE   ~ 'REFERENCE':ic
+REFERENCES  ~ 'REFERENCES':ic
 REJECT      ~ 'REJECT':ic
 REPLACE     ~ 'REPLACE':ic
 RESPECT     ~ 'RESPECT':ic
@@ -1307,31 +1325,27 @@ sub make_altertable {
     return node_to_array($node);
 }
 
-sub make_AT_add_checkconstraint {
-    my (undef, undef, undef, $ident, $check) = @_;
+sub make_AT_add_constraint {
+    my (undef, undef, undef, $ident, $constraint, $tblspc) = @_;
     my $node = make_node('AT_action');
 
-    assert_one_el($check);
-    $check = pop(@{$check});
+    assert_one_el($constraint);
+    $constraint = pop(@{$constraint});
 
-    # PG doesn't handle DEFERRABLE in such case, drop it if any
-    if (exists $check->{deferrable}) {
-        delete $check->{deferrable};
+    # Remove deferrable clauses when PG don't support them
+    if (
+        isA($constraint, 'check_clause') or
+        isA($constraint, 'unique_clause')
+    ) {
+
+        if (exists $constraint->{deferrable}) {
+            delete $constraint->{deferrable};
+        }
     }
-    $node->{kind} = 'ADD CONSTRAINT';
-    $node->{ident} = $ident;
-    $node->{action} = $check;
-
-    return node_to_array($node);
-}
-
-sub make_AT_add_uniqueconstraint {
-    my (undef, undef, undef, $ident, $unique, $tblspc) = @_;
-    my $node = make_node('alterobject');
 
     $node->{kind} = 'ADD CONSTRAINT';
     $node->{ident} = $ident;
-    $node->{action} = $unique;
+    $node->{action} = $constraint;
     $node->{tblspc} = $tblspc;
 
     return node_to_array($node);
@@ -1610,6 +1624,18 @@ sub make_explain_set {
     my (undef, undef, undef, undef, $literal) = @_;
 
     return $literal;
+}
+
+sub make_fk_clause {
+    my (undef, $srcs, $ident, $dsts, $deferrable) = @_;
+    my $node = make_node('fk_clause');
+
+    $node->{srcs} = $srcs;
+    $node->{ident} = $ident;
+    $node->{dsts} = $dsts;
+    $node->{deferrable} = $deferrable;
+
+    return node_to_array($node);
 }
 
 sub make_flashback_clause {
@@ -2016,6 +2042,15 @@ sub make_partitionclause {
 
 sub make_pivotclause {
     add_fixme('PIVOT clause ignored');
+}
+
+sub make_pk_clause {
+    my (undef, undef, undef, $idents) = @_;
+    my $node = make_node('pk_clause');
+
+    $node->{idents} = $idents;
+
+    return node_to_array($node);
 }
 
 sub make_priorqual {

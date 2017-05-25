@@ -73,6 +73,7 @@ sub format_AT_action {
     $out = $node->{kind};
     $out .= ' ' . format_node($node->{ident});
     $out .= ' ' . format_node($node->{action});
+    # we don't use TABLESPACE information if any was present
 
     return $out;
 }
@@ -214,6 +215,18 @@ sub format_explain {
     my ($node) = @_;
 
     return 'EXPLAIN ' . format_node($node->{stmts});
+}
+
+sub format_fk_clause {
+    my ($node) = @_;
+    my $out = 'FOREIGN KEY (';
+
+    $out .= format_array($node->{srcs}, ', ');
+    $out .= ') REFERENCES ' . format_node($node->{ident});
+    $out .= '(' . format_array($node->{dsts}, ', ') . ')';
+    $out .= format_node($node->{deferrable}) if ($node->{deferrable});
+
+    return $out;
 }
 
 sub format_FLASHBACK {
@@ -539,6 +552,16 @@ sub format_PARTITIONBY {
     my ($partitionby) = @_;
 
     return "PARTITION BY " . format_standard_clause($partitionby, ', ');
+}
+
+sub format_pk_clause {
+    my ($node) = @_;
+    my $out = 'PRIMARY KEY (';
+
+    $out .= format_array($node->{idents}, ', ');
+    $out .= ')';
+
+    return $out;
 }
 
 sub format_proarg {
