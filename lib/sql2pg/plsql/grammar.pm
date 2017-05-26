@@ -928,7 +928,22 @@ pk_clause ::=
 
 fk_clause ::=
     (FOREIGN KEY) ('(') IDENTS (')') (REFERENCES) IDENT ('(') IDENTS (')')
-        deferrable_clause action => make_fk_clause
+        fk_on_del fk_on_upd deferrable_clause action => make_fk_clause
+
+fk_on_del ::=
+    (ON DELETE) fk_action
+    | EMPTY
+
+fk_on_upd ::=
+    (ON UPDATE) fk_action
+    | EMPTY
+
+fk_action ::=
+    NO ACTION action => concat
+    | RESTRICT action => upper
+    | CASCADE action => upper
+    | SET NULL action => upper
+    | SET DEFAULT action => concat
 
 CommentStmt ::=
     COMMENT ON comment_obj IDENT IS LITERAL action => make_comment
@@ -964,6 +979,7 @@ OPERATOR ::=
     operator action => upper
 
 # keywords
+ACTION      ~ 'ACTION':ic
 ADD         ~ 'ADD':ic
 ALL         ~ 'ALL':ic
 ALTER       ~ 'ALTER':ic
@@ -980,6 +996,7 @@ BETWEEN     ~ 'BETWEEN':ic
 BLOCK       ~ 'BLOCK':ic
 BREADTH     ~ 'BREADTH':ic
 BY          ~ 'BY':ic
+CASCADE     ~ 'CASCADE':ic
 CASE        ~ 'CASE':ic
 CHECK       ~ 'CHECK':ic
 COLUMN      ~ 'COLUMN':ic
@@ -1067,6 +1084,7 @@ MINVALUE    ~ 'MINVALUE':ic
 MODEL       ~ 'MODEL':ic
 NATURAL     ~ 'NATURAL':ic
 NAV         ~ 'NAV':ic
+NO          ~ 'NO':ic
 NOCYCLE     ~ 'NOCYCLE':ic
 # this one is unsed in qual_inop G1 rule
 NOT         ~ 'NOT':ic
@@ -1095,6 +1113,7 @@ REFERENCES  ~ 'REFERENCES':ic
 REJECT      ~ 'REJECT':ic
 REPLACE     ~ 'REPLACE':ic
 RESPECT     ~ 'RESPECT':ic
+RESTRICT    ~ 'RESTRICT':ic
 RETURN      ~ 'RETURN':ic
 RETURNING   ~ 'RETURNING':ic
 RIGHT       ~ 'RIGHT':ic
@@ -1696,12 +1715,14 @@ sub make_explain_set {
 }
 
 sub make_fk_clause {
-    my (undef, $srcs, $ident, $dsts, $deferrable) = @_;
+    my (undef, $srcs, $ident, $dsts, $on_del, $on_upd, $deferrable) = @_;
     my $node = make_node('fk_clause');
 
     $node->{srcs} = $srcs;
     $node->{ident} = $ident;
     $node->{dsts} = $dsts;
+    $node->{on_del} = $on_del;
+    $node->{on_upd} = $on_upd;
     $node->{deferrable} = $deferrable;
 
     return node_to_array($node);
