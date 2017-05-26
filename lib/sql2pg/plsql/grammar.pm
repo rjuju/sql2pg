@@ -830,7 +830,7 @@ err_log_list ::=
 
 
 CreateTableStmt ::=
-    CREATE TABLE IDENT ('(') tbl_cols (')') tblspc_clause
+    CREATE TABLE IDENT ('(') tbl_cols (')') tbl_att_clauses tblspc_clause
         action => make_createtable
 
 tbl_cols ::=
@@ -840,6 +840,40 @@ tbl_cols ::=
 tbl_coldef ::=
     IDENT datatype col_default check_clause NOT_NULL enable_clause
         action => make_tbl_coldef
+
+tbl_att_clauses ::=
+    tbl_att_clause* action => ::array
+
+tbl_att_clause ::=
+    PCTFREE INTEGER action => make_tbl_attribute
+    | PCTUSED INTEGER action => discard
+    | INITRANS INTEGER action => discard
+    | MAXTRANS INTEGER action => discard
+    | COMPRESS action => discard
+    | NOCOMPRESS action => discard
+    | LOGGING action => discard
+    # doc is unclear, NOLOGGING seems different from pg UNLOGGED
+    | NOLOGGING action => discard
+    | storage_clause action => discard
+
+storage_clause ::=
+    STORAGE '(' storage_clause_els ')' action => discard
+
+storage_clause_els ::=
+    storage_clause_el* action => discard
+
+storage_clause_el ::=
+    INITIAL INTEGER action => discard
+    | NEXT INTEGER action => discard
+    | MINEXTENTS INTEGER action => discard
+    | MAXEXTENTS INTEGER action => discard
+    | PCTINCREASE INTEGER action => discard
+    | FREELIST action => discard
+    | FREELISTS INTEGER action => discard
+    | GROUPS INTEGER action => discard
+    | BUFFER_POOL DEFAULT action => discard
+    | FLASH_CACHE DEFAULT action => discard
+    | CELL_FLASH_CACHE DEFAULT action => discard
 
 tblspc_clause ::=
     TABLESPACE IDENT action => second
@@ -981,249 +1015,269 @@ OPERATOR ::=
     operator action => upper
 
 # keywords
-ACTION      ~ 'ACTION':ic
-ADD         ~ 'ADD':ic
-ALL         ~ 'ALL':ic
-ALTER       ~ 'ALTER':ic
-:lexeme     ~ ALTER pause => after event => keyword
-AND         ~ 'AND':ic
-ANY         ~ 'ANY':ic
-AS          ~ 'AS':ic
-ASC         ~ 'ASC':ic
-AT          ~ 'AT':ic
-AUTOMATIC   ~ 'AUTOMATIC':ic
-BEGIN       ~ 'BEGIN';
-:lexeme     ~ BEGIN pause => after event => keyword
-BETWEEN     ~ 'BETWEEN':ic
-BLOCK       ~ 'BLOCK':ic
-BREADTH     ~ 'BREADTH':ic
-BY          ~ 'BY':ic
-CASCADE     ~ 'CASCADE':ic
-CASE        ~ 'CASE':ic
-CHAR        ~ 'CHAR':ic
-CHECK       ~ 'CHECK':ic
-COLUMN      ~ 'COLUMN':ic
-COMMENT     ~ 'COMMENT':ic
-:lexeme     ~ COMMENT pause => after event => keyword
-COMMIT      ~ 'COMMIT';
-:lexeme     ~ COMMIT pause => after event => keyword
-CONNECT     ~ 'CONNECT':ic
-CONNECT_BY_ROOT ~ 'CONNECT_BY_ROOT':ic
-CONNECT_BY_ISLEAF ~ 'CONNECT_BY_ISLEAF':ic
-CONSTRAINT  ~'CONSTRAINT':ic
-CREATE      ~ 'CREATE':ic
-:lexeme     ~ CREATE pause => after event => keyword
-CROSS       ~ 'CROSS':ic
-CUBE        ~ 'CUBE':ic
-:lexeme     ~ CUBE priority => 1
-CURRENT     ~ 'CURRENT':ic
-CYCLE       ~ 'CYCLE':ic
-DATE        ~ 'DATE':ic
-DAY         ~ 'DAY':ic
-DECREMENT   ~ 'DECREMENT':ic
-DEFAULT     ~ 'DEFAULT':ic
-DEFERRABLE  ~ 'DEFERRABLE':ic
-DEFERRED    ~ 'DEFERRED':ic
-DELETE      ~ 'DELETE':ic
-:lexeme     ~ DELETE pause => after event => keyword
-DENSE_RANK  ~ 'DENSE_RANK':ic
-DEPTH       ~ 'DEPTH':ic
-DESC        ~ 'DESC':ic
-DIMENSION   ~ 'DIMENSION':ic
-DISTINCT    ~ 'DISTINCT':ic
-ELSE        ~ 'ELSE':ic
-ENABLE      ~ 'ENABLE':ic
-END         ~ 'END':ic
-ERRORS      ~ 'ERRORS':ic
-ESCAPE      ~ 'ESCAPE':ic
-EXCLUDE     ~ 'EXCLUDE':ic
-EXISTS      ~ 'EXISTS':ic
-EXPLAIN     ~ 'EXPLAIN':ic
-:lexeme     ~ EXPLAIN pause => after event => keyword
-FIRST       ~ 'FIRST':ic
-FOLLOWING   ~ 'FOLLOWING':ic
-FOR         ~ 'FOR':ic
-FOREIGN     ~ 'FOREIGN':ic
-FULL        ~ 'FULL':ic
-FROM        ~ 'FROM':ic
-GROUP       ~ 'GROUP':ic
-GROUPING    ~ 'GROUPING':ic
-HAVING      ~ 'HAVING':ic
-HOUR        ~ 'HOUR':ic
-IGNORE      ~ 'IGNORE':ic
-IMMEDIATE   ~ 'IMMEDIATE':ic
-IN          ~ 'IN':ic
-INCLUDE     ~ 'INCLUDE':ic
-INCREMENT   ~ 'INCREMENT':ic
-INDEX       ~ 'INDEX':ic
-INNER       ~ 'INNER':ic
-INITIALLY   ~ 'INITIALLY':ic
-INTERVAL    ~ 'INTERVAL':ic
-INSERT      ~ 'INSERT':ic
-:lexeme     ~ INSERT pause => after event => keyword
-INTERSECT   ~ 'INTERSECT':ic
-INTO        ~ 'INTO':ic
-_IS         ~ 'IS':ic
-IS          ~ 'IS':ic
-ITERATE     ~ 'ITERATE':ic
-JOIN        ~ 'JOIN':ic
-KEEP        ~ 'KEEP':ic
-KEY         ~ 'KEY':ic
-LAST        ~ 'LAST':ic
-LEFT        ~ 'LEFT':ic
-:lexeme     ~ LEFT priority => 1
-LIKE        ~ 'LIKE':ic
-LIMIT       ~ 'LIMIT':ic
-LOCKED       ~ 'LOCKED':ic
-LOG         ~ 'LOG':ic
-MAIN        ~ 'MAIN':ic
-MAXVALUE    ~ 'MAXVALUE':ic
-:lexeme     ~ MAXVALUE priority => 1
-MEASURES    ~ 'MEASURES':ic
-MINUS       ~ 'MINUS':ic
-MINUTE      ~ 'MINUTE':ic
-MINVALUE    ~ 'MINVALUE':ic
-:lexeme     ~ MINVALUE priority => 1
-MODEL       ~ 'MODEL':ic
-NATURAL     ~ 'NATURAL':ic
-NAV         ~ 'NAV':ic
-NO          ~ 'NO':ic
-NOCYCLE     ~ 'NOCYCLE':ic
+ACTION              ~ 'ACTION':ic
+ADD                 ~ 'ADD':ic
+ALL                 ~ 'ALL':ic
+ALTER               ~ 'ALTER':ic
+:lexeme             ~ ALTER pause => after event => keyword
+AND                 ~ 'AND':ic
+ANY                 ~ 'ANY':ic
+AS                  ~ 'AS':ic
+ASC                 ~ 'ASC':ic
+AT                  ~ 'AT':ic
+AUTOMATIC           ~ 'AUTOMATIC':ic
+BEGIN               ~ 'BEGIN';
+:lexeme             ~ BEGIN pause => after event => keyword
+BETWEEN             ~ 'BETWEEN':ic
+BLOCK               ~ 'BLOCK':ic
+BREADTH             ~ 'BREADTH':ic
+BUFFER_POOL         ~ 'BUFFER_POOL':ic
+BY                  ~ 'BY':ic
+CASCADE             ~ 'CASCADE':ic
+CASE                ~ 'CASE':ic
+CELL_FLASH_CACHE    ~ 'CELL_FLASH_CACHE':ic
+CHAR                ~ 'CHAR':ic
+CHECK               ~ 'CHECK':ic
+COLUMN              ~ 'COLUMN':ic
+COMMENT             ~ 'COMMENT':ic
+:lexeme             ~ COMMENT pause => after event => keyword
+COMMIT              ~ 'COMMIT';
+:lexeme             ~ COMMIT pause => after event => keyword
+COMPRESS            ~ 'COMPRESS':ic
+CONNECT             ~ 'CONNECT':ic
+CONNECT_BY_ROOT     ~ 'CONNECT_BY_ROOT':ic
+CONNECT_BY_ISLEAF   ~ 'CONNECT_BY_ISLEAF':ic
+CONSTRAINT          ~'CONSTRAINT':ic
+CREATE              ~ 'CREATE':ic
+:lexeme             ~ CREATE pause => after event => keyword
+CROSS               ~ 'CROSS':ic
+CUBE                ~ 'CUBE':ic
+:lexeme             ~ CUBE priority => 1
+CURRENT             ~ 'CURRENT':ic
+CYCLE               ~ 'CYCLE':ic
+DATE                ~ 'DATE':ic
+DAY                 ~ 'DAY':ic
+DECREMENT           ~ 'DECREMENT':ic
+DEFAULT             ~ 'DEFAULT':ic
+DEFERRABLE          ~ 'DEFERRABLE':ic
+DEFERRED            ~ 'DEFERRED':ic
+DELETE              ~ 'DELETE':ic
+:lexeme             ~ DELETE pause => after event => keyword
+DENSE_RANK          ~ 'DENSE_RANK':ic
+DEPTH               ~ 'DEPTH':ic
+DESC                ~ 'DESC':ic
+DIMENSION           ~ 'DIMENSION':ic
+DISTINCT            ~ 'DISTINCT':ic
+ELSE                ~ 'ELSE':ic
+ENABLE              ~ 'ENABLE':ic
+END                 ~ 'END':ic
+ERRORS              ~ 'ERRORS':ic
+ESCAPE              ~ 'ESCAPE':ic
+EXCLUDE             ~ 'EXCLUDE':ic
+EXISTS              ~ 'EXISTS':ic
+EXPLAIN             ~ 'EXPLAIN':ic
+:lexeme             ~ EXPLAIN pause => after event => keyword
+FLASH_CACHE         ~ 'FLASH_CACHE':ic
+FIRST               ~ 'FIRST':ic
+FOLLOWING           ~ 'FOLLOWING':ic
+FOR                 ~ 'FOR':ic
+FOREIGN             ~ 'FOREIGN':ic
+FREELIST            ~ 'FREELIST':ic
+FREELISTS           ~ 'FREELISTS':ic
+FROM                ~ 'FROM':ic
+FULL                ~ 'FULL':ic
+GROUP               ~ 'GROUP':ic
+GROUPING            ~ 'GROUPING':ic
+GROUPS              ~ 'GROUPS':ic
+HAVING              ~ 'HAVING':ic
+HOUR                ~ 'HOUR':ic
+IGNORE              ~ 'IGNORE':ic
+IMMEDIATE           ~ 'IMMEDIATE':ic
+IN                  ~ 'IN':ic
+INCLUDE             ~ 'INCLUDE':ic
+INCREMENT           ~ 'INCREMENT':ic
+INDEX               ~ 'INDEX':ic
+INNER               ~ 'INNER':ic
+INITIAL             ~ 'INITIAL':ic
+INITIALLY           ~ 'INITIALLY':ic
+INITRANS            ~ 'INITRANS':ic
+INTERVAL            ~ 'INTERVAL':ic
+INSERT              ~ 'INSERT':ic
+:lexeme             ~ INSERT pause => after event => keyword
+INTERSECT           ~ 'INTERSECT':ic
+INTO                ~ 'INTO':ic
+_IS                 ~ 'IS':ic
+IS                  ~ 'IS':ic
+ITERATE             ~ 'ITERATE':ic
+JOIN                ~ 'JOIN':ic
+KEEP                ~ 'KEEP':ic
+KEY                 ~ 'KEY':ic
+LAST                ~ 'LAST':ic
+LEFT                ~ 'LEFT':ic
+:lexeme             ~ LEFT priority => 1
+LIKE                ~ 'LIKE':ic
+LIMIT               ~ 'LIMIT':ic
+LOCKED               ~ 'LOCKED':ic
+LOG                 ~ 'LOG':ic
+LOGGING             ~ 'LOGGING':ic
+MAIN                ~ 'MAIN':ic
+MAXEXTENTS          ~ 'MAXEXTENTS':ic
+MAXTRANS            ~ 'MAXTRANS':ic
+MAXVALUE            ~ 'MAXVALUE':ic
+:lexeme             ~ MAXVALUE priority => 1
+MEASURES            ~ 'MEASURES':ic
+MINUS               ~ 'MINUS':ic
+MINUTE              ~ 'MINUTE':ic
+MINEXTENTS          ~ 'MINEXTENTS':ic
+MINVALUE            ~ 'MINVALUE':ic
+:lexeme             ~ MINVALUE priority => 1
+MODEL               ~ 'MODEL':ic
+NATURAL             ~ 'NATURAL':ic
+NAV                 ~ 'NAV':ic
+NEXT                ~ 'NEXT':ic
+NO                  ~ 'NO':ic
+NOCOMPRESS          ~ 'NOCOMPRESS':ic
+NOCYCLE             ~ 'NOCYCLE':ic
+NOLOGGING           ~ 'NOLOGGING':ic
 # this one is unsed in qual_inop G1 rule
-NOT         ~ 'NOT':ic
+NOT                 ~ 'NOT':ic
 # this one is used in OPERATOR L0 rule
-NOVALIDATE  ~ 'NOVALIDATE':ic
-NOWAIT      ~ 'NOWAIT':ic
-NULL        ~ 'NULL':ic
-:lexeme     ~ NULL priority => 1
-NULLS       ~ 'NULLS':ic
-OF          ~ 'OF':ic
-ONLY        ~ 'ONLY':ic
-OR          ~ 'OR':ic
-ORDER       ~ 'ORDER':ic
-ON          ~ 'ON':ic
-OUTER       ~ 'OUTER':ic
-OVER        ~ 'OVER':ic
-PARTITION   ~ 'PARTITION':ic
-PIVOT       ~ 'PIVOT':ic
-PLAN        ~ 'PLAN':ic
-PRECEDING   ~ 'PRECEDING':ic
-PRIMARY     ~ 'PRIMARY':ic
-PRIOR       ~ 'PRIOR':ic
-RANGE       ~ 'RANGE':ic
-REFERENCE   ~ 'REFERENCE':ic
-REFERENCES  ~ 'REFERENCES':ic
-REJECT      ~ 'REJECT':ic
-REPLACE     ~ 'REPLACE':ic
-RESPECT     ~ 'RESPECT':ic
-RESTRICT    ~ 'RESTRICT':ic
-RETURN      ~ 'RETURN':ic
-RETURNING   ~ 'RETURNING':ic
-RIGHT       ~ 'RIGHT':ic
-:lexeme     ~ RIGHT priority => 1
-ROLLBACK    ~ 'ROLLBACK';
-:lexeme     ~ ROLLBACK pause => after event => keyword
-ROLLUP      ~ 'ROLLUP':ic
-:lexeme     ~ ROLLUP priority => 1
-ROW         ~ 'ROW':ic
-ROWS        ~ 'ROWS':ic
-RULES       ~ 'RULES':ic
-SAMPLE      ~ 'SAMPLE':ic
-SCN         ~ 'SCN':ic
-SEARCH      ~ 'SEARCH':ic
-SECOND      ~ 'SECOND':ic
-SEED        ~ 'SEED':ic
-SEQUENTIAL  ~ 'SEQUENTIAL':ic
-SELECT      ~ 'SELECT':ic
-:lexeme     ~ SELECT pause => after event => keyword
-SET         ~ 'SET':ic
-SETS        ~ 'SETS':ic
-SIBLINGS    ~ 'SIBLINGS':ic
-SINGLE      ~ 'SINGLE':ic
-SKIP        ~ 'SKIP':ic
-START       ~ 'START':ic
-STATEMENT_ID~ 'STATEMENT_ID':ic
-TABLE       ~ 'TABLE':ic
-TABLESPACE  ~ 'TABLESPACE':ic
-THEN        ~ 'THEN':ic
-:lexeme     ~ THEN priority => 1
-TIME        ~ 'TIME':ic
-TIMESTAMP   ~ 'TIMESTAMP':ic
-TO          ~ 'TO':ic
-UNBOUNDED   ~ 'UNBOUNDED':ic
-UNIQUE      ~ 'UNIQUE':ic
-UNION       ~ 'UNION':ic
-UNLIMITED   ~ 'UNLIMITED':ic
-UNPIVOT     ~ 'UNPIVOT':ic
-UNTIL       ~ 'UNTIL':ic
-UPDATE      ~ 'UPDATE':ic
-:lexeme     ~ UPDATE pause => after event => keyword
-UPDATED     ~ 'UPDATED':ic
-UPSERT      ~ 'UPSERT':ic
-USING       ~ 'USING':ic
-VALIDATE    ~ 'VALIDATE':ic
-VALUES      ~ 'VALUES':ic
-VERSIONS    ~ 'VERSIONS':ic
-VIEW        ~'VIEW':ic
-WHEN        ~ 'WHEN':ic
-WHERE       ~ 'WHERE':ic
-WAIT        ~ 'WAIT':ic
-WITH        ~ 'WITH':ic
-:lexeme     ~ WITH pause => after event => keyword
-XML         ~'XML':ic
-ZONE        ~ 'ZONE':ic
+NOVALIDATE          ~ 'NOVALIDATE':ic
+NOWAIT              ~ 'NOWAIT':ic
+NULL                ~ 'NULL':ic
+:lexeme             ~ NULL priority => 1
+NULLS               ~ 'NULLS':ic
+OF                  ~ 'OF':ic
+ONLY                ~ 'ONLY':ic
+OR                  ~ 'OR':ic
+ORDER               ~ 'ORDER':ic
+ON                  ~ 'ON':ic
+OUTER               ~ 'OUTER':ic
+OVER                ~ 'OVER':ic
+PARTITION           ~ 'PARTITION':ic
+PCTFREE             ~ 'PCTFREE':ic
+PCTINCREASE         ~ 'PCTINCREASE':ic
+PCTUSED             ~ 'PCTUSED':ic
+PIVOT               ~ 'PIVOT':ic
+PLAN                ~ 'PLAN':ic
+PRECEDING           ~ 'PRECEDING':ic
+PRIMARY             ~ 'PRIMARY':ic
+PRIOR               ~ 'PRIOR':ic
+RANGE               ~ 'RANGE':ic
+REFERENCE           ~ 'REFERENCE':ic
+REFERENCES          ~ 'REFERENCES':ic
+REJECT              ~ 'REJECT':ic
+REPLACE             ~ 'REPLACE':ic
+RESPECT             ~ 'RESPECT':ic
+RESTRICT            ~ 'RESTRICT':ic
+RETURN              ~ 'RETURN':ic
+RETURNING           ~ 'RETURNING':ic
+RIGHT               ~ 'RIGHT':ic
+:lexeme             ~ RIGHT priority => 1
+ROLLBACK            ~ 'ROLLBACK';
+:lexeme             ~ ROLLBACK pause => after event => keyword
+ROLLUP              ~ 'ROLLUP':ic
+:lexeme             ~ ROLLUP priority => 1
+ROW                 ~ 'ROW':ic
+ROWS                ~ 'ROWS':ic
+RULES               ~ 'RULES':ic
+SAMPLE              ~ 'SAMPLE':ic
+SCN                 ~ 'SCN':ic
+SEARCH              ~ 'SEARCH':ic
+SECOND              ~ 'SECOND':ic
+SEED                ~ 'SEED':ic
+SEQUENTIAL          ~ 'SEQUENTIAL':ic
+SELECT              ~ 'SELECT':ic
+:lexeme             ~ SELECT pause => after event => keyword
+SET                 ~ 'SET':ic
+SETS                ~ 'SETS':ic
+SIBLINGS            ~ 'SIBLINGS':ic
+SINGLE              ~ 'SINGLE':ic
+SKIP                ~ 'SKIP':ic
+START               ~ 'START':ic
+STATEMENT_ID        ~ 'STATEMENT_ID':ic
+STORAGE             ~ 'STORAGE':ic
+TABLE               ~ 'TABLE':ic
+TABLESPACE          ~ 'TABLESPACE':ic
+THEN                ~ 'THEN':ic
+:lexeme             ~ THEN priority => 1
+TIME                ~ 'TIME':ic
+TIMESTAMP           ~ 'TIMESTAMP':ic
+TO                  ~ 'TO':ic
+UNBOUNDED           ~ 'UNBOUNDED':ic
+UNIQUE              ~ 'UNIQUE':ic
+UNION               ~ 'UNION':ic
+UNLIMITED           ~ 'UNLIMITED':ic
+UNPIVOT             ~ 'UNPIVOT':ic
+UNTIL               ~ 'UNTIL':ic
+UPDATE              ~ 'UPDATE':ic
+:lexeme             ~ UPDATE pause => after event => keyword
+UPDATED             ~ 'UPDATED':ic
+UPSERT              ~ 'UPSERT':ic
+USING               ~ 'USING':ic
+VALIDATE            ~ 'VALIDATE':ic
+VALUES              ~ 'VALUES':ic
+VERSIONS            ~ 'VERSIONS':ic
+VIEW                ~'VIEW':ic
+WHEN                ~ 'WHEN':ic
+WHERE               ~ 'WHERE':ic
+WAIT                ~ 'WAIT':ic
+WITH                ~ 'WITH':ic
+:lexeme             ~ WITH pause => after event => keyword
+XML                 ~'XML':ic
+ZONE                ~ 'ZONE':ic
 
-SEMICOLON   ~ ';'
-:lexeme     ~ SEMICOLON pause => after event => new_query
+SEMICOLON           ~ ';'
+:lexeme             ~ SEMICOLON pause => after event => new_query
 
-# everything else
-digits      ~ [0-9]+
-integer     ~ digits
-            | digits expcast
-float       ~ digits '.' digits
-            | digits '.' digits expcast
-            | '.' digits
-            | '.' digits expcast
-# exponent and type are done in L0 since no whitespace is allowed here
-expcast     ~ exponent
-            | cast
-            | exponent cast
-exponent    ~ 'e' digits
-            | 'E' digits
-            | 'e-' digits
-            | 'E-' digits
-            | 'e+' digits
-            | 'E+' digits
-cast        ~ 'd'
-            | 'D'
-            | 'f'
-            | 'F'
+# everything         else
+digits              ~ [0-9]+
+integer             ~ digits
+                    | digits expcast
+float               ~ digits '.' digits
+                    | digits '.' digits expcast
+                    | '.' digits
+                    | '.' digits expcast
+# exponent a        nd type are done in L0 since no whitespace is allowed here
+expcast             ~ exponent
+                    | cast
+                    | exponent cast
+exponent            ~ 'e' digits
+                    | 'E' digits
+                    | 'e-' digits
+                    | 'E-' digits
+                    | 'e+' digits
+                    | 'E+' digits
+cast                ~ 'd'
+                    | 'D'
+                    | 'f'
+                    | 'F'
 
-ident   ~ unquoted_ident
-        | quoted_ident
-        # only for a_expr, but assuming original SQL is valid
-        | '*'
+ident               ~ unquoted_ident
+                    | quoted_ident
+                    # only for a_expr, but assuming original SQL is valid
+                    | '*'
 
-bindvar ~ ':' unquoted_ident
-        | ':' digits
-        | ':' quoted_ident
+bindvar             ~ ':' unquoted_ident
+                    | ':' digits
+                    | ':' quoted_ident
 
-ALIAS   ~ unquoted_start unquoted_chars
-        | quoted_ident
+ALIAS               ~ unquoted_start unquoted_chars
+                    | quoted_ident
 
-unquoted_ident ~ unquoted_start unquoted_chars
-unquoted_start ~ [a-zA-Z]
-unquoted_chars ~ [a-zA-Z_0-9_$#]*
+unquoted_ident      ~ unquoted_start unquoted_chars
+unquoted_start      ~ [a-zA-Z]
+unquoted_chars      ~ [a-zA-Z_0-9_$#]*
 
-quoted_ident ~ '"' quoted_chars '"'
-quoted_chars ~ [^"]+
+quoted_ident        ~ '"' quoted_chars '"'
+quoted_chars        ~ [^"]+
 
-literal         ~ literal_delim literal_chars literal_delim
-literal_delim   ~ [']
-literal_chars   ~ [^']*
+literal             ~ literal_delim literal_chars literal_delim
+literal_delim       ~ [']
+literal_chars       ~ [^']*
 
-operator    ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
-            | '+' | '-' | '*' | '/' | '||' | _IS
+operator            ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
+                    | '+' | '-' | '*' | '/' | '||' | _IS
 
 :discard                    ~ discard
 discard                     ~ whitespace
@@ -1557,12 +1611,13 @@ sub make_createindex {
 }
 
 sub make_createtable {
-    my (undef, undef, undef, $ident, $cols, $tblspc) = @_;
+    my (undef, undef, undef, $ident, $cols, $storage, $tblspc) = @_;
     my $node = make_node('createobject');
 
     $node->{kind} = 'TABLE';
     $node->{ident} = $ident;
     $node->{cols} = $cols;
+    $node->{storage} = $storage;
     $node->{tblspc} = $tblspc;
 
     return node_to_array($node);
@@ -2281,6 +2336,17 @@ sub make_startwith {
     my (undef, undef, undef, $quals) = @_;
 
     return make_clause('STARTWITH', $quals);
+}
+
+sub make_tbl_attribute {
+    my (undef, $kw, $val) = @_;
+    my $node = make_node('tbl_attribute');
+
+    $node->{kw} = uc($kw);
+    $node->{val} = $val;
+    $node->{hook} = 'sql2pg::plsql::utils::handle_tbl_attribute';
+
+    return $node;
 }
 
 sub make_subjoin {

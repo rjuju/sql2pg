@@ -426,6 +426,20 @@ sub handle_rownum {
     return $stmt;
 }
 
+sub handle_tbl_attribute {
+    my ($node) = @_;
+
+    if (uc($node->{kw}) eq 'PCTFREE') {
+        $node->{kw} = 'fillfactor';
+        $node->{val} = 100 - format_node($node->{val});
+    } else {
+        error("table attribute \"$node->{kw}\" is not handled\n"
+            . "Please report an issue");
+    }
+
+    return $node;
+}
+
 sub qual_is_join_op {
     my ($qual) = @_;
 

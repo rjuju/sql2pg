@@ -10,7 +10,7 @@ require Exporter;
 
 BEGIN {
     @ISA = qw(Exporter);
-    @EXPORT = qw(make_node make_join make_node_opexpr _parens_node isA
+    @EXPORT = qw(make_node make_join make_node_opexpr _parens_node isA error
                  make_clause inverse_operator node_to_array assert assert_isA
                  assert_one_el add_fixme useless_bindvar translate_bindvar
                  get_alias whereclause_walker splice_table_from_fromlist

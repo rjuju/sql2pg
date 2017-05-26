@@ -77,7 +77,6 @@ sub format_AT_action {
     # handle NOT VALID here instead of in each AT_action
     $out .= ' NOT VALID' if ($node->{action}->{not_valid});
     # we don't use TABLESPACE information if any was present
-    print Dumper($node);
 
     return $out;
 }
@@ -173,6 +172,31 @@ sub format_createobject {
 
     if ($node->{auth}) {
         $out .= ' AUTHORIZATION ' . format_node($node->{auth});
+    }
+
+    if ($node->{storage}) {
+        my $tmp;
+
+        ELEM: foreach my $s (@{$node->{storage}}) {
+            my $hook;
+            # ignore discarded elements
+            next ELEM if($s == 0);
+
+            $hook = $s->{hook};
+            if ($hook) {
+                no strict;
+                $s = &$hook($s);
+                use strict;
+            } else {
+            }
+
+            $tmp .= ', ' if ($tmp);
+            $tmp .= "$s->{kw}=$s->{val}";
+        }
+
+        if ($tmp) {
+            $out .= " WITH ($tmp)";
+        }
     }
 
     if ($node->{tblspc}) {
@@ -722,6 +746,10 @@ sub format_target_list {
     $out .= format_array($tlist->{tlist}, ', ');
 
     return $out;
+}
+
+sub format_tbl_attribute {
+    error('toto');
 }
 
 sub format_tbl_coldef {
