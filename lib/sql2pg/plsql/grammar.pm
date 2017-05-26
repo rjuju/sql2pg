@@ -908,8 +908,17 @@ CreateViewAsStmt ::=
         action => make_createviewas
 
 view_cols ::=
-    '(' IDENTS ')' action => second
+    '(' view_cols_elems ')' action => second
     | EMPTY
+
+view_cols_elems ::=
+    view_cols_elems ',' view_cols_elem action => append_el_1_3
+    | view_cols_elem
+
+view_cols_elem ::=
+    # drop everything except the IDENT
+    IDENT _UNIQUE _RELY enable_clause validate_clause action => ::first
+    | AT_constraint_def
 
 view_opts ::=
     WITH CHECK OPTION action => concat
@@ -925,6 +934,10 @@ CreateIndexStmt ::=
 
 _UNIQUE ::=
     UNIQUE
+    | EMPTY
+
+_RELY ::=
+    RELY
     | EMPTY
 
 AlterTableStmt ::=
@@ -943,7 +956,7 @@ _USING_INDEX ::=
     | EMPTY
 
 AT_constraint ::=
-    AT_constraint_clause _USING_INDEX enable_clause validate_clause
+    AT_constraint_clause _USING_INDEX (_RELY) enable_clause validate_clause
         action => make_AT_constraint_add_clauses
 
 AT_constraints ::=
@@ -958,11 +971,13 @@ AT_constraint_clause ::=
 
 enable_clause ::=
     ENABLE action => discard
+    | DISABLE
     | EMPTY
 
 validate_clause ::=
     VALIDATE action => upper
     | NOVALIDATE action => upper
+    | EMPTY
 
 unique_clause ::=
     UNIQUE ('(') IDENTS (')') action => make_unique_clause
@@ -1075,6 +1090,7 @@ DENSE_RANK          ~ 'DENSE_RANK':ic
 DEPTH               ~ 'DEPTH':ic
 DESC                ~ 'DESC':ic
 DIMENSION           ~ 'DIMENSION':ic
+DISABLE             ~ 'DISABLE':ic
 DISTINCT            ~ 'DISTINCT':ic
 ELSE                ~ 'ELSE':ic
 ENABLE              ~ 'ENABLE':ic
@@ -1176,6 +1192,7 @@ RANGE               ~ 'RANGE':ic
 REFERENCE           ~ 'REFERENCE':ic
 REFERENCES          ~ 'REFERENCES':ic
 REJECT              ~ 'REJECT':ic
+RELY                ~ 'RELY':ic
 REPLACE             ~ 'REPLACE':ic
 RESPECT             ~ 'RESPECT':ic
 RESTRICT            ~ 'RESTRICT':ic
@@ -1650,7 +1667,7 @@ sub make_createviewas {
     $node->{kind} = 'VIEW';
     $node->{replace} = $replace;
     $node->{ident} = $ident;
-    $node->{atts} = $atts;
+    $node->{view_atts} = $atts;
     $node->{stmt} = $stmt;
     $node->{view_opts} = $opts;
 

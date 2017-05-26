@@ -154,8 +154,19 @@ sub format_createobject {
     $out .= ' IF NOT EXISTS' if ($node->{ine});
     $out .= ' ' . format_node($node->{ident});
 
-    if ($node->{atts}) {
-        $out .= '(' . format_array($node->{atts}, ', ') . ')';
+    if ($node->{view_atts}) {
+        my $tmp;
+
+        VIEW_ATTS: foreach my $a (@{$node->{view_atts}}) {
+            next VIEW_ATTS if (isA($a, 'AT_action'));
+
+            $tmp .= ', ' if ($tmp);
+            $tmp .= format_node($a);
+        }
+
+        if ($tmp) {
+            $out .= "($tmp)";
+        }
     }
 
     if (defined($node->{stmt})) {
