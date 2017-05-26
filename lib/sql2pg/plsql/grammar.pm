@@ -887,8 +887,11 @@ AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
 
 AT_action ::=
-    ADD CONSTRAINT IDENT AT_constraint _USING_INDEX tblspc_clause
-        action => make_AT_add_constraint
+    ADD AT_constraint_def action => make_AT_add_constraints
+    | ADD ('(') AT_constraints (')') action => make_AT_add_constraints
+
+AT_constraint_def ::=
+    CONSTRAINT IDENT AT_constraint tblspc_clause action => make_AT_constraint_def
 
 _USING_INDEX ::=
     USING INDEX action => discard
@@ -896,10 +899,26 @@ _USING_INDEX ::=
     | EMPTY
 
 AT_constraint ::=
+    AT_constraint_clause _USING_INDEX enable_clause validate_clause
+        action => make_AT_constraint_add_clauses
+
+AT_constraints ::=
+    AT_constraints ',' AT_constraint_def action => append_el_1_3
+    | AT_constraint_def
+
+AT_constraint_clause ::=
     check_clause
     | unique_clause
     | pk_clause
     | fk_clause
+
+enable_clause ::=
+    ENABLE action => discard
+    | EMPTY
+
+validate_clause ::=
+    VALIDATE action => upper
+    | NOVALIDATE action => upper
 
 unique_clause ::=
     UNIQUE ('(') IDENTS (')') action => make_unique_clause
@@ -993,6 +1012,7 @@ DESC        ~ 'DESC':ic
 DIMENSION   ~ 'DIMENSION':ic
 DISTINCT    ~ 'DISTINCT':ic
 ELSE        ~ 'ELSE':ic
+ENABLE      ~ 'ENABLE':ic
 END         ~ 'END':ic
 ERRORS      ~ 'ERRORS':ic
 ESCAPE      ~ 'ESCAPE':ic
@@ -1051,6 +1071,7 @@ NOCYCLE     ~ 'NOCYCLE':ic
 # this one is unsed in qual_inop G1 rule
 NOT         ~ 'NOT':ic
 # this one is used in OPERATOR L0 rule
+NOVALIDATE  ~ 'NOVALIDATE':ic
 NOWAIT      ~ 'NOWAIT':ic
 NULL        ~ 'NULL':ic
 :lexeme     ~ NULL priority => 1
@@ -1118,6 +1139,7 @@ UPDATE      ~ 'UPDATE':ic
 UPDATED     ~ 'UPDATED':ic
 UPSERT      ~ 'UPSERT':ic
 USING       ~ 'USING':ic
+VALIDATE    ~ 'VALIDATE':ic
 VALUES      ~ 'VALUES':ic
 VERSIONS    ~ 'VERSIONS':ic
 VIEW        ~'VIEW':ic
@@ -1333,18 +1355,33 @@ sub make_alias {
 }
 
 sub make_altertable {
-    my (undef, undef, undef, $ident, $action) = @_;
-    my $node = make_node('alterobject');
+    my (undef, undef, undef, $ident, $actions) = @_;
+    my $nodes = [];
 
-    $node->{kind} = 'TABLE';
-    $node->{ident} = $ident;
-    $node->{action} = $action;
+    foreach my $a (@{$actions}) {
+        my $node = make_node('alterobject');
 
-    return node_to_array($node);
+        $node->{kind} = 'TABLE';
+        $node->{ident} = $ident;
+        $node->{action} = $a;
+        push(@{$nodes}, $node);
+    }
+
+    return $nodes;
 }
 
-sub make_AT_add_constraint {
-    my (undef, undef, undef, $ident, $constraint, $using, $tblspc) = @_;
+sub make_AT_add_constraints {
+    my (undef, undef, $defs) =  @_;
+
+    foreach my $def (@{$defs}) {
+        $def->{kind} = 'ADD CONSTRAINT';
+    }
+
+    return $defs;
+}
+
+sub make_AT_constraint_def {
+    my (undef, undef, $ident, $constraint, $tblspc) = @_;
     my $node = make_node('AT_action');
 
     assert_one_el($constraint);
@@ -1361,10 +1398,10 @@ sub make_AT_add_constraint {
         }
     }
 
-    $node->{kind} = 'ADD CONSTRAINT';
+    # this will be updated on AT_action g1 rule
+    $node->{kind} = 'TO BE UPDATED';
     $node->{ident} = $ident;
     $node->{action} = $constraint;
-    $node->{using} = $using;
     $node->{tblspc} = $tblspc;
 
     return node_to_array($node);
@@ -1379,6 +1416,19 @@ sub make_at_time_zone {
     $node->{expr} = $expr;
 
     return node_to_array($node);
+}
+
+sub make_AT_constraint_add_clauses {
+    my (undef, $constraint, $using, $enable, $validate) = @_;
+
+    assert_one_el($constraint);
+    @{$constraint}[0]->{using} = $using;
+    # drop enable clause if any
+    if ($validate eq 'NOVALIDATE') {
+        @{$constraint}[0]->{not_valid} = 1;
+    }
+
+    return $constraint;
 }
 
 sub make_betweenqual {

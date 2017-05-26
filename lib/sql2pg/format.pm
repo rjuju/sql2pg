@@ -809,7 +809,13 @@ sub format_stmts {
     foreach my $stmt (@{$stmts}) {
         # XXX special handling of combined statements with orderby here, should
         # find a better way to deal with it
-        $out .= ' ' if (isA($stmt, 'ORDERBY'));
+        if (isA($stmt, 'ORDERBY')) {
+            $out .= ' ';
+        } elsif (isA($stmt, 'alterobject')) {
+            # Single statement rewritten in multiple statements
+            # for instance AT ADD (...) in plpgsql
+            $out .= " ;\n" if ($out);
+        }
         $out .= format_node($stmt);
     }
     $out .= " ;\n";
