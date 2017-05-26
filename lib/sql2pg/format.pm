@@ -203,6 +203,10 @@ sub format_createobject {
         }
     }
 
+    if ($node->{view_opts}) {
+        $out .= " $node->{view_opts}";
+    }
+
     if ($node->{tblspc}) {
         $out .= ' TABLESPACE ' . format_node($node->{tblspc});
     }

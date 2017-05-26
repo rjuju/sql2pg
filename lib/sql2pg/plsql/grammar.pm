@@ -904,11 +904,15 @@ CreateTableAsStmt ::=
     CREATE TABLE IDENT AS SelectStmt action => make_createtableas
 
 CreateViewAsStmt ::=
-    CREATE or_replace_clause VIEW IDENT view_cols AS SelectStmt
+    CREATE or_replace_clause VIEW IDENT view_cols AS SelectStmt view_opts
         action => make_createviewas
 
 view_cols ::=
     '(' IDENTS ')' action => second
+    | EMPTY
+
+view_opts ::=
+    WITH CHECK OPTION action => concat
     | EMPTY
 
 or_replace_clause ::=
@@ -1153,6 +1157,7 @@ NULL                ~ 'NULL':ic
 NULLS               ~ 'NULLS':ic
 OF                  ~ 'OF':ic
 ONLY                ~ 'ONLY':ic
+OPTION              ~ 'OPTION':ic
 OR                  ~ 'OR':ic
 ORDER               ~ 'ORDER':ic
 ON                  ~ 'ON':ic
@@ -1639,7 +1644,7 @@ sub make_createtableas {
 }
 
 sub make_createviewas {
-    my (undef, undef, $replace, undef, $ident, $atts, undef, $stmt) = @_;
+    my (undef, undef, $replace, undef, $ident, $atts, undef, $stmt, $opts) = @_;
     my $node = make_node('createobject');
 
     $node->{kind} = 'VIEW';
@@ -1647,6 +1652,7 @@ sub make_createviewas {
     $node->{ident} = $ident;
     $node->{atts} = $atts;
     $node->{stmt} = $stmt;
+    $node->{view_opts} = $opts;
 
     return node_to_array($node);
 }
