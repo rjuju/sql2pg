@@ -904,8 +904,12 @@ CreateTableAsStmt ::=
     CREATE TABLE IDENT AS SelectStmt action => make_createtableas
 
 CreateViewAsStmt ::=
-    CREATE or_replace_clause VIEW IDENT ('(') IDENTS (')') AS SelectStmt
+    CREATE or_replace_clause VIEW IDENT view_cols AS SelectStmt
         action => make_createviewas
+
+view_cols ::=
+    '(' IDENTS ')' action => second
+    | EMPTY
 
 or_replace_clause ::=
     OR REPLACE action => concat
