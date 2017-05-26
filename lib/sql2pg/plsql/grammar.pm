@@ -256,6 +256,7 @@ interval_unit ::=
 
 typmod ::=
     '(' number_list ')' action => second
+    | '(' number_list CHAR ')' action => second
     | EMPTY
 
 number_list ::=
@@ -999,6 +1000,7 @@ BREADTH     ~ 'BREADTH':ic
 BY          ~ 'BY':ic
 CASCADE     ~ 'CASCADE':ic
 CASE        ~ 'CASE':ic
+CHAR        ~ 'CHAR':ic
 CHECK       ~ 'CHECK':ic
 COLUMN      ~ 'COLUMN':ic
 COMMENT     ~ 'COMMENT':ic
