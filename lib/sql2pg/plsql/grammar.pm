@@ -904,8 +904,8 @@ CreateTableAsStmt ::=
     CREATE TABLE IDENT AS SelectStmt action => make_createtableas
 
 CreateViewAsStmt ::=
-    CREATE or_replace_clause VIEW IDENT view_cols AS SelectStmt view_opts
-        action => make_createviewas
+    CREATE or_replace_clause (_FORCE) VIEW IDENT view_cols AS SelectStmt
+        view_opts action => make_createviewas
 
 view_cols ::=
     '(' view_cols_elems ')' action => second
@@ -938,6 +938,10 @@ _UNIQUE ::=
 
 _RELY ::=
     RELY
+    | EMPTY
+
+_FORCE ::=
+    FORCE
     | EMPTY
 
 AlterTableStmt ::=
@@ -1105,6 +1109,7 @@ FLASH_CACHE         ~ 'FLASH_CACHE':ic
 FIRST               ~ 'FIRST':ic
 FOLLOWING           ~ 'FOLLOWING':ic
 FOR                 ~ 'FOR':ic
+FORCE               ~ 'FORCE':ic
 FOREIGN             ~ 'FOREIGN':ic
 FREELIST            ~ 'FREELIST':ic
 FREELISTS           ~ 'FREELISTS':ic
