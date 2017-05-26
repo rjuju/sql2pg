@@ -776,6 +776,7 @@ sub format_tbl_coldef {
     my $out = format_node($node->{ident});
 
     $out .= ' ' . format_node($node->{datatype});
+    $out .= ' PRIMARY KEY' if ($node->{pk});
     $out .= ' ' . format_node($node->{default}) if ($node->{default});
     $out .= ' ' . format_node($node->{check}) if ($node->{check});
     $out .= ' ' . $node->{notnull} if ($node->{notnull});

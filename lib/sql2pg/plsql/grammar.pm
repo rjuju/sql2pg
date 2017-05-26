@@ -838,8 +838,8 @@ tbl_cols ::=
     | tbl_coldef
 
 tbl_coldef ::=
-    IDENT datatype col_default check_clause NOT_NULL enable_clause
-        action => make_tbl_coldef
+    IDENT datatype col_pk col_default (_ENCRYPT) check_clause NOT_NULL
+        enable_clause action => make_tbl_coldef
 
 tbl_att_clauses ::=
     tbl_att_clause* action => ::array
@@ -881,6 +881,10 @@ tblspc_clause ::=
 
 datatype ::=
     IDENT typmod action => make_datatype
+
+col_pk ::=
+    PRIMARY KEY
+    | EMPTY
 
 col_default ::=
     DEFAULT ('(') target_el (')') action => make_coldefault
@@ -942,6 +946,10 @@ _RELY ::=
 
 _FORCE ::=
     FORCE
+    | EMPTY
+
+_ENCRYPT ::=
+    ENCRYPT
     | EMPTY
 
 AlterTableStmt ::=
@@ -1098,6 +1106,7 @@ DISABLE             ~ 'DISABLE':ic
 DISTINCT            ~ 'DISTINCT':ic
 ELSE                ~ 'ELSE':ic
 ENABLE              ~ 'ENABLE':ic
+ENCRYPT             ~ 'ENCRYPT':ic
 END                 ~ 'END':ic
 ERRORS              ~ 'ERRORS':ic
 ESCAPE              ~ 'ESCAPE':ic
@@ -2427,8 +2436,10 @@ sub make_target_list {
 }
 
 sub make_tbl_coldef {
-    my (undef, $ident, $datatype, $default, $check, $notnull, undef) = @_;
+    my (undef, $ident, $datatype, $pk, $default, $check, $notnull, undef) = @_;
     my $node = make_node('tbl_coldef');
+
+    $node->{pk} = 1 if ($pk);
 
     assert_one_el($datatype);
     $datatype = pop(@{$datatype});
