@@ -837,7 +837,8 @@ tbl_cols ::=
     | tbl_coldef
 
 tbl_coldef ::=
-    IDENT datatype col_default check_clause NOT_NULL action => make_tbl_coldef
+    IDENT datatype col_default check_clause NOT_NULL enable_clause
+        action => make_tbl_coldef
 
 tblspc_clause ::=
     TABLESPACE IDENT action => second
@@ -2324,7 +2325,7 @@ sub make_target_list {
 }
 
 sub make_tbl_coldef {
-    my (undef, $ident, $datatype, $default, $check, $notnull) = @_;
+    my (undef, $ident, $datatype, $default, $check, $notnull, undef) = @_;
     my $node = make_node('tbl_coldef');
 
     assert_one_el($datatype);
