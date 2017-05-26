@@ -904,7 +904,7 @@ CreateTableAsStmt ::=
     CREATE TABLE IDENT AS SelectStmt action => make_createtableas
 
 CreateViewAsStmt ::=
-    CREATE or_replace_clause VIEW IDENT AS SelectStmt
+    CREATE or_replace_clause VIEW IDENT ('(') IDENTS (')') AS SelectStmt
         action => make_createviewas
 
 or_replace_clause ::=
@@ -1635,12 +1635,13 @@ sub make_createtableas {
 }
 
 sub make_createviewas {
-    my (undef, undef, $replace, undef, $ident, undef, $stmt) = @_;
+    my (undef, undef, $replace, undef, $ident, $atts, undef, $stmt) = @_;
     my $node = make_node('createobject');
 
     $node->{kind} = 'VIEW';
     $node->{replace} = $replace;
     $node->{ident} = $ident;
+    $node->{atts} = $atts;
     $node->{stmt} = $stmt;
 
     return node_to_array($node);
@@ -2342,6 +2343,7 @@ sub make_tbl_attribute {
     my (undef, $kw, $val) = @_;
     my $node = make_node('tbl_attribute');
 
+    a
     $node->{kw} = uc($kw);
     $node->{val} = $val;
     $node->{hook} = 'sql2pg::plsql::utils::handle_tbl_attribute';

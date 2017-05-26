@@ -154,6 +154,10 @@ sub format_createobject {
     $out .= ' IF NOT EXISTS' if ($node->{ine});
     $out .= ' ' . format_node($node->{ident});
 
+    if ($node->{atts}) {
+        $out .= '(' . format_array($node->{atts}, ', ') . ')';
+    }
+
     if (defined($node->{stmt})) {
         $out .= ' AS ' . format_node($node->{stmt});
     }
