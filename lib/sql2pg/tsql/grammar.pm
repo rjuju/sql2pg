@@ -857,7 +857,7 @@ sub make_alias {
 
 sub make_alterdb {
     my (undef, undef, undef, $ident, undef, $param, $val) = @_;
-    my $node = make_node('alterobject');
+    my $node = make_node('alterobject_set');
 
     if (($param eq 'COMPATIBILITY_LEVEL')
         or ($param eq 'ANSI_WARNINGS')

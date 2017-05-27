@@ -18,10 +18,15 @@ BEGIN {
                  expression_tree_walker);
 }
 
+use strict;
+use warnings;
+use 5.010;
+
 use Data::Dumper;
 use sql2pg::format;
 
 my $alias_gen = 0;
+my %bindvars = ();
 
 my %walker_actions = (
     joinop  => \&sql2pg::plsql::utils::qual_is_join_op,
@@ -282,13 +287,17 @@ sub expression_tree_walker {
             isA($node, 'ident')
             or isA($node, 'number')
         ) {
+            no strict;
             return 1 if (&$func($node));
+            use strict;
         } else {
             error("Node \"$node->{type}\" not handled.\n"
                 . "Please report an issue.");
         }
     } else {
-        return &$func($e);
+        no strict;
+        return &$func($node);
+        use strict;
     }
 }
 

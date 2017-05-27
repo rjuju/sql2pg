@@ -13,6 +13,10 @@ BEGIN {
     @EXPORT = qw(format_node format_comments format_array format_stmts);
 }
 
+use strict;
+use warnings;
+use 5.010;
+
 use Data::Dumper;
 use sql2pg;
 use sql2pg::common;
@@ -26,11 +30,11 @@ sub format_alias {
     return '';
 }
 
-sub format_alterobject {
+sub format_alterobject_set {
     my ($node) = @_;
-    my $out = 'ALTER';
+    my $out = "ALTER $node->{kind} ";
 
-    $out .= ' ' . uc($node->{kind}) . ' ' . format_node($node->{ident});
+    $out .= format_node($node->{ident});
     $out .= ' SET' . format_node($node->{param});
     $out .= 'TO ' . format_node($node->{val});
 
@@ -653,7 +657,7 @@ sub format_procedure {
     $out .= ' ' . format_node($proc->{ident});
     $out .= '(';
 
-    $out .= format_array($proc->{args}, ',') if ($node->{args});
+    $out .= format_array($proc->{args}, ',') if ($proc->{args});
     $out .= ")\nRETURNS " . format_node($proc->{returns}) . " AS\n";
     $out .= "\$_\$\nBEGIN\n";
     if ($proc->{stmts}) {

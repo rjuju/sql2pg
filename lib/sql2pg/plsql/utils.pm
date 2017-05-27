@@ -14,11 +14,13 @@ BEGIN {
 }
 
 
+use strict;
+use warnings;
+use 5.010;
+
 use Data::Dumper;
 use sql2pg::format;
 use sql2pg::common;
-
-my %bindvars = ();
 
 # This function will transform any GENERATED AS column to regular column and
 # trigger to maintain it
@@ -33,7 +35,7 @@ sub createtable_hook {
         my $pl_set;
         my $pl_ret;
         my $trig;
-        my $val;
+        my $expr;
 
         next COL unless($col->{generated_as});
 
