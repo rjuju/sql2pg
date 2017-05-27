@@ -225,6 +225,18 @@ sub format_createobject {
     return $out;
 }
 
+sub format_createtrigger {
+    my ($node) = @_;
+    my $out = 'CREATE TRIGGER ' . format_node($node->{ident});
+
+    $out .= "\n    " . $node->{when};
+    $out .= ' ON ' . format_node($node->{on});
+    $out .= ' ' . $node->{for};
+    $out .= "\n    EXECUTE PROCEDURE " . format_node($node->{func}) . '()';
+
+    return $out;
+}
+
 sub format_datatype {
     my ($node) = @_;
     my $hook = $node->{hook};
@@ -630,7 +642,7 @@ sub format_procedure {
     $out .= '(';
 
     $out .= format_array($proc->{args}, ',') if ($node->{args});
-    $out .= ")\nRETURNS FIXME AS\n";
+    $out .= ")\nRETURNS " . format_node($proc->{returns}) . " AS\n";
     $out .= "\$_\$\nBEGIN\n";
     if ($proc->{stmts}) {
         $out .= format_array($proc->{stmts}, " ;\n");
@@ -850,10 +862,11 @@ sub format_sample {
 sub format_stmts {
     my ($stmts) = @_;
     my $nbfix = 0;
+    my $stmtno;
     my $comments;
     my $out = '';
 
-    inc_stmtno();
+    $stmtno = inc_stmtno();
 
     $comments = get_comment('ok');
 
@@ -864,10 +877,16 @@ sub format_stmts {
         # find a better way to deal with it
         if (isA($stmt, 'ORDERBY')) {
             $out .= ' ';
-        } elsif (isA($stmt, 'alterobject')) {
+        } elsif (
+            isA($stmt, 'alterobject')
+            or isA($stmt, 'createobject')
+            or isA($stmt, 'createtrigger')
+            or isA($stmt, 'procedure')
+        ) {
             # Single statement rewritten in multiple statements
-            # for instance AT ADD (...) in plpgsql
-            $out .= " ;\n" if ($out);
+            # for instance AT ADD (...) in plpgsql, GENERATED AS transformed in
+            # trigger...
+            $out .= " ;\n" if ($out and $stmtno > 1);
         }
         $out .= format_node($stmt);
     }

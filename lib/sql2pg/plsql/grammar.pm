@@ -838,8 +838,12 @@ tbl_cols ::=
     | tbl_coldef
 
 tbl_coldef ::=
-    IDENT datatype col_pk col_default (_ENCRYPT) check_clause NOT_NULL
-        enable_clause action => make_tbl_coldef
+    IDENT datatype col_pk col_default (_ENCRYPT) check_clause generated_clause
+        NOT_NULL enable_clause action => make_tbl_coldef
+
+generated_clause ::=
+    (GENERATED ALWAYS AS) ('(') target_el (')') action => ::first
+    | EMPTY
 
 tbl_att_clauses ::=
     tbl_att_clause* action => ::array
@@ -1052,6 +1056,7 @@ OPERATOR ::=
 # keywords
 ACTION              ~ 'ACTION':ic
 ADD                 ~ 'ADD':ic
+ALWAYS              ~ 'ALWAYS':ic
 ALL                 ~ 'ALL':ic
 ALTER               ~ 'ALTER':ic
 :lexeme             ~ ALTER pause => after event => keyword
@@ -1124,6 +1129,7 @@ FREELIST            ~ 'FREELIST':ic
 FREELISTS           ~ 'FREELISTS':ic
 FROM                ~ 'FROM':ic
 FULL                ~ 'FULL':ic
+GENERATED           ~ 'GENERATED':ic
 GROUP               ~ 'GROUP':ic
 GROUPING            ~ 'GROUPING':ic
 GROUPS              ~ 'GROUPS':ic
@@ -1653,14 +1659,23 @@ sub make_createindex {
 sub make_createtable {
     my (undef, undef, undef, $ident, $cols, $storage, $tblspc) = @_;
     my $node = make_node('createobject');
+    my $stmts;
+    my $ret = [];
+
+    assert_one_el($ident);
 
     $node->{kind} = 'TABLE';
-    $node->{ident} = $ident;
+    $node->{ident} = pop(@{$ident});
     $node->{cols} = $cols;
     $node->{storage} = $storage;
     $node->{tblspc} = $tblspc;
 
-    return node_to_array($node);
+    ($node, $stmts) = sql2pg::plsql::utils::createtable_hook($node);
+
+    push(@{$ret}, $node);
+    push(@{$ret}, @{$stmts}) if (scalar @{$stmts} > 0);
+
+    return $ret;
 }
 
 sub make_createtableas {
@@ -2436,13 +2451,20 @@ sub make_target_list {
 }
 
 sub make_tbl_coldef {
-    my (undef, $ident, $datatype, $pk, $default, $check, $notnull, undef) = @_;
+    my (undef, $ident, $datatype, $pk, $default, $check, $generated, $notnull,
+        undef) = @_;
     my $node = make_node('tbl_coldef');
 
     $node->{pk} = 1 if ($pk);
 
     assert_one_el($datatype);
     $datatype = pop(@{$datatype});
+    assert_one_el($ident);
+    $ident = pop(@{$ident});
+    if ($generated) {
+        assert_one_el($generated);
+        $generated = pop(@{$generated});
+    }
 
     # PG doesn't handle DEFERRABLE in such case, drop it if any
     if ($check) {
@@ -2477,6 +2499,7 @@ sub make_tbl_coldef {
     $node->{datatype} = $datatype;
     $node->{default} = $default;
     $node->{check} = $check;
+    $node->{generated_as} = $generated;
     $node->{notnull} = $notnull;
 
     return node_to_array($node);

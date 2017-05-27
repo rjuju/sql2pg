@@ -20,6 +20,44 @@ use sql2pg::common;
 
 my %bindvars = ();
 
+# This function will transform any GENERATED AS column to regular column and
+# trigger to maintain it
+sub createtable_hook {
+    my ($node) = @_;
+    my $stmts = [];
+
+    COL: foreach my $col (@{$node->{cols}}) {
+        my $ident = make_node('ident');
+        my $proc_returns = make_node('ident');
+        my $proc;
+        my $trig;
+
+        next COL unless($col->{generated_as});
+
+        $proc_returns->{attribute} = 'trigger';
+
+        $ident->{attribute} = $node->{ident}->{table} . '_' || '';
+        $ident->{attribute} .= $node->{ident}->{attribute};
+        $ident->{attribute} .= '_' . $col->{ident}->{attribute};
+
+        $proc = make_node('procedure');
+        $proc->{ident} = $ident;
+        $proc->{returns} = $proc_returns;
+        # FIXME add body instructions to update NEW.col with $col->{generated_as}
+
+        $trig = make_node('createtrigger');
+        $trig->{ident} = $ident;
+        $trig->{when} = 'BEFORE INSERT OR UPDATE';
+        $trig->{on} = $node->{ident};
+        $trig->{for} = 'FOR EACH ROW';
+        $trig->{func} = $ident;
+
+        push @{$stmts}, $proc;
+        push @{$stmts}, $trig;
+    }
+
+    return ($node, $stmts);
+}
 
 # This function will transform an oracle hierarchical query (CONNECT BY) to a
 # standard recursive query (WITH RECURSIVE).  A new statement is returned that
