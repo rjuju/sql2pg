@@ -881,8 +881,8 @@ storage_clause_els ::=
     storage_clause_el* action => discard
 
 storage_clause_el ::=
-    INITIAL INTEGER action => discard
-    | NEXT INTEGER action => discard
+    INITIAL SIZE action => discard
+    | NEXT SIZE action => discard
     | MINEXTENTS INTEGER action => discard
     | MAXEXTENTS INTEGER action => discard
     | PCTINCREASE INTEGER action => discard
@@ -1063,6 +1063,10 @@ FLOAT ::=
 NUMBER ::=
     INTEGER
     | FLOAT
+
+SIZE ::=
+    # for now, all usage of this isn't translated
+    integer_k action => discard
 
 OPERATOR ::=
     operator action => upper
@@ -1296,6 +1300,7 @@ SEMICOLON           ~ ';'
 digits              ~ [0-9]+
 integer             ~ digits
                     | digits expcast
+integer_k           ~ digits 'k'
 float               ~ digits '.' digits
                     | digits '.' digits expcast
                     | '.' digits
