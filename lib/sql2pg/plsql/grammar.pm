@@ -830,8 +830,17 @@ err_log_list ::=
 
 
 CreateTableStmt ::=
-    CREATE TABLE IDENT ('(') tbl_cols (')') tbl_att_clauses tblspc_clause
-        action => make_createtable
+    (CREATE) temp_clause (TABLE) IDENT ('(') tbl_cols (')') tbl_att_clauses
+    temp_commit_clause tblspc_clause action => make_createtable
+
+temp_clause ::=
+    TEMPORARY
+    | GLOBAL TEMPORARY action => make_global_temporary
+    | EMPTY
+
+temp_commit_clause ::=
+    ON COMMIT DELETE ROWS action => concat
+    | EMPTY
 
 tbl_cols ::=
     tbl_cols ',' tbl_coldef action => append_el_1_3
@@ -1130,6 +1139,7 @@ FREELISTS           ~ 'FREELISTS':ic
 FROM                ~ 'FROM':ic
 FULL                ~ 'FULL':ic
 GENERATED           ~ 'GENERATED':ic
+GLOBAL              ~ 'GLOBAL':ic
 GROUP               ~ 'GROUP':ic
 GROUPING            ~ 'GROUPING':ic
 GROUPS              ~ 'GROUPS':ic
@@ -1245,6 +1255,7 @@ STATEMENT_ID        ~ 'STATEMENT_ID':ic
 STORAGE             ~ 'STORAGE':ic
 TABLE               ~ 'TABLE':ic
 TABLESPACE          ~ 'TABLESPACE':ic
+TEMPORARY           ~ 'TEMPORARY':ic
 THEN                ~ 'THEN':ic
 :lexeme             ~ THEN priority => 1
 TIME                ~ 'TIME':ic
@@ -1657,17 +1668,22 @@ sub make_createindex {
 }
 
 sub make_createtable {
-    my (undef, undef, undef, $ident, $cols, $storage, $tblspc) = @_;
+    my (undef, $temp, $ident, $cols, $storage, $on_commit, $tblspc) = @_;
     my $node = make_node('createobject');
     my $stmts;
     my $ret = [];
 
     assert_one_el($ident);
 
-    $node->{kind} = 'TABLE';
+    if ($temp) {
+        $node->{kind} = 'TEMPORARY TABLE';
+    } else {
+        $node->{kind} = 'TABLE';
+    }
     $node->{ident} = pop(@{$ident});
     $node->{cols} = $cols;
     $node->{storage} = $storage;
+    $node->{on_commit} = $on_commit;
     $node->{tblspc} = $tblspc;
 
     ($node, $stmts) = sql2pg::plsql::utils::createtable_hook($node);
@@ -1961,6 +1977,12 @@ sub make_function_arg {
     $node->{hook} = 'sql2pg::plsql::utils::handle_respect_ignore_nulls';
 
     return node_to_array($node);
+}
+
+sub make_global_temporary {
+    add_fixme("GLOBAL clause of TEMPORARY TABLE ignored");
+
+    return "TEMPORARY";
 }
 
 sub make_groupby {

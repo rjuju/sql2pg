@@ -222,6 +222,10 @@ sub format_createobject {
         $out .= " $node->{view_opts}";
     }
 
+    if ($node->{on_commit}) {
+        $out .= " $node->{on_commit}";
+    }
+
     if ($node->{tblspc}) {
         $out .= ' TABLESPACE ' . format_node($node->{tblspc});
     }
