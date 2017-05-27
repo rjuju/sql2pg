@@ -626,6 +626,18 @@ sub format_pk_clause {
     return $out;
 }
 
+sub format_pl_ret {
+    my ($node) = @_;
+
+    return 'RETURN ' . format_node($node->{ident});
+}
+
+sub format_pl_set {
+    my ($node) = @_;
+
+    return format_node($node->{ident}) . ' := ' . format_node($node->{val});
+}
+
 sub format_proarg {
     my ($arg) = @_;
     my $out;
@@ -865,8 +877,10 @@ sub format_stmts {
     my $stmtno;
     my $comments;
     my $out = '';
+    my $semi_colon_needed;
 
     $stmtno = inc_stmtno();
+    $semi_colon_needed = $stmtno > 1;
 
     $comments = get_comment('ok');
 
@@ -877,6 +891,7 @@ sub format_stmts {
         # find a better way to deal with it
         if (isA($stmt, 'ORDERBY')) {
             $out .= ' ';
+            $semi_colon_needed = 0;
         } elsif (
             isA($stmt, 'alterobject')
             or isA($stmt, 'createobject')
@@ -886,7 +901,10 @@ sub format_stmts {
             # Single statement rewritten in multiple statements
             # for instance AT ADD (...) in plpgsql, GENERATED AS transformed in
             # trigger...
-            $out .= " ;\n" if ($out and $stmtno > 1);
+            $out .= " ;\n" if ($semi_colon_needed == 1);
+            $semi_colon_needed = 1;
+        } else {
+            $semi_colon_needed = 0;
         }
         $out .= format_node($stmt);
     }

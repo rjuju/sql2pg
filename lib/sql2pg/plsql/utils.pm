@@ -30,7 +30,10 @@ sub createtable_hook {
         my $ident = make_node('ident');
         my $proc_returns = make_node('ident');
         my $proc;
+        my $pl_set;
+        my $pl_ret;
         my $trig;
+        my $val;
 
         next COL unless($col->{generated_as});
 
@@ -43,7 +46,23 @@ sub createtable_hook {
         $proc = make_node('procedure');
         $proc->{ident} = $ident;
         $proc->{returns} = $proc_returns;
-        # FIXME add body instructions to update NEW.col with $col->{generated_as}
+        $proc->{stmts} = [];
+
+        # Create body of the trigger func
+        $pl_set = make_node('pl_set');
+        $pl_set->{ident} = make_node('ident');
+        $pl_set->{ident}->{table} = 'NEW';
+        $pl_set->{ident}->{attribute} = $col->{ident}->{attribute};
+        # Make sure all column references are prefixed with NEW.
+        $expr = $col->{generated_as};
+        expression_tree_walker($expr, 'sql2pg::common::pl_add_prefix_new');
+        $pl_set->{val} = $expr;
+
+        push(@{$proc->{stmts}}, $pl_set);
+
+        $pl_ret = make_node('pl_ret');
+        $pl_ret->{ident} = $pl_set->{ident};
+        push(@{$proc->{stmts}}, $pl_ret);
 
         $trig = make_node('createtrigger');
         $trig->{ident} = $ident;

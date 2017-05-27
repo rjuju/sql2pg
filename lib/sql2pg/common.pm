@@ -14,7 +14,8 @@ BEGIN {
                  make_clause inverse_operator node_to_array assert assert_isA
                  assert_one_el add_fixme useless_bindvar translate_bindvar
                  get_alias whereclause_walker splice_table_from_fromlist
-                 find_table_in_array combine_and_parens_select);
+                 find_table_in_array combine_and_parens_select
+                 expression_tree_walker);
 }
 
 use Data::Dumper;
@@ -262,6 +263,35 @@ sub node_to_array {
     return $nodes;
 }
 
+# Iterate through a given tree.  Strongly based on postgres' same function,
+# though this one is more a quick hack.
+sub expression_tree_walker {
+    my ($node, $func) = @_;
+
+    return 0 if (not $node);
+    if (ref($node) eq 'ARRAY') {
+        foreach my $e (@{$node}) {
+            return 1 if (expression_tree_walker($e, $func));
+        }
+    } elsif (ref($node) eq 'HASH') {
+        if (isA($node, 'opexpr')) {
+            return 1 if (expression_tree_walker($node->{left}, $func));
+            return 1 if (expression_tree_walker($node->{op}, $func));
+            return 1 if (expression_tree_walker($node->{right}, $func));
+        } elsif (
+            isA($node, 'ident')
+            or isA($node, 'number')
+        ) {
+            return 1 if (&$func($node));
+        } else {
+            error("Node \"$node->{type}\" not handled.\n"
+                . "Please report an issue.");
+        }
+    } else {
+        return &$func($e);
+    }
+}
+
 # Iterate through a given where_clause or select node, undef any qual matching
 # the given function and return all these quals in an array, possibly undef but
 # not empty.  Return a removed_qual node, containing the qual and the related
@@ -397,6 +427,18 @@ sub _parens_node {
     prune_parens($parens);
 
     return node_to_array($parens);
+}
+
+# Take a not qualified ident and qualify it with NEW.  Should be used in
+# trigger body statements, like plpgsql GENERATED AS rewriting
+sub pl_add_prefix_new {
+    my ($node) = @_;
+
+    if (isA($node, 'ident')) {
+        $node->{table} = 'NEW' if (not $node->{table});
+    }
+
+    return 0;
 }
 
 # Walk through possibly nested parens node and remove redundant parens node
