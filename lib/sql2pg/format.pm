@@ -287,12 +287,18 @@ sub format_explain {
 
 sub format_fk_clause {
     my ($node) = @_;
-    my $out = 'FOREIGN KEY (';
+    my $out = '';
 
-    $out .= format_array($node->{srcs}, ', ');
-    $out .= ') REFERENCES ' . format_node($node->{ident});
+    if ($node->{srcs}) {
+        $out .= 'FOREIGN KEY (';
+        $out .= format_array($node->{srcs}, ', ') . ') ';
+    } else {
+        $out .= 'CONSTRAINT ' . format_node($node->{fkname}) . ' ';
+    }
+    $out .= 'REFERENCES ' . format_node($node->{ident});
     $out .= '(' . format_array($node->{dsts}, ', ') . ')';
     $out .= " ON DELETE $node->{on_del}" if ($node->{on_del});
+    print Dumper($node->{on_del});
     $out .= " ON UPDATE $node->{on_upd}" if ($node->{on_upd});
     $out .= format_node($node->{deferrable}) if ($node->{deferrable});
 
@@ -812,6 +818,7 @@ sub format_tbl_coldef {
     $out .= ' ' . format_node($node->{default}) if ($node->{default});
     $out .= ' ' . format_node($node->{check}) if ($node->{check});
     $out .= ' ' . $node->{notnull} if ($node->{notnull});
+    $out .= ' ' . format_node($node->{fk}) if ($node->{fk});
 
     return $out;
 }

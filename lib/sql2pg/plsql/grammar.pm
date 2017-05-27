@@ -848,7 +848,12 @@ tbl_cols ::=
 
 tbl_coldef ::=
     IDENT datatype col_pk col_default (_ENCRYPT) check_clause generated_clause
-        NOT_NULL enable_clause action => make_tbl_coldef
+        NOT_NULL tbl_col_references enable_clause action => make_tbl_coldef
+
+tbl_col_references ::=
+    CONSTRAINT IDENT REFERENCES IDENT ('(') IDENT (')') fk_on_del fk_on_upd
+        deferrable_clause action => make_tbl_col_references
+    | EMPTY
 
 generated_clause ::=
     (GENERATED ALWAYS AS) ('(') target_el (')') action => ::first
@@ -2417,18 +2422,6 @@ sub make_startwith {
     return make_clause('STARTWITH', $quals);
 }
 
-sub make_tbl_attribute {
-    my (undef, $kw, $val) = @_;
-    my $node = make_node('tbl_attribute');
-
-    a
-    $node->{kw} = uc($kw);
-    $node->{val} = $val;
-    $node->{hook} = 'sql2pg::plsql::utils::handle_tbl_attribute';
-
-    return $node;
-}
-
 sub make_subjoin {
     my (undef, $ident, $list) = @_;
     my $node = make_node('subjoin');
@@ -2472,9 +2465,21 @@ sub make_target_list {
     return $node;
 }
 
+sub make_tbl_attribute {
+    my (undef, $kw, $val) = @_;
+    my $node = make_node('tbl_attribute');
+
+    a
+    $node->{kw} = uc($kw);
+    $node->{val} = $val;
+    $node->{hook} = 'sql2pg::plsql::utils::handle_tbl_attribute';
+
+    return $node;
+}
+
 sub make_tbl_coldef {
     my (undef, $ident, $datatype, $pk, $default, $check, $generated, $notnull,
-        undef) = @_;
+        $fk, undef) = @_;
     my $node = make_node('tbl_coldef');
 
     $node->{pk} = 1 if ($pk);
@@ -2520,9 +2525,25 @@ sub make_tbl_coldef {
     $node->{ident} = $ident;
     $node->{datatype} = $datatype;
     $node->{default} = $default;
+    $node->{fk} = $fk;
     $node->{check} = $check;
     $node->{generated_as} = $generated;
     $node->{notnull} = $notnull;
+
+    return node_to_array($node);
+}
+
+sub make_tbl_col_references {
+    my (undef, undef, $fkname, undef, $ident, $dsts, $on_del, $on_upd,
+        $deferrable) = @_;
+    my $node = make_node('fk_clause');
+
+    $node->{fkname} = $fkname;
+    $node->{ident} = $ident;
+    $node->{dsts} = $dsts;
+    $node->{on_del} = $on_del;
+    $node->{on_upd} = $on_upd;
+    $node->{deferrable} = $deferrable;
 
     return node_to_array($node);
 }
