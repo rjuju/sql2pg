@@ -102,7 +102,7 @@ sub convert {
         last READ;
     }
 
-    # set the counter to 0, format_stmt() will increment it at its beginning
+    # set the counter to 0, format_stmts() will increment it at its beginning
     $stmtno = 0;
 
     # Grammar is ambiguous at least for function_arg rule and nested function
