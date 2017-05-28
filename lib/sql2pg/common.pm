@@ -271,42 +271,42 @@ sub node_to_array {
 # Iterate through a given tree.  Strongly based on postgres' same function,
 # though this one is more a quick hack.
 sub expression_tree_walker {
-    my ($node, $func) = @_;
+    my ($node, $func, $extra) = @_;
 
     return 0 if (not $node);
     if (ref($node) eq 'ARRAY') {
         foreach my $e (@{$node}) {
-            return 1 if (expression_tree_walker($e, $func));
+            return 1 if (expression_tree_walker($e, $func, $extra));
         }
     } elsif (ref($node) eq 'HASH') {
         if (isA($node, 'opexpr')) {
-            return 1 if (expression_tree_walker($node->{left}, $func));
-            return 1 if (expression_tree_walker($node->{op}, $func));
-            return 1 if (expression_tree_walker($node->{right}, $func));
+            return 1 if (expression_tree_walker($node->{left}, $func, $extra));
+            return 1 if (expression_tree_walker($node->{op}, $func, $extra));
+            return 1 if (expression_tree_walker($node->{right}, $func, $extra));
         } elsif (
             isA($node, 'ident')
             or isA($node, 'number')
         ) {
             no strict;
-            return 1 if (&$func($node));
+            return 1 if (&$func($node, $extra));
             use strict;
         } elsif (isA($node, 'function')) {
-            return 1 if (expression_tree_walker($node->{args}, $func));
-            return 1 if (expression_tree_walker($node->{ident}, $func));
-            return 1 if (expression_tree_walker($node->{alias}, $func));
-            return 1 if (expression_tree_walker($node->{window}, $func));
+            return 1 if (expression_tree_walker($node->{args}, $func, $extra));
+            return 1 if (expression_tree_walker($node->{ident}, $func, $extra));
+            return 1 if (expression_tree_walker($node->{alias}, $func, $extra));
+            return 1 if (expression_tree_walker($node->{window}, $func, $extra));
         } elsif (isA($node, 'function_arg')) {
-            return 1 if (expression_tree_walker($node->{arg}, $func));
+            return 1 if (expression_tree_walker($node->{arg}, $func, $extra));
         } elsif (isA($node, 'parens')) {
-            return 1 if (expression_tree_walker($node->{node}, $func));
-            return 1 if (expression_tree_walker($node->{alias}, $func));
+            return 1 if (expression_tree_walker($node->{node}, $func, $extra));
+            return 1 if (expression_tree_walker($node->{alias}, $func, $extra));
         } else {
             error("Node \"$node->{type}\" not handled.\n"
                 . "Please report an issue.");
         }
     } else {
         no strict;
-        return &$func($node);
+        return &$func($node, $extra);
         use strict;
     }
 }
@@ -451,10 +451,11 @@ sub _parens_node {
 # Take a not qualified ident and qualify it with NEW.  Should be used in
 # trigger body statements, like plpgsql GENERATED AS rewriting
 sub pl_add_prefix_new {
-    my ($node) = @_;
+    my ($node, $cols) = @_;
 
     if (isA($node, 'ident')) {
-        $node->{table} = 'NEW' if (not $node->{table});
+        $node->{table} = 'NEW'
+            if (not $node->{table} and (exists $cols->{$node->{attribute}}));
     }
 
     return 0;

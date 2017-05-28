@@ -314,7 +314,6 @@ sub format_fk_clause {
     $out .= 'REFERENCES ' . format_node($node->{ident});
     $out .= '(' . format_array($node->{dsts}, ', ') . ')';
     $out .= " ON DELETE $node->{on_del}" if ($node->{on_del});
-    print Dumper($node->{on_del});
     $out .= " ON UPDATE $node->{on_upd}" if ($node->{on_upd});
     $out .= format_node($node->{deferrable}) if ($node->{deferrable});
 
