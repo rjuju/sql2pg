@@ -41,7 +41,11 @@ sub createtable_hook {
 
         $proc_returns->{attribute} = 'trigger';
 
-        $ident->{attribute} = $node->{ident}->{table} . '_' || '';
+        if ($node->{ident}->{table}) {
+            $ident->{attribute} = $node->{ident}->{table} . '_';
+        } else {
+            $ident->{attribute} = '';
+        }
         $ident->{attribute} .= $node->{ident}->{attribute};
         $ident->{attribute} .= '_' . $col->{ident}->{attribute};
 
