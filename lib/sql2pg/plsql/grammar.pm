@@ -923,7 +923,14 @@ deferrable_clause ::=
     | EMPTY
 
 CreateTableAsStmt ::=
-    CREATE TABLE IDENT AS SelectStmt action => make_createtableas
+    CREATE TABLE IDENT CT_options AS SelectStmt action => make_createtableas
+
+CT_options ::=
+    CT_option* action => discard
+
+CT_option ::=
+    PARALLEL
+    | COMPRESS
 
 CreateViewAsStmt ::=
     CREATE or_replace_clause (_FORCE) VIEW IDENT view_cols AS SelectStmt
@@ -1218,6 +1225,7 @@ ORDER               ~ 'ORDER':ic
 ON                  ~ 'ON':ic
 OUTER               ~ 'OUTER':ic
 OVER                ~ 'OVER':ic
+PARALLEL            ~ 'PARALLEL':ic
 PARTITION           ~ 'PARTITION':ic
 PCTFREE             ~ 'PCTFREE':ic
 PCTINCREASE         ~ 'PCTINCREASE':ic
@@ -1705,12 +1713,13 @@ sub make_createtable {
 }
 
 sub make_createtableas {
-    my (undef, undef, undef, $ident, undef, $stmt) = @_;
+    my (undef, undef, undef, $ident, $options, undef, $stmt) = @_;
     my $node = make_node('createobject');
 
     $node->{kind} = 'TABLE';
     $node->{ident} = $ident;
     $node->{stmt} = $stmt;
+    # drop $options
 
     return node_to_array($node);
 }
