@@ -290,6 +290,16 @@ sub expression_tree_walker {
             no strict;
             return 1 if (&$func($node));
             use strict;
+        } elsif (isA($node, 'function')) {
+            return 1 if (expression_tree_walker($node->{args}, $func));
+            return 1 if (expression_tree_walker($node->{ident}, $func));
+            return 1 if (expression_tree_walker($node->{alias}, $func));
+            return 1 if (expression_tree_walker($node->{window}, $func));
+        } elsif (isA($node, 'function_arg')) {
+            return 1 if (expression_tree_walker($node->{arg}, $func));
+        } elsif (isA($node, 'parens')) {
+            return 1 if (expression_tree_walker($node->{node}, $func));
+            return 1 if (expression_tree_walker($node->{alias}, $func));
         } else {
             error("Node \"$node->{type}\" not handled.\n"
                 . "Please report an issue.");
