@@ -169,6 +169,12 @@ sub handle_datatype {
     } elsif (lc($ident->{attribute}) eq 'raw') {
         $ident->{attribute} = 'bytea';
         delete $node->{typmod} if (exists $node->{typmod});
+    } elsif (lc($ident->{attribute}) eq 'blob') {
+        $ident->{attribute} = 'bytea';
+    } elsif (lc($ident->{attribute}) eq 'clob') {
+        $ident->{attribute} = 'text';
+    } elsif (lc($ident->{attribute}) eq 'nclob') {
+        $ident->{attribute} = 'text';
     }
 
     $out = format_node($ident);
