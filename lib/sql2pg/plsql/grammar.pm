@@ -1300,7 +1300,7 @@ SEMICOLON           ~ ';'
 digits              ~ [0-9]+
 integer             ~ digits
                     | digits expcast
-integer_k           ~ digits 'k'
+integer_k           ~ digits 'K'
 float               ~ digits '.' digits
                     | digits '.' digits expcast
                     | '.' digits
