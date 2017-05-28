@@ -857,7 +857,7 @@ tbl_col_references ::=
     | EMPTY
 
 generated_clause ::=
-    (GENERATED ALWAYS AS) ('(') target_el (')') action => ::first
+    (GENERATED ALWAYS AS) ('(') target_el (')') _VIRTUAL action => ::first
     | EMPTY
 
 tbl_att_clauses ::=
@@ -976,6 +976,10 @@ _FORCE ::=
 
 _ENCRYPT ::=
     ENCRYPT
+    | EMPTY
+
+_VIRTUAL ::=
+    VIRTUAL
     | EMPTY
 
 AlterTableStmt ::=
@@ -1307,13 +1311,14 @@ USING               ~ 'USING':ic
 VALIDATE            ~ 'VALIDATE':ic
 VALUES              ~ 'VALUES':ic
 VERSIONS            ~ 'VERSIONS':ic
-VIEW                ~'VIEW':ic
+VIEW                ~ 'VIEW':ic
+VIRTUAL             ~ 'VIRTUAL':ic
 WHEN                ~ 'WHEN':ic
 WHERE               ~ 'WHERE':ic
 WAIT                ~ 'WAIT':ic
 WITH                ~ 'WITH':ic
 :lexeme             ~ WITH pause => after event => keyword
-XML                 ~'XML':ic
+XML                 ~ 'XML':ic
 ZONE                ~ 'ZONE':ic
 
 SEMICOLON           ~ ';'
