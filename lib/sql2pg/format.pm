@@ -119,6 +119,22 @@ sub format_case_when {
     return $out;
 }
 
+sub format_check_clause {
+    my ($node) = @_;
+    my $out;
+
+    $out = 'CHECK (' . format_node($node->{el}) . ')';
+    $out .= " $node->{deferrable}" if ($node->{deferrable});
+
+    return $out;
+}
+
+sub format_coldefault {
+    my ($node) = @_;
+
+    return 'DEFAULT (' . format_node($node->{el}) . ')';
+}
+
 sub format_combine_op {
     my ($op) = @_;
 
@@ -835,20 +851,10 @@ sub format_tbl_condef {
     return $out;
 }
 
-sub format_check_clause {
-    my ($node) = @_;
-    my $out;
-
-    $out = 'CHECK (' . format_node($node->{el}) . ')';
-    $out .= " $node->{deferrable}" if ($node->{deferrable});
-
-    return $out;
-}
-
-sub format_coldefault {
+sub format_truncate_table {
     my ($node) = @_;
 
-    return 'DEFAULT (' . format_node($node->{el}) . ')';
+    return 'TRUNCATE TABLE ' . format_node($node->{ident});
 }
 
 sub format_unique_clause {

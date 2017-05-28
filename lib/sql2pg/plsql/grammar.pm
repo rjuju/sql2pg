@@ -85,6 +85,7 @@ InsertStmt ::=
 DDLStmt ::=
     CreateStmt
     | AlterTableStmt
+    | TruncateStmt
     | CommentStmt
 
 CreateStmt ::=
@@ -1041,6 +1042,16 @@ fk_action ::=
     | SET NULL action => upper
     | SET DEFAULT action => concat
 
+TruncateStmt ::=
+    TRUNCATE TABLE IDENT truncate_opts action => make_truncatestmt
+
+truncate_opts ::=
+    truncate_opt* action => discard
+
+truncate_opt ::=
+    PRESERVE MATERIALIZED VIEW LOG action => discard
+    | PURGE MATERIALIZED VIEW LOG action => discard
+
 CommentStmt ::=
     COMMENT ON comment_obj IDENT IS LITERAL action => make_comment
 
@@ -1191,6 +1202,7 @@ LOCKED               ~ 'LOCKED':ic
 LOG                 ~ 'LOG':ic
 LOGGING             ~ 'LOGGING':ic
 MAIN                ~ 'MAIN':ic
+MATERIALIZED        ~ 'MATERIALIZED':ic
 MAXEXTENTS          ~ 'MAXEXTENTS':ic
 MAXTRANS            ~ 'MAXTRANS':ic
 MAXVALUE            ~ 'MAXVALUE':ic
@@ -1233,8 +1245,10 @@ PCTUSED             ~ 'PCTUSED':ic
 PIVOT               ~ 'PIVOT':ic
 PLAN                ~ 'PLAN':ic
 PRECEDING           ~ 'PRECEDING':ic
+PRESERVE            ~ 'PRESERVE':ic
 PRIMARY             ~ 'PRIMARY':ic
 PRIOR               ~ 'PRIOR':ic
+PURGE               ~ 'PURGE':ic
 RANGE               ~ 'RANGE':ic
 REFERENCE           ~ 'REFERENCE':ic
 REFERENCES          ~ 'REFERENCES':ic
@@ -1278,6 +1292,7 @@ THEN                ~ 'THEN':ic
 TIME                ~ 'TIME':ic
 TIMESTAMP           ~ 'TIMESTAMP':ic
 TO                  ~ 'TO':ic
+TRUNCATE            ~ 'TRUNCATE':ic
 UNBOUNDED           ~ 'UNBOUNDED':ic
 UNIQUE              ~ 'UNIQUE':ic
 UNION               ~ 'UNION':ic
@@ -2566,6 +2581,16 @@ sub make_timezoneexpr {
     my (undef, undef, undef, undef, $val) = @_;
 
     return $val;
+}
+
+sub make_truncatestmt {
+    my (undef, undef, undef, $ident, $opts) = @_;
+    my $node = make_node('truncate_table');
+
+    $node->{ident} = $ident;
+    # discard options, not relevant for PG
+
+    return node_to_array($node);
 }
 
 sub make_unique_clause {
