@@ -831,8 +831,9 @@ err_log_list ::=
 
 
 CreateTableStmt ::=
-    (CREATE) temp_clause (TABLE) IDENT ('(') tbl_cols (')') tbl_att_clauses
-    temp_commit_clause tblspc_clause action => make_createtable
+    (CREATE) temp_clause (TABLE) IDENT ('(') tbl_cols (_COMMA) (')')
+        tbl_att_clauses temp_commit_clause tblspc_clause
+        action => make_createtable
 
 temp_clause ::=
     TEMPORARY
@@ -981,6 +982,13 @@ _ENCRYPT ::=
 _VIRTUAL ::=
     VIRTUAL
     | EMPTY
+
+_COMMA ::=
+    COMMA
+    | EMPTY
+
+COMMA ::=
+    ','
 
 AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
