@@ -15,7 +15,7 @@ BEGIN {
                  assert_one_el add_fixme useless_bindvar translate_bindvar
                  get_alias whereclause_walker splice_table_from_fromlist
                  find_table_in_array combine_and_parens_select
-                 expression_tree_walker);
+                 expression_tree_walker generate_datatype);
 }
 
 use strict;
@@ -167,6 +167,17 @@ sub get_alias {
     return $as if defined ($as);
 
     error("Expected alias not found");
+}
+
+sub generate_datatype {
+    my ($name) = @_;
+    my $datatype = make_node('datatype');
+    my $ident = make_node('ident');
+
+    $ident->{attribute} = $name;
+    $datatype->{ident} = $ident;
+
+    return $datatype;
 }
 
 # Generate unique alias for subquery which doesn't have an alias
@@ -449,13 +460,27 @@ sub _parens_node {
 }
 
 # Take a not qualified ident and qualify it with NEW.  Should be used in
-# trigger body statements, like plpgsql GENERATED AS rewriting
+# trigger body statements, like plpgsql GENERATED AS rewriting.  Also try
+# to guess a suitable datatype.
 sub pl_add_prefix_new {
-    my ($node, $cols) = @_;
+    my ($node, $extra) = @_;
 
-    if (isA($node, 'ident')) {
-        $node->{table} = 'NEW'
-            if (not $node->{table} and (exists $cols->{$node->{attribute}}));
+    if (isA($node, 'ident') and (exists $extra->{cols}->{$node->{attribute}})) {
+        my $newtype = $extra->{cols}->{$node->{attribute}}->{datatype};
+
+        # If ident has a qualifier, not a self-table reference, don't update it
+        $node->{table} = 'NEW' if (not $node->{table});
+
+        # Save datatype if no datatype saved
+        $extra->{datatype} = $newtype unless ($extra->{datatype});
+    } elsif (isA($node, 'ident')) {
+        # try to guess datatype from function name
+
+        if ($node->{attribute} eq 'round') {
+            $extra->{datatype} = generate_datatype('numeric');
+        } elsif ($node->{attribute} eq 'to_date') {
+            $extra->{datatype} = generate_datatype('timestamp');
+        }
     }
 
     return 0;

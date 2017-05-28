@@ -27,11 +27,11 @@ use sql2pg::common;
 sub createtable_hook {
     my ($node) = @_;
     my $stmts = [];
-    my $cols = ();
+    my $extra = ();
 
     # Gather all column name in order to detect reference in virtual columns
     foreach my $col (@{$node->{cols}}) {
-        $cols->{$col->{ident}->{attribute}} = 1;
+        $extra->{cols}->{$col->{ident}->{attribute}} = $col;
     }
 
     COL: foreach my $col (@{$node->{cols}}) {
@@ -43,7 +43,7 @@ sub createtable_hook {
         my $trig;
         my $expr;
 
-        next COL unless($col->{generated_as});
+        next COL unless($col->{expr});
 
         $proc_returns->{attribute} = 'trigger';
 
@@ -67,9 +67,19 @@ sub createtable_hook {
         $pl_set->{ident}->{attribute} = $col->{ident}->{attribute};
 
         # Make sure all column references are prefixed with NEW.
-        $expr = $col->{generated_as};
-        expression_tree_walker($expr, 'sql2pg::common::pl_add_prefix_new', $cols);
+        $expr = $col->{expr};
+        expression_tree_walker($expr, 'sql2pg::common::pl_add_prefix_new', $extra);
         $pl_set->{val} = $expr;
+        # Use guessed datatype if needed
+        if (not $col->{datatype}) {
+            if ($extra->{datatype}) {
+                $col->{datatype} = $extra->{datatype};
+            } else {
+                $col->{datatype} = generate_datatype('text');
+            }
+            add_fixme("Datatype \"$col->{datatype}->{ident}->{attribute}"
+                . "\" for column \"$col->{ident}->{attribute}\" guessed.  Please check it");
+        }
 
         push(@{$proc->{stmts}}, $pl_set);
 
@@ -168,32 +178,26 @@ sub handle_connectby {
 
 sub handle_datatype {
     my ($node) = @_;
-    my $out;
-    my $ident = $node->{ident};
+    my $name = lc($node->{ident}->{attribute});
 
-    if (lc($ident->{attribute}) eq 'date') {
-        $ident->{attribute} = 'timestamp';
-    } elsif (lc($ident->{attribute}) eq 'varchar2') {
-        $ident->{attribute} = 'varchar';
-    } elsif (lc($ident->{attribute}) eq 'number') {
-        $ident->{attribute} = 'numeric';
-    } elsif (lc($ident->{attribute}) eq 'raw') {
-        $ident->{attribute} = 'bytea';
+    if ($name eq 'date') {
+        $node->{ident}->{attribute} = 'timestamp';
+    } elsif ($name eq 'varchar2') {
+        $node->{ident}->{attribute} = 'varchar';
+    } elsif ($name eq 'number') {
+        $node->{ident}->{attribute} = 'numeric';
+    } elsif ($name eq 'raw') {
+        $node->{ident}->{attribute} = 'bytea';
         delete $node->{typmod} if (exists $node->{typmod});
-    } elsif (lc($ident->{attribute}) eq 'blob') {
-        $ident->{attribute} = 'bytea';
-    } elsif (lc($ident->{attribute}) eq 'clob') {
-        $ident->{attribute} = 'text';
-    } elsif (lc($ident->{attribute}) eq 'nclob') {
-        $ident->{attribute} = 'text';
+    } elsif ($name eq 'blob') {
+        $node->{ident}->{attribute} = 'bytea';
+    } elsif ($name eq 'clob') {
+        $node->{ident}->{attribute} = 'text';
+    } elsif ($name eq 'nclob') {
+        $node->{ident}->{attribute} = 'text';
     }
 
-    $out = format_node($ident);
-
-    $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
-    $out .= format_node($node->{nullnotnull}) if ($node->{nullnotnull});
-
-    return $out;
+    return $node;
 }
 
 # Oracle wants column name, pg wants table name, try to figure it out.  It's

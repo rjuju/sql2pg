@@ -21,7 +21,6 @@ use sql2pg::common;
 
 sub handle_datatype {
     my ($node) = @_;
-    my $out;
     my $ident = $node->{ident};
 
     # Handle identity clause
@@ -30,17 +29,13 @@ sub handle_datatype {
             "Column with IDENTITY should not be schema qualified", $node);
 
         if (lc($ident->{attribute}) eq 'int') {
-            $out .= 'serial';
+            $node->{ident}->{attribute} = 'serial';
         } elsif (lc($ident->{attribute}) eq 'bigint') {
-            $out .= 'bigserial';
+            $node->{ident}->{attribute} = 'bigserial';
         }
     }
-    $out = format_node($node->{ident}) unless($out);
 
-    $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
-    $out .= format_node($node->{nullnotnull}) if ($node->{nullnotnull});
-
-    return $out;
+    return $node;
 }
 
 sub handle_function {

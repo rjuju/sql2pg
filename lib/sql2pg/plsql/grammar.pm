@@ -851,6 +851,7 @@ tbl_cols ::=
 tbl_coldef ::=
     IDENT datatype col_pk col_default (_ENCRYPT) check_clause generated_clause
         NOT_NULL tbl_col_references enable_clause action => make_tbl_coldef
+    | IDENT AS ('(') target_el (')') action => make_tbl_coldef_as
 
 tbl_col_references ::=
     CONSTRAINT IDENT REFERENCES IDENT ('(') IDENT (')') fk_on_del fk_on_upd
@@ -2520,7 +2521,7 @@ sub make_tbl_attribute {
 }
 
 sub make_tbl_coldef {
-    my (undef, $ident, $datatype, $pk, $default, $check, $generated, $notnull,
+    my (undef, $ident, $datatype, $pk, $default, $check, $expr, $notnull,
         $fk, undef) = @_;
     my $node = make_node('tbl_coldef');
 
@@ -2530,9 +2531,9 @@ sub make_tbl_coldef {
     $datatype = pop(@{$datatype});
     assert_one_el($ident);
     $ident = pop(@{$ident});
-    if ($generated) {
-        assert_one_el($generated);
-        $generated = pop(@{$generated});
+    if ($expr) {
+        assert_one_el($expr);
+        $expr = pop(@{$expr});
     }
 
     # PG doesn't handle DEFERRABLE in such case, drop it if any
@@ -2569,8 +2570,23 @@ sub make_tbl_coldef {
     $node->{default} = $default;
     $node->{fk} = $fk;
     $node->{check} = $check;
-    $node->{generated_as} = $generated;
+    $node->{expr} = $expr;
     $node->{notnull} = $notnull;
+
+    return node_to_array($node);
+}
+
+sub make_tbl_coldef_as {
+    my (undef, $ident, undef, $expr) = @_;
+    my $node = make_node('tbl_coldef');
+
+    assert_one_el($ident);
+    $ident = pop(@{$ident});
+    assert_one_el($expr);
+    $expr = pop(@{$expr});
+
+    $node->{ident} = $ident;
+    $node->{expr} = $expr;
 
     return node_to_array($node);
 }

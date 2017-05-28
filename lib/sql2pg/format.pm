@@ -266,9 +266,16 @@ sub format_datatype {
     my $hook = $node->{hook};
     my $out;
 
-    no strict;
-    $out = &$hook($node);
-    use strict;
+    if ($hook) {
+        no strict;
+        $node = &$hook($node);
+        use strict;
+    }
+
+    $out = format_node($node->{ident});
+
+    $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
+    $out .= format_node($node->{nullnotnull}) if ($node->{nullnotnull});
 
     return $out;
 }
