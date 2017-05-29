@@ -253,6 +253,29 @@ sub format_createobject {
     return $out;
 }
 
+sub format_createsequence {
+    my ($node) = @_;
+    my $out = 'CREATE SEQUENCE ';
+
+    $out .= format_node($node->{ident});
+    $out .= ' ' . $node->{incby}->{value} if ($node->{incby});
+    if ($node->{minval}) {
+        $out .= ' ' . $node->{minval}->{value};
+    } else {
+        $out .= ' NO MINVALUE';
+    }
+    if ($node->{maxval}) {
+        $out .= ' ' . $node->{maxval}->{value};
+    } else {
+        $out .= ' NO MAXVALUE';
+    }
+    $out .= ' ' . $node->{startwith}->{value} if ($node->{startwith});
+    $out .= ' ' . $node->{cache}->{value} if ($node->{cache});
+    $out .= ' ' . $node->{cycle}->{value} if ($node->{cycle});
+
+    return $out;
+}
+
 sub format_createtrigger {
     my ($node) = @_;
     my $out = 'CREATE TRIGGER ' . format_node($node->{ident});

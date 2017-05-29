@@ -1019,6 +1019,23 @@ flashback__mode_clause ::=
     FLASHBACK ON action => discard
     | FLASHBACK OFF action => discard
 
+CreateSequenceStmt ::=
+    CREATE SEQUENCE IDENT seq_options action => make_createsequence
+
+seq_options ::=
+    seq_option* action => ::array
+
+#documentation is unclear, but looks like any order is valid
+seq_option ::=
+    (START WITH) INTEGER action => make_seq_startwith
+    | (INCREMENT BY) INTEGER action => make_seq_incby
+    | (MINVALUE) INTEGER action => make_seq_minval
+    | (MAXVALUE) INTEGER action => make_seq_maxval
+    | (CACHE) INTEGER action => make_seq_cache
+    | (NOCACHE) action => make_seq_nocache
+    | (CYCLE) action => make_seq_cycle
+    | (NOCYCLE) action => make_seq_nocycle
+
 AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
 
@@ -1183,6 +1200,7 @@ BLOCKSIZE           ~ 'BLOCKSIZE':ic
 BREADTH             ~ 'BREADTH':ic
 BUFFER_POOL         ~ 'BUFFER_POOL':ic
 BY                  ~ 'BY':ic
+CACHE               ~ 'CACHE':ic
 CASCADE             ~ 'CASCADE':ic
 CASE                ~ 'CASE':ic
 CELL_FLASH_CACHE    ~ 'CELL_FLASH_CACHE':ic
@@ -1302,6 +1320,7 @@ NATURAL             ~ 'NATURAL':ic
 NAV                 ~ 'NAV':ic
 NEXT                ~ 'NEXT':ic
 NO                  ~ 'NO':ic
+NOCACHE             ~ 'NOCACHE':ic
 NOCOMPRESS          ~ 'NOCOMPRESS':ic
 NOCYCLE             ~ 'NOCYCLE':ic
 NOGUARANTEE         ~ 'NOGUARANTEE':ic
@@ -1364,6 +1383,7 @@ SEARCH              ~ 'SEARCH':ic
 SECOND              ~ 'SECOND':ic
 SEED                ~ 'SEED':ic
 SEGMENT             ~ 'SEGMENT':ic
+SEQUENCE            ~ 'SEQUENCE':ic
 SEQUENTIAL          ~ 'SEQUENTIAL':ic
 SELECT              ~ 'SELECT':ic
 :lexeme             ~ SELECT pause => after event => keyword
@@ -1805,6 +1825,18 @@ sub make_createindex {
     $node->{on} = $on;
     $node->{cols} = $cols;
     $node->{tblspc} = $tblspc;
+
+    return node_to_array($node);
+}
+
+sub make_createsequence {
+    my (undef, undef, undef, $ident, $opts) = @_;
+    my $node = make_node('createsequence');
+
+    $node->{ident} = $ident;
+    foreach my $o (@{$opts}) {
+        $node->{$o->{opt}} = $o;
+    }
 
     return node_to_array($node);
 }
@@ -2546,6 +2578,86 @@ sub make_selectclause {
     my (undef, $tlist) = @_;
 
     return make_clause('SELECT', $tlist);
+}
+
+sub make_seq_cache {
+    my (undef, $num) = @_;
+    my $node = make_node('seq_opt');
+
+    $node->{value} = 'CACHE ' . format_node($num);
+    $node->{opt} = 'cache';
+
+    return $node;
+}
+
+sub make_seq_cycle {
+    my (undef) = @_;
+    my $node = make_node('seq_opt');
+
+    $node->{value} = 'CYCLE';
+    $node->{opt} = 'cycle';
+
+    return $node;
+}
+
+sub make_seq_incby {
+    my (undef, $num) = @_;
+    my $node = make_node('seq_opt');
+
+    $node->{value} = 'INCREMENT BY ' . format_node($num);
+    $node->{opt} = 'incby';
+
+    return $node;
+}
+
+sub make_seq_maxval {
+    my (undef, $num) = @_;
+    my $node = make_node('seq_opt');
+
+    $node->{value} = 'MAXVALUE ' . format_node($num);
+    $node->{opt} = 'maxval';
+
+    return $node;
+}
+
+sub make_seq_minval {
+    my (undef, $num) = @_;
+    my $node = make_node('seq_opt');
+
+    $node->{value} = 'MINVALUE ' . format_node($num);
+    $node->{opt} = 'minval';
+
+    return $node;
+}
+
+sub make_seq_nocache {
+    my (undef) = @_;
+    my $node = make_node('seq_opt');
+
+    $node->{value} = 'CACHE 1';
+    $node->{opt} = 'cache';
+
+    return $node;
+}
+
+sub make_seq_nocycle {
+    my (undef) = @_;
+    my $node = make_node('seq_opt');
+
+    $node->{value} = 'NO CYCLE';
+    $node->{opt} = 'cycle';
+
+    return $node;
+}
+
+sub make_seq_startwith {
+    my (undef, $num) = @_;
+    my $node = make_node('seq_opt');
+
+    $node->{value} = 'START WITH ' . format_node($num);
+    $node->{opt} = 'startwith';
+
+    return $node;
 }
 
 sub make_specialjoin {
