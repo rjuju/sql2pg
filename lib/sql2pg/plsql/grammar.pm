@@ -94,6 +94,7 @@ CreateStmt ::=
     | CreateViewAsStmt
     | CreateIndexStmt
     | CreateTblspcStmt
+    | CreateSequenceStmt
 
 TransacStmt ::=
     BEGIN action => make_keyword
@@ -1018,33 +1019,6 @@ flashback__mode_clause ::=
     FLASHBACK ON action => discard
     | FLASHBACK OFF action => discard
 
-_UNIQUE ::=
-    UNIQUE
-    | EMPTY
-
-_RELY ::=
-    RELY
-    | EMPTY
-
-_FORCE ::=
-    FORCE
-    | EMPTY
-
-_ENCRYPT ::=
-    ENCRYPT
-    | EMPTY
-
-_VIRTUAL ::=
-    VIRTUAL
-    | EMPTY
-
-_COMMA ::=
-    COMMA
-    | EMPTY
-
-COMMA ::=
-    ','
-
 AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
 
@@ -1153,6 +1127,33 @@ SIZE_CLAUSE ::=
     # for now, all usage of this isn't translated
     integer_unit action => discard
     | UNLIMITED action => discard
+
+_UNIQUE ::=
+    UNIQUE
+    | EMPTY
+
+_RELY ::=
+    RELY
+    | EMPTY
+
+_FORCE ::=
+    FORCE
+    | EMPTY
+
+_ENCRYPT ::=
+    ENCRYPT
+    | EMPTY
+
+_VIRTUAL ::=
+    VIRTUAL
+    | EMPTY
+
+_COMMA ::=
+    COMMA
+    | EMPTY
+
+COMMA ::=
+    ','
 
 OPERATOR ::=
     operator action => upper
