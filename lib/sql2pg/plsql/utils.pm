@@ -28,6 +28,7 @@ sub createtable_hook {
     my ($node) = @_;
     my $stmts = [];
     my $extra = ();
+    my $proc_body = [];
 
     # Gather all column name in order to detect reference in virtual columns
     foreach my $col (@{$node->{cols}}) {
@@ -35,42 +36,24 @@ sub createtable_hook {
     }
 
     COL: foreach my $col (@{$node->{cols}}) {
-        my $ident = make_node('ident');
-        my $proc_returns = make_node('ident');
-        my $proc;
         my $pl_set;
-        my $pl_ret;
-        my $trig;
         my $expr;
 
         next COL unless($col->{expr});
 
-        $proc_returns->{attribute} = 'trigger';
-
-        if ($node->{ident}->{table}) {
-            $ident->{attribute} = $node->{ident}->{table} . '_';
-        } else {
-            $ident->{attribute} = '';
-        }
-        $ident->{attribute} .= $node->{ident}->{attribute};
-        $ident->{attribute} .= '_' . $col->{ident}->{attribute};
-
-        $proc = make_node('procedure');
-        $proc->{ident} = $ident;
-        $proc->{returns} = $proc_returns;
-        $proc->{stmts} = [];
-
-        # Create body of the trigger func
         $pl_set = make_node('pl_set');
+        $expr = $col->{expr};
+
+        # Make sure all column references are prefixed with NEW.
+        expression_tree_walker($expr, 'sql2pg::common::pl_add_prefix_new', $extra);
+        $pl_set->{val} = $expr;
         $pl_set->{ident} = make_node('ident');
         $pl_set->{ident}->{table} = 'NEW';
         $pl_set->{ident}->{attribute} = $col->{ident}->{attribute};
 
-        # Make sure all column references are prefixed with NEW.
-        $expr = $col->{expr};
-        expression_tree_walker($expr, 'sql2pg::common::pl_add_prefix_new', $extra);
-        $pl_set->{val} = $expr;
-        # Use guessed datatype if needed
+        push(@{$proc_body}, $pl_set);
+
+        # Use guessed datatype for the col if needed
         if (not $col->{datatype}) {
             if ($extra->{datatype}) {
                 $col->{datatype} = $extra->{datatype};
@@ -80,14 +63,37 @@ sub createtable_hook {
             add_fixme("Datatype \"$col->{datatype}->{ident}->{attribute}"
                 . "\" for column \"$col->{ident}->{attribute}\" guessed.  Please check it");
         }
+    }
 
-        push(@{$proc->{stmts}}, $pl_set);
+    # Generate trigger and stored function to maintain former oracle virtual col
+    if (scalar @{$proc_body} > 0) {
+        my $ident = make_node('ident');
+        my $proc;
+        my $pl_ret;
+        my $trig = make_node('createtrigger');
+
+        if ($node->{ident}->{table}) {
+            $ident->{attribute} = $node->{ident}->{table} . '_';
+        } else {
+            $ident->{attribute} = '';
+        }
+        $ident->{attribute} .= $node->{ident}->{attribute};
+        $ident->{attribute} .= '_virtual_cols';
+
+        $proc = make_node('procedure');
+        $proc->{ident} = $ident;
+        $proc->{returns} = make_node('ident');
+        $proc->{returns}->{attribute} = 'trigger';
+        $proc->{stmts} = [];
+
+        # Create body of the trigger func
+        $proc->{stmts} = $proc_body;
 
         $pl_ret = make_node('pl_ret');
-        $pl_ret->{ident} = $pl_set->{ident};
+        $pl_ret->{ident} = make_node('ident');
+        $pl_ret->{ident}->{attribute} = 'NEW';
         push(@{$proc->{stmts}}, $pl_ret);
 
-        $trig = make_node('createtrigger');
         $trig->{ident} = $ident;
         $trig->{when} = 'BEFORE INSERT OR UPDATE';
         $trig->{on} = $node->{ident};
