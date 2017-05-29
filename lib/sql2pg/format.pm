@@ -209,6 +209,10 @@ sub format_createobject {
         $out .= ' AUTHORIZATION ' . format_node($node->{auth});
     }
 
+    if ($node->{tblspc_location}) {
+        $out .= ' LOCATION ' . format_node($node->{tblspc_location});
+    }
+
     if ($node->{storage}) {
         my $tmp;
 

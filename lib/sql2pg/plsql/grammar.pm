@@ -93,6 +93,7 @@ CreateStmt ::=
     | CreateTableStmt
     | CreateViewAsStmt
     | CreateIndexStmt
+    | CreateTblspcStmt
 
 TransacStmt ::=
     BEGIN action => make_keyword
@@ -884,8 +885,8 @@ storage_clause_els ::=
     storage_clause_el* action => discard
 
 storage_clause_el ::=
-    INITIAL SIZE action => discard
-    | NEXT SIZE action => discard
+    INITIAL SIZE_CLAUSE action => discard
+    | NEXT SIZE_CLAUSE action => discard
     | MINEXTENTS INTEGER action => discard
     | MAXEXTENTS INTEGER action => discard
     | PCTINCREASE INTEGER action => discard
@@ -963,6 +964,59 @@ or_replace_clause ::=
 CreateIndexStmt ::=
     CREATE _UNIQUE INDEX IDENT ON IDENT ('(') simple_order_list (')')
         tblspc_clause action => make_createindex
+
+CreateTblspcStmt ::=
+    # ignore BIG|SMALL and tablespace kind
+    (CREATE tblspc_bigsmall tblspc_kind TABLESPACE) IDENT tblspc_options
+        action => make_tblspc
+
+tblspc_bigsmall ::=
+    SMALLFILE
+    | BIGFILE
+    | EMPTY
+
+tblspc_kind ::=
+    TEMPORARY
+    | UNDO
+    | EMPTY
+
+tblspc_options ::=
+    tblspc_option*
+
+tblspc_option ::=
+    DATAFILE LITERAL action => second
+    | TEMPFILE LITERAL action => second
+    # drop everything else
+    | MINIMUM EXTENT SIZE_CLAUSE action => discard
+    | BLOCKSIZE SIZE_CLAUSE action => discard
+    | FORCE LOGGING action => discard
+    | LOGGING action => discard
+    | ONLINE action => discard
+    | OFFLINE action => discard
+    | extend_mgmt_clause action => discard
+    | segment_mgmt_clause action => discard
+    | flashback__mode_clause action => discard
+    | MAXSIZE SIZE_CLAUSE action => discard
+    | SIZE SIZE_CLAUSE action => discard
+    | REUSE action => discard
+    | AUTOEXTEND ON action => discard
+    | AUTOEXTEND OFF action => discard
+    | NEXT SIZE_CLAUSE action => discard
+    | RETENTION GUARANTEE action => discard
+    | RETENTION NOGUARANTEE action => discard
+
+extend_mgmt_clause ::=
+    EXTENT MANAGEMENT LOCAL AUTOALLOCATE action => discard
+    | EXTENT MANAGEMENT LOCAL UNIFORM SIZE SIZE_CLAUSE action => discard
+    | EXTENT MANAGEMENT DICTIONNARY action => discard
+
+segment_mgmt_clause ::=
+    SEGMENT SPACE MANAGEMENT AUTO action => discard
+    | SEGMENT SPACE MANAGEMENT MANUAL action => discard
+
+flashback__mode_clause ::=
+    FLASHBACK ON action => discard
+    | FLASHBACK OFF action => discard
 
 _UNIQUE ::=
     UNIQUE
@@ -1095,9 +1149,10 @@ NUMBER ::=
     INTEGER
     | FLOAT
 
-SIZE ::=
+SIZE_CLAUSE ::=
     # for now, all usage of this isn't translated
-    integer_k action => discard
+    integer_unit action => discard
+    | UNLIMITED action => discard
 
 OPERATOR ::=
     operator action => upper
@@ -1114,11 +1169,16 @@ ANY                 ~ 'ANY':ic
 AS                  ~ 'AS':ic
 ASC                 ~ 'ASC':ic
 AT                  ~ 'AT':ic
+AUTO                ~ 'AUTO':ic
+AUTOALLOCATE        ~ 'AUTOALLOCATE':ic
+AUTOEXTEND          ~ 'AUTOEXTEND':ic
 AUTOMATIC           ~ 'AUTOMATIC':ic
 BEGIN               ~ 'BEGIN';
 :lexeme             ~ BEGIN pause => after event => keyword
 BETWEEN             ~ 'BETWEEN':ic
+BIGFILE             ~ 'BIGFILE':ic
 BLOCK               ~ 'BLOCK':ic
+BLOCKSIZE           ~ 'BLOCKSIZE':ic
 BREADTH             ~ 'BREADTH':ic
 BUFFER_POOL         ~ 'BUFFER_POOL':ic
 BY                  ~ 'BY':ic
@@ -1144,6 +1204,7 @@ CUBE                ~ 'CUBE':ic
 :lexeme             ~ CUBE priority => 1
 CURRENT             ~ 'CURRENT':ic
 CYCLE               ~ 'CYCLE':ic
+DATAFILE            ~ 'DATAFILE':ic
 DATE                ~ 'DATE':ic
 DAY                 ~ 'DAY':ic
 DECREMENT           ~ 'DECREMENT':ic
@@ -1155,6 +1216,7 @@ DELETE              ~ 'DELETE':ic
 DENSE_RANK          ~ 'DENSE_RANK':ic
 DEPTH               ~ 'DEPTH':ic
 DESC                ~ 'DESC':ic
+DICTIONNARY         ~ 'DICTIONNARY':ic
 DIMENSION           ~ 'DIMENSION':ic
 DISABLE             ~ 'DISABLE':ic
 DISTINCT            ~ 'DISTINCT':ic
@@ -1168,6 +1230,8 @@ EXCLUDE             ~ 'EXCLUDE':ic
 EXISTS              ~ 'EXISTS':ic
 EXPLAIN             ~ 'EXPLAIN':ic
 :lexeme             ~ EXPLAIN pause => after event => keyword
+EXTENT              ~ 'EXTENT':ic
+FLASHBACK           ~ 'FLASHBACK':ic
 FLASH_CACHE         ~ 'FLASH_CACHE':ic
 FIRST               ~ 'FIRST':ic
 FOLLOWING           ~ 'FOLLOWING':ic
@@ -1178,6 +1242,7 @@ FREELIST            ~ 'FREELIST':ic
 FREELISTS           ~ 'FREELISTS':ic
 FROM                ~ 'FROM':ic
 FULL                ~ 'FULL':ic
+GUARANTEE           ~ 'GUARANTEE':ic
 GENERATED           ~ 'GENERATED':ic
 GLOBAL              ~ 'GLOBAL':ic
 GROUP               ~ 'GROUP':ic
@@ -1211,19 +1276,24 @@ LEFT                ~ 'LEFT':ic
 :lexeme             ~ LEFT priority => 1
 LIKE                ~ 'LIKE':ic
 LIMIT               ~ 'LIMIT':ic
-LOCKED               ~ 'LOCKED':ic
+LOCAL               ~ 'LOCAL':ic
+LOCKED              ~ 'LOCKED':ic
 LOG                 ~ 'LOG':ic
 LOGGING             ~ 'LOGGING':ic
 MAIN                ~ 'MAIN':ic
+MANAGEMENT          ~ 'MANAGEMENT':ic
+MANUAL              ~ 'MANUAL':ic
 MATERIALIZED        ~ 'MATERIALIZED':ic
 MAXEXTENTS          ~ 'MAXEXTENTS':ic
+MAXSIZE             ~ 'MAXSIZE':ic
 MAXTRANS            ~ 'MAXTRANS':ic
 MAXVALUE            ~ 'MAXVALUE':ic
 :lexeme             ~ MAXVALUE priority => 1
 MEASURES            ~ 'MEASURES':ic
+MINEXTENTS          ~ 'MINEXTENTS':ic
+MINIMUM             ~ 'MINIMUM':ic
 MINUS               ~ 'MINUS':ic
 MINUTE              ~ 'MINUTE':ic
-MINEXTENTS          ~ 'MINEXTENTS':ic
 MINVALUE            ~ 'MINVALUE':ic
 :lexeme             ~ MINVALUE priority => 1
 MODEL               ~ 'MODEL':ic
@@ -1233,6 +1303,7 @@ NEXT                ~ 'NEXT':ic
 NO                  ~ 'NO':ic
 NOCOMPRESS          ~ 'NOCOMPRESS':ic
 NOCYCLE             ~ 'NOCYCLE':ic
+NOGUARANTEE         ~ 'NOGUARANTEE':ic
 NOLOGGING           ~ 'NOLOGGING':ic
 # this one is unsed in qual_inop G1 rule
 NOT                 ~ 'NOT':ic
@@ -1243,6 +1314,9 @@ NULL                ~ 'NULL':ic
 :lexeme             ~ NULL priority => 1
 NULLS               ~ 'NULLS':ic
 OF                  ~ 'OF':ic
+OFF                 ~ 'OFF':ic
+OFFLINE             ~ 'OFFLINE':ic
+ONLINE              ~ 'ONLINE':ic
 ONLY                ~ 'ONLY':ic
 OPTION              ~ 'OPTION':ic
 OR                  ~ 'OR':ic
@@ -1270,8 +1344,10 @@ RELY                ~ 'RELY':ic
 REPLACE             ~ 'REPLACE':ic
 RESPECT             ~ 'RESPECT':ic
 RESTRICT            ~ 'RESTRICT':ic
+RETENTION           ~ 'RETENTION':ic
 RETURN              ~ 'RETURN':ic
 RETURNING           ~ 'RETURNING':ic
+REUSE               ~ 'REUSE':ic
 RIGHT               ~ 'RIGHT':ic
 :lexeme             ~ RIGHT priority => 1
 ROLLBACK            ~ 'ROLLBACK';
@@ -1286,6 +1362,7 @@ SCN                 ~ 'SCN':ic
 SEARCH              ~ 'SEARCH':ic
 SECOND              ~ 'SECOND':ic
 SEED                ~ 'SEED':ic
+SEGMENT             ~ 'SEGMENT':ic
 SEQUENTIAL          ~ 'SEQUENTIAL':ic
 SELECT              ~ 'SELECT':ic
 :lexeme             ~ SELECT pause => after event => keyword
@@ -1293,12 +1370,16 @@ SET                 ~ 'SET':ic
 SETS                ~ 'SETS':ic
 SIBLINGS            ~ 'SIBLINGS':ic
 SINGLE              ~ 'SINGLE':ic
+SIZE                ~ 'SIZE':ic
 SKIP                ~ 'SKIP':ic
+SMALLFILE           ~ 'SMALLFILE':ic
+SPACE               ~ 'SPACE':ic
 START               ~ 'START':ic
 STATEMENT_ID        ~ 'STATEMENT_ID':ic
 STORAGE             ~ 'STORAGE':ic
 TABLE               ~ 'TABLE':ic
 TABLESPACE          ~ 'TABLESPACE':ic
+TEMPFILE            ~ 'TEMPFILE':ic
 TEMPORARY           ~ 'TEMPORARY':ic
 THEN                ~ 'THEN':ic
 :lexeme             ~ THEN priority => 1
@@ -1307,6 +1388,8 @@ TIMESTAMP           ~ 'TIMESTAMP':ic
 TO                  ~ 'TO':ic
 TRUNCATE            ~ 'TRUNCATE':ic
 UNBOUNDED           ~ 'UNBOUNDED':ic
+UNDO                ~ 'UNDO':ic
+UNIFORM             ~ 'UNIFORM':ic
 UNIQUE              ~ 'UNIQUE':ic
 UNION               ~ 'UNION':ic
 UNLIMITED           ~ 'UNLIMITED':ic
@@ -1337,7 +1420,18 @@ SEMICOLON           ~ ';'
 digits              ~ [0-9]+
 integer             ~ digits
                     | digits expcast
-integer_k           ~ digits 'K'
+integer_unit        ~ digits 'k'
+                    | digits 'K'
+                    | digits 'm'
+                    | digits 'M'
+                    | digits 'g'
+                    | digits 'G'
+                    | digits 't'
+                    | digits 'T'
+                    | digits 'p'
+                    | digits 'P'
+                    | digits 'e'
+                    | digits 'E'
 float               ~ digits '.' digits
                     | digits '.' digits expcast
                     | '.' digits
@@ -2602,6 +2696,22 @@ sub make_tbl_col_references {
     $node->{on_del} = $on_del;
     $node->{on_upd} = $on_upd;
     $node->{deferrable} = $deferrable;
+
+    return node_to_array($node);
+}
+
+sub make_tblspc {
+    my (undef, $ident, $options) = @_;
+    my $node = make_node('createobject');
+
+    $node->{kind} = 'TABLESPACE';
+    $node->{ident} = $ident;
+
+    OPTIONS: foreach my $o (@{$options}) {
+        next OPTIONS unless (isA($o, 'literal'));
+        $node->{tblspc_location} = $o;
+        add_fixme('Specify absolute path to tablespace');
+    }
 
     return node_to_array($node);
 }
