@@ -80,7 +80,7 @@ sub createtable_hook {
         $ident->{attribute} .= $node->{ident}->{attribute};
         $ident->{attribute} .= '_virtual_cols';
 
-        $proc = make_node('procedure');
+        $proc = make_node('pl_func');
         $proc->{ident} = $ident;
         $proc->{returns} = make_node('ident');
         $proc->{returns}->{attribute} = 'trigger';
