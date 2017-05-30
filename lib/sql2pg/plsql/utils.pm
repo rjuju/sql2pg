@@ -318,6 +318,15 @@ sub handle_function {
         $func->{ident}->{attribute} = 'date_trunc';
     } elsif ($funcname eq 'sys_guid') {
         $func->{ident}->{attribute} = 'uuid_generate_v4';
+    } elsif ($func->{ident}->{table} eq 'dbms_output'
+        and $funcname eq 'put_line'
+    ) {
+        my $raise = make_node('pl_raise');
+
+        $raise->{level} = 'NOTICE';
+        $raise->{val} = $func->{args};
+
+        return $raise;
     }
 
     return $func;

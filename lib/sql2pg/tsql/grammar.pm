@@ -950,7 +950,7 @@ sub make_createrole {
 
 sub make_createproc {
     my (undef, undef, undef, $ident, undef, $args, undef, undef, $stmts) = @_;
-    my $node = make_node('procedure');
+    my $node = make_node('pl_func');
 
     $node->{ident} = $ident;
     $node->{args} = $args;
@@ -961,7 +961,7 @@ sub make_createproc {
 
 sub make_createproc_noarg {
     my (undef, undef, undef, $ident, undef, $stmts) = @_;
-    my $node = make_node('procedure');
+    my $node = make_node('pl_func');
 
     $node->{ident} = $ident;
     $node->{stmts} = $stmts;

@@ -431,8 +431,13 @@ sub format_function {
 
     # first transform function to pg compatible if needed
     no strict;
-    &$hook($func);
+    $func = &$hook($func);
     use strict;
+
+    # hook can transform a function call to something else
+    if (not isA($func, 'function')) {
+        return format_node($func);
+    }
 
     foreach my $arg (@{$func->{args}}) {
         $out .= ', ' if defined($out);
@@ -709,22 +714,6 @@ sub format_proarg {
 
     return $out;
 }
-sub format_procedure {
-    my ($proc) = @_;
-    my $out = 'CREATE FUNCTION';
-
-    $out .= ' ' . format_node($proc->{ident});
-    $out .= '(';
-
-    $out .= format_array($proc->{args}, ',') if ($proc->{args});
-    $out .= ")\nRETURNS " . format_node($proc->{returns}) . " AS\n";
-    $out .= "\$_\$\nBEGIN\n";
-    if ($proc->{stmts}) {
-        $out .= format_array($proc->{stmts}, " ;\n");
-    }
-    $out .= " ;\nEND;\n\$_\$ language plpgsql";
-    return $out;
-}
 
 sub format_qual {
     my ($qual) = @_;
@@ -757,6 +746,35 @@ sub format_quallist {
     }
 
     return $out;
+}
+
+sub format_pl_func {
+    my ($proc) = @_;
+    my $out = 'CREATE FUNCTION';
+
+    # function name
+    $out .= ' ' . format_node($proc->{ident});
+
+    # function args if any
+    $out .= '(';
+    $out .= format_array($proc->{args}, ',') if ($proc->{args});
+    $out .= ")\n";
+
+    $out .= "RETURNS " . format_node($proc->{returns}) . " AS\n";
+    $out .= "\$_\$\nBEGIN\n";
+
+    foreach my $s (@{$proc->{stmts}}) {
+        $out .= "  " . format_node($s) . " ;\n";
+    }
+    $out .= "END;\n\$_\$ language plpgsql";
+
+    return $out;
+}
+
+sub format_pl_raise {
+    my ($node) = @_;
+
+    return "RAISE $node->{level} " . format_node($node->{val});
 }
 
 sub format_rollupcube {

@@ -95,6 +95,7 @@ CreateStmt ::=
     | CreateIndexStmt
     | CreateTblspcStmt
     | CreateSequenceStmt
+    | CreateProcStmt
 
 TransacStmt ::=
     BEGIN action => make_keyword
@@ -1036,6 +1037,23 @@ seq_option ::=
     | (CYCLE) action => make_seq_cycle
     | (NOCYCLE) action => make_seq_nocycle
 
+CreateProcStmt ::=
+    (CREATE) or_replace_clause (PROCEDURE) IDENT (IS) proc_declare (BEGIN)
+        proc_body proc_exception (END) IDENT action => make_createproc
+
+proc_declare ::=
+    EMPTY
+
+proc_body ::=
+    proc_stmt+ separator => SEMICOLON action => ::array
+
+proc_stmt ::=
+    stmt
+    | function
+
+proc_exception ::=
+    EMPTY
+
 AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
 
@@ -1355,6 +1373,7 @@ PRECEDING           ~ 'PRECEDING':ic
 PRESERVE            ~ 'PRESERVE':ic
 PRIMARY             ~ 'PRIMARY':ic
 PRIOR               ~ 'PRIOR':ic
+PROCEDURE           ~ 'PROCEDURE':ic
 PURGE               ~ 'PURGE':ic
 RANGE               ~ 'RANGE':ic
 REFERENCE           ~ 'REFERENCE':ic
@@ -1825,6 +1844,20 @@ sub make_createindex {
     $node->{on} = $on;
     $node->{cols} = $cols;
     $node->{tblspc} = $tblspc;
+
+    return node_to_array($node);
+}
+
+sub make_createproc {
+    my (undef, $replace, $ident, $declare, $body, $exception, $ident2) = @_;
+    my $node = make_node('pl_func');
+    my $returns = make_node('keyword');
+
+    $returns->{val} = 'void';
+
+    $node->{ident} = $ident;
+    $node->{returns} = $returns;
+    $node->{stmts} = $body;
 
     return node_to_array($node);
 }
