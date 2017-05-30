@@ -1748,7 +1748,7 @@ sub make_AT_constraint_add_clauses {
     assert_one_el($constraint);
     @{$constraint}[0]->{using} = $using;
     # drop enable clause if any
-    if ($validate eq 'NOVALIDATE') {
+    if ($validate and $validate eq 'NOVALIDATE') {
         @{$constraint}[0]->{not_valid} = 1;
     }
 
