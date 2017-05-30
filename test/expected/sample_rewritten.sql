@@ -95,4 +95,24 @@ SELECT a, b, c FROM (SELECT * FROM t1 INNER JOIN b USING (id)) AS subquery1 ;
 SELECT * FROM a INNER JOIN b AS a2 USING (id) ORDER BY 1 ASC ;
 -- 1 FIXME for this statement
 -- FIXME: UNPIVOT clause ignored
+CREATE TABLE tbl_virtual (
+    id numeric PRIMARY KEY,
+    data bytea NOT NULL,
+    id1 timestamp,
+    id2 numeric
+)CREATE FUNCTION tbl_virtual_virtual_cols()
+RETURNS trigger AS
+$_$
+BEGIN
+      NEW.id1 := to_date(NEW.id) ;
+      NEW.id2 := NEW.id / 10 ;
+  
+    RETURN NEW ;
+END;
+$_$ language plpgsql ;
+CREATE TRIGGER tbl_virtual_virtual_cols
+    BEFORE INSERT OR UPDATE ON tbl_virtual FOR EACH ROW
+    EXECUTE PROCEDURE tbl_virtual_virtual_cols() ;
+-- 1 FIXME for this statement
+-- FIXME: Datatype "timestamp" for column "id1" guessed.  Please check it
 -- I don't belong to any query
