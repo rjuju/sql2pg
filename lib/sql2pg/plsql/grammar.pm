@@ -1038,20 +1038,20 @@ seq_option ::=
     | (NOCYCLE) action => make_seq_nocycle
 
 CreateProcStmt ::=
-    (CREATE) or_replace_clause (PROCEDURE) IDENT (IS) proc_declare (BEGIN)
-        proc_body proc_exception (END) IDENT action => make_createproc
+    (CREATE) or_replace_clause (PROCEDURE) IDENT (IS) pl_declare (BEGIN)
+        pl_body pl_exception (END) IDENT action => make_createpl_func
 
-proc_declare ::=
+pl_declare ::=
     EMPTY
 
-proc_body ::=
-    proc_stmt+ separator => SEMICOLON action => ::array
+pl_body ::=
+    pl_stmt+ separator => SEMICOLON action => ::array
 
-proc_stmt ::=
+pl_stmt ::=
     stmt
     | function
 
-proc_exception ::=
+pl_exception ::=
     EMPTY
 
 AlterTableStmt ::=
@@ -1848,7 +1848,7 @@ sub make_createindex {
     return node_to_array($node);
 }
 
-sub make_createproc {
+sub make_createpl_func {
     my (undef, $replace, $ident, $declare, $body, $exception, $ident2) = @_;
     my $node = make_node('pl_func');
     my $returns = make_node('keyword');
