@@ -64,6 +64,7 @@ EXPLAIN DELETE FROM t WHERE id < 10 ;
 -- FIXME: EXPLAIN clause ignored: SET STATEMENT_ID = 'del stmt' INTO del_tables
 SELECT * FROM a LEFT JOIN a1 ON a.id = a1.id LEFT JOIN a2 ON a1.id = a2.id, b LEFT JOIN b1 ON b.id >= b1.id LEFT JOIN b2 ON b1.id = b2.id AND b1.id2 = b2.id2 WHERE  AND a.id = b.id ;
 CREATE TABLE nsp.t AS SELECT 1 ;
+COMMENT ON TABLE nsp.t IS 'this table should have only one line' ;
 CREATE OR REPLACE VIEW v AS SELECT * FROM nsp.t ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
@@ -116,4 +117,10 @@ CREATE TRIGGER tbl_virtual_virtual_cols
     EXECUTE PROCEDURE tbl_virtual_virtual_cols() ;
 -- 1 FIXME for this statement
 -- FIXME: Datatype "timestamp" for column "id1" guessed.  Please check it
+CREATE TEMPORARY TABLE test_glob_tmp (
+    id numeric(9) CONSTRAINT tmp_fk REFERENCES tbl_virtual(id1)
+) ;
+-- 1 FIXME for this statement
+-- FIXME: GLOBAL clause of TEMPORARY TABLE ignored
+TRUNCATE TABLE tst_tbl ;
 -- I don't belong to any query

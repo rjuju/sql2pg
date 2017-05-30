@@ -42,6 +42,7 @@ select a = 1 OR b = 2 v1,(a = 1 OR b = 2)v2 from t;
 explain plan set statement_id = 'del stmt' into del_tables for delete from t where id < 10;
 select * from a, a1, a2, b, b1, b2 where a.id = a1.id(+) and a1.id = a2.id(+) and a.id = b.id and b1.id = b2.id(+) and b2.id2(+) = b1.id2 and b1.id(+) < b.id;
 CREAte table nsp.t as select 1 from dual;
+comment on table nsp.t is 'this table should have only one line';
 create or replace view v as select * from nsp.t;
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
@@ -54,4 +55,7 @@ SELECT val from t partition by (dt) right outer join t2 on (t2.id = t.id);
 select a,b,c from (select * from t1 join b using (id)) model dimension by (a,b) measures (c) rules (f[a,b] = 4, g[a,c] = val(2));
 select * from a join b a2 using (id) unpivot (value for value_type in (a,b) ) ORDER BY 1;
 create table tbl_virtual(id number primary key, data blob not null, id1 as (to_date(id)), id2 number generated always as (id/10),);
+create global temporary table test_glob_tmp (id number(9) constraint tmp_fk references tbl_virtual(id1));
+truncate table tst_tbl preserve materialized view log;
+
 -- I don't belong to any query
