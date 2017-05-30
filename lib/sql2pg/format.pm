@@ -955,6 +955,7 @@ sub format_stmts {
     my $stmtno;
     my $comments;
     my $out = '';
+    my $first = 1;
     my $semi_colon_needed = 0;
 
     $stmtno = inc_stmtno();
@@ -964,26 +965,33 @@ sub format_stmts {
     $out = format_comments($comments) if (defined($comments));
 
     foreach my $stmt (@{$stmts}) {
+        my $tmp;
+
         # XXX special handling of combined statements with orderby here, should
         # find a better way to deal with it
         if (isA($stmt, 'ORDERBY')) {
             $out .= ' ';
-            $semi_colon_needed = 1;
         } elsif (
             isA($stmt, 'alterobject')
             or isA($stmt, 'createobject')
             or isA($stmt, 'createtrigger')
-            or isA($stmt, 'procedure')
+            or isA($stmt, 'pl_func')
         ) {
             # Single statement rewritten in multiple statements
             # for instance AT ADD (...) in plpgsql, GENERATED AS transformed in
             # trigger...
-            $out .= " ;\n" if ($semi_colon_needed);
-            $semi_colon_needed = 0;
+            # Semicolon must be prepended since we only know one is needed when
+            # a statement follows another one.
+            $out .= " ;\n" if (not $first);
         } else {
-            $semi_colon_needed = 1;
         }
-        $out .= format_node($stmt);
+        $tmp = format_node($stmt);
+
+        if ($tmp ne '') {
+            $out .= $tmp;
+            $first = 0;
+        }
+
     }
     $out .= " ;\n";
 

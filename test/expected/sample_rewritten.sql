@@ -100,7 +100,8 @@ CREATE TABLE tbl_virtual (
     data bytea NOT NULL,
     id1 timestamp,
     id2 numeric
-)CREATE FUNCTION tbl_virtual_virtual_cols()
+) ;
+CREATE FUNCTION tbl_virtual_virtual_cols()
 RETURNS trigger AS
 $_$
 BEGIN
