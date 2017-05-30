@@ -748,6 +748,12 @@ sub format_quallist {
     return $out;
 }
 
+sub format_pl_arg {
+    my ($node) = @_;
+
+    return format_node($node->{ident}) . ' ' . format_node($node->{datatype});
+}
+
 sub format_pl_func {
     my ($proc) = @_;
     my $out = 'CREATE FUNCTION';
@@ -757,7 +763,7 @@ sub format_pl_func {
 
     # function args if any
     $out .= '(';
-    $out .= format_array($proc->{args}, ',') if ($proc->{args});
+    $out .= format_array($proc->{args}, ', ') if ($proc->{args});
     $out .= ")\n";
 
     $out .= "RETURNS " . format_node($proc->{returns}) . " AS\n";

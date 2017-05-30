@@ -1038,8 +1038,18 @@ seq_option ::=
     | (NOCYCLE) action => make_seq_nocycle
 
 CreateProcStmt ::=
-    (CREATE) or_replace_clause (PROCEDURE) IDENT (IS) pl_declare (BEGIN)
+    (CREATE) or_replace_clause (PROCEDURE) IDENT pl_arglist (IS) pl_declare (BEGIN)
         pl_body pl_exception (END) IDENT action => make_createpl_func
+
+pl_arglist ::=
+    ('(') pl_args (')') action => ::first
+    | EMPTY
+
+pl_args ::=
+    pl_arg* separator => COMMA action => ::array
+
+pl_arg ::=
+    IDENT datatype action => make_pl_arg
 
 pl_declare ::=
     EMPTY
@@ -1849,13 +1859,15 @@ sub make_createindex {
 }
 
 sub make_createpl_func {
-    my (undef, $replace, $ident, $declare, $body, $exception, $ident2) = @_;
+    my (undef, $replace, $ident, $args, $declare, $body, $exception, $ident2)
+        = @_;
     my $node = make_node('pl_func');
     my $returns = make_node('keyword');
 
     $returns->{val} = 'void';
 
     $node->{ident} = $ident;
+    $node->{args} = $args;
     $node->{returns} = $returns;
     $node->{stmts} = $body;
 
@@ -2486,6 +2498,16 @@ sub make_pk_clause {
     $node->{idents} = $idents;
 
     return node_to_array($node);
+}
+
+sub make_pl_arg {
+    my (undef, $ident, $datatype) = @_;
+    my $node = make_node('pl_arg');
+
+    $node->{ident} = $ident;
+    $node->{datatype} = $datatype;
+
+    return $node;
 }
 
 sub make_priorqual {
