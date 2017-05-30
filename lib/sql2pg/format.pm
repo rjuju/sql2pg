@@ -955,10 +955,9 @@ sub format_stmts {
     my $stmtno;
     my $comments;
     my $out = '';
-    my $semi_colon_needed;
+    my $semi_colon_needed = 0;
 
     $stmtno = inc_stmtno();
-    $semi_colon_needed = $stmtno > 1;
 
     $comments = get_comment('ok');
 
@@ -969,7 +968,7 @@ sub format_stmts {
         # find a better way to deal with it
         if (isA($stmt, 'ORDERBY')) {
             $out .= ' ';
-            $semi_colon_needed = 0;
+            $semi_colon_needed = 1;
         } elsif (
             isA($stmt, 'alterobject')
             or isA($stmt, 'createobject')
@@ -979,10 +978,10 @@ sub format_stmts {
             # Single statement rewritten in multiple statements
             # for instance AT ADD (...) in plpgsql, GENERATED AS transformed in
             # trigger...
-            $out .= " ;\n" if ($semi_colon_needed == 1);
-            $semi_colon_needed = 1;
-        } else {
+            $out .= " ;\n" if ($semi_colon_needed);
             $semi_colon_needed = 0;
+        } else {
+            $semi_colon_needed = 1;
         }
         $out .= format_node($stmt);
     }
