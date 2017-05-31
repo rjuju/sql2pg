@@ -1038,8 +1038,9 @@ seq_option ::=
     | (NOCYCLE) action => make_seq_nocycle
 
 CreateProcStmt ::=
-    (CREATE) or_replace_clause (PROCEDURE) IDENT pl_arglist (IS) pl_declare (BEGIN)
-        pl_body pl_exception (END) IDENT action => make_createpl_func
+    (CREATE) or_replace_clause (PROCEDURE) IDENT pl_arglist (IS)
+        pl_declarelist (BEGIN) pl_body pl_exception (END) IDENT
+        action => make_createpl_func
 
 pl_arglist ::=
     ('(') pl_args (')') action => ::first
@@ -1051,8 +1052,9 @@ pl_args ::=
 pl_arg ::=
     IDENT datatype action => make_pl_arg
 
-pl_declare ::=
-    EMPTY
+pl_declarelist ::=
+    pl_arg* separator => SEMICOLON action => ::array
+
 
 pl_body ::=
     pl_stmt+ separator => SEMICOLON action => ::array
@@ -1868,6 +1870,7 @@ sub make_createpl_func {
 
     $node->{ident} = $ident;
     $node->{args} = $args;
+    $node->{declare} = $declare;
     $node->{returns} = $returns;
     $node->{stmts} = $body;
 

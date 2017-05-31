@@ -755,21 +755,31 @@ sub format_pl_arg {
 }
 
 sub format_pl_func {
-    my ($proc) = @_;
+    my ($node) = @_;
     my $out = 'CREATE FUNCTION';
 
     # function name
-    $out .= ' ' . format_node($proc->{ident});
+    $out .= ' ' . format_node($node->{ident});
 
     # function args if any
     $out .= '(';
-    $out .= format_array($proc->{args}, ', ') if ($proc->{args});
+    $out .= format_array($node->{args}, ', ') if ($node->{args});
     $out .= ")\n";
 
-    $out .= "RETURNS " . format_node($proc->{returns}) . " AS\n";
-    $out .= "\$_\$\nBEGIN\n";
+    $out .= "RETURNS " . format_node($node->{returns}) . " AS\n";
+    $out .= "\$_\$\n";
 
-    foreach my $s (@{$proc->{stmts}}) {
+    # var declaration
+    if ($node->{declare}) {
+        $out .= "DECLARE\n";
+        foreach my $v (@{$node->{declare}}) {
+            $out .= "  " . format_node($v) . ";\n";
+        }
+    }
+
+    $out .= "BEGIN\n";
+
+    foreach my $s (@{$node->{stmts}}) {
         $out .= "  " . format_node($s) . " ;\n";
     }
     $out .= "END;\n\$_\$ language plpgsql";

@@ -265,6 +265,7 @@ sub handle_function {
     my ($func) = @_;
     # FIXME handle packages overloading default funcs?
     my $funcname = $func->{ident}->{attribute};
+    my $func_schema = $func->{ident}->{table} || '';
 
     if ($funcname eq 'nvl') {
         $func->{ident}->{attribute} = 'COALESCE';
@@ -318,7 +319,7 @@ sub handle_function {
         $func->{ident}->{attribute} = 'date_trunc';
     } elsif ($funcname eq 'sys_guid') {
         $func->{ident}->{attribute} = 'uuid_generate_v4';
-    } elsif ($func->{ident}->{table} eq 'dbms_output'
+    } elsif ($func_schema eq 'dbms_output'
         and $funcname eq 'put_line'
     ) {
         my $raise = make_node('pl_raise');
