@@ -1064,7 +1064,7 @@ pl_body ::=
     pl_stmt+ separator => SEMICOLON action => ::array
 
 pl_stmt ::=
-    stmt
+    raw_stmt
     | function
 
 pl_exception ::=
