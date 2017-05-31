@@ -65,7 +65,7 @@ combine_op ::=
     | MINUS
 
 SingleSelectStmt ::=
-    with_clause SELECT select_clause from_clause where_clause
+    with_clause SELECT select_clause into_clause from_clause where_clause
         hierarchical_clause group_clause having_clause
         model_clause order_clause forupdate_clause action => make_select
 
@@ -326,6 +326,10 @@ frame_end ::=
     UNBOUNDED FOLLOWING action => make_frame_boundary
     | CURRENT ROW action => make_frame_boundary
     | NUMBER FOLLOWING action => make_frame_boundary
+
+into_clause ::=
+    INTO IDENTS action => make_intoclause
+    | EMPTY
 
 from_clause ::=
     FROM from_list action => make_fromclause
@@ -2310,6 +2314,12 @@ sub make_intervalkind {
     }
 
     return $node;
+}
+
+sub make_intoclause {
+    my (undef, undef, $idents) = @_;
+
+    return make_clause('INTO', $idents);
 }
 
 sub make_joinon {

@@ -543,6 +543,12 @@ sub format_interval {
     return $out;
 }
 
+sub format_INTO {
+    my ($node) = @_;
+
+    return "INTO " . format_array($node->{content}, ', ');
+}
+
 sub format_join {
     my ($join) = @_;
     my $out;
@@ -801,7 +807,7 @@ sub format_rollupcube {
 
 sub format_select {
     my ($stmt) = @_;
-    my @clauselist = ('WITH', 'SELECT', 'FROM', 'WHERE', 'GROUPBY',
+    my @clauselist = ('WITH', 'SELECT', 'INTO', 'FROM', 'WHERE', 'GROUPBY',
         'HAVING', 'ORDERBY', 'FORUPDATE', 'LIMIT', 'OFFSET');
     my $hook = $stmt->{hook};
     my $nodes;
