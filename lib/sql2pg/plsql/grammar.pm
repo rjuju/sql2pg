@@ -1061,7 +1061,7 @@ pl_declarelist ::=
 
 
 pl_body ::=
-    pl_stmt+ separator => SEMICOLON action => ::array
+    pl_stmt* separator => SEMICOLON action => ::array
 
 pl_stmt ::=
     raw_stmt
