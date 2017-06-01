@@ -704,8 +704,12 @@ sub format_pk_clause {
 
 sub format_pl_arg {
     my ($node) = @_;
+    my $out;
 
-    return format_node($node->{ident}) . ' ' . format_node($node->{datatype});
+    $out = format_node($node->{ident}) . ' ' . format_node($node->{datatype});
+    $out .= ' := ' . format_node($node->{val}) if ($node->{val});
+
+    return $out;
 }
 
 sub format_pl_func {

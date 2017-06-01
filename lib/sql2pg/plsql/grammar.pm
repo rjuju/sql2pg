@@ -1055,6 +1055,7 @@ pl_args ::=
 
 pl_arg ::=
     IDENT datatype action => make_pl_arg
+    | IDENT datatype (':=') target_el action => make_pl_arg
 
 pl_declarelist ::=
     pl_arg* separator => SEMICOLON action => ::array
@@ -2532,11 +2533,12 @@ sub make_pk_clause {
 }
 
 sub make_pl_arg {
-    my (undef, $ident, $datatype) = @_;
+    my (undef, $ident, $datatype, $val) = @_;
     my $node = make_node('pl_arg');
 
     $node->{ident} = $ident;
     $node->{datatype} = $datatype;
+    $node->{val} = $val;
 
     return $node;
 }
