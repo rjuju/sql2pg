@@ -1232,7 +1232,7 @@ AUTO                ~ 'AUTO':ic
 AUTOALLOCATE        ~ 'AUTOALLOCATE':ic
 AUTOEXTEND          ~ 'AUTOEXTEND':ic
 AUTOMATIC           ~ 'AUTOMATIC':ic
-BEGIN               ~ 'BEGIN';
+BEGIN               ~ 'BEGIN':ic;
 :lexeme             ~ BEGIN pause => after event => keyword
 BETWEEN             ~ 'BETWEEN':ic
 BIGFILE             ~ 'BIGFILE':ic
