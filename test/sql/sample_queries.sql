@@ -63,6 +63,10 @@ begin
     IF id <= 0 THEN
     DBMS_OUTPUT.put_line
     ('not correct');
+    <<block1>>
+    BEGIN
+        truncate table tmp;
+    END block1;
 else 
     end if; end "Test_Proc";
 

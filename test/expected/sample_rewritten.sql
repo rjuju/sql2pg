@@ -110,7 +110,7 @@ BEGIN
     NEW.id2 := NEW.id / 10 ;
   
   RETURN NEW ;
-END;
+END ;
 $_$ language plpgsql ;
 CREATE TRIGGER tbl_virtual_virtual_cols
     BEFORE INSERT OR UPDATE ON tbl_virtual FOR EACH ROW
@@ -123,16 +123,21 @@ CREATE TEMPORARY TABLE test_glob_tmp (
 -- 1 FIXME for this statement
 -- FIXME: GLOBAL clause of TEMPORARY TABLE ignored
 TRUNCATE TABLE tst_tbl ;
-CREATE FUNCTION "Test_Proc"(id numeric)
+CREATE OR REPLACE FUNCTION "Test_Proc"(id numeric)
 RETURNS void AS
 $_$
 DECLARE
-  new text := 'set';
+  new text := 'set' ;
 BEGIN
   
   IF id <= 0 THEN
     RAISE NOTICE 'not correct' ;
+    
+    <<block1>>
+    BEGIN
+      TRUNCATE TABLE tmp ;
+    END ;
   ELSE
   END IF ;
-END;
+END ;
 $_$ language plpgsql ;

@@ -69,6 +69,7 @@ sub createtable_hook {
     if (scalar @{$proc_body} > 0) {
         my $ident = make_node('ident');
         my $proc;
+        my $block = make_node('pl_block');
         my $pl_ret;
         my $trig = make_node('createtrigger');
 
@@ -87,12 +88,14 @@ sub createtable_hook {
         $proc->{stmts} = [];
 
         # Create body of the trigger func
-        $proc->{stmts} = $proc_body;
+        $block->{stmts} = $proc_body;
 
         $pl_ret = make_node('pl_ret');
         $pl_ret->{ident} = make_node('ident');
         $pl_ret->{ident}->{attribute} = 'NEW';
-        push(@{$proc->{stmts}}, $pl_ret);
+        push(@{$block->{stmts}}, $pl_ret);
+
+        $proc->{block} = $block;
 
         $trig->{ident} = $ident;
         $trig->{when} = 'BEFORE INSERT OR UPDATE';

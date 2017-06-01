@@ -1043,8 +1043,7 @@ seq_option ::=
 
 CreateProcStmt ::=
     (CREATE) or_replace_clause (PROCEDURE) IDENT pl_arglist (IS)
-        pl_declarelist (BEGIN) pl_body pl_exception (END) IDENT
-        action => make_createpl_func
+        pl_block action => make_createpl_func
 
 pl_arglist ::=
     ('(') pl_args (')') action => ::first
@@ -1057,20 +1056,37 @@ pl_arg ::=
     IDENT datatype action => make_pl_arg
     | IDENT datatype (':=') target_el action => make_pl_arg
 
+pl_declareblock ::=
+    # in a <<IDENT>> block
+    DECLARE pl_declarelist action => second
+    # in the PROCEDURE block
+    | pl_declarelist action => ::first
+    | EMPTY
+
 pl_declarelist ::=
     pl_arg* separator => SEMICOLON action => ::array
 
-
 pl_body ::=
     pl_stmt* separator => SEMICOLON action => ::array
+#    pl_body ';' pl_stmt ';' action => append_el_1_3
+#    | pl_stmt ';'
 
 pl_stmt ::=
     raw_stmt
     | function
     | IfThenElse
+    | pl_block
 
 pl_exception ::=
     EMPTY
+
+pl_block ::=
+    pl_block_ident pl_declareblock (BEGIN) pl_body pl_exception (END) IDENT
+        action => make_pl_block
+
+pl_block_ident ::=
+    ('<<') IDENT ('>>') action => ::first
+    | EMPTY
 
 IfThenElse ::=
     (IF) target_el (THEN) pl_body (END IF) action => make_pl_ifthenelse
@@ -1267,6 +1283,7 @@ CYCLE               ~ 'CYCLE':ic
 DATAFILE            ~ 'DATAFILE':ic
 DATE                ~ 'DATE':ic
 DAY                 ~ 'DAY':ic
+DECLARE             ~ 'DECLARE':ic
 DECREMENT           ~ 'DECREMENT':ic
 DEFAULT             ~ 'DEFAULT':ic
 DEFERRABLE          ~ 'DEFERRABLE':ic
@@ -1873,7 +1890,7 @@ sub make_createindex {
 }
 
 sub make_createpl_func {
-    my (undef, $replace, $ident, $args, $declare, $body, $exception, $ident2)
+    my (undef, $replace, $ident, $args, $block)
         = @_;
     my $node = make_node('pl_func');
     my $returns = make_node('keyword');
@@ -1881,10 +1898,10 @@ sub make_createpl_func {
     $returns->{val} = 'void';
 
     $node->{ident} = $ident;
+    $node->{replace} = $replace;
     $node->{args} = $args;
-    $node->{declare} = $declare;
     $node->{returns} = $returns;
-    $node->{stmts} = $body;
+    $node->{block} = $block;
 
     return node_to_array($node);
 }
@@ -2285,17 +2302,6 @@ sub make_ident {
     return node_to_array($ident);
 }
 
-sub make_pl_ifthenelse {
-    my (undef, $if, $then, $else, undef) = @_;
-    my $node = make_node('pl_ifthenelse');
-
-    $node->{if} = $if;
-    $node->{then} = $then;
-    $node->{else} = $else;
-
-    return node_to_array($node);
-}
-
 sub make_insert {
     my (undef, undef, undef, $from, $cols, $data, $error_logging) = @_;
     my $stmt = make_node('insert');
@@ -2541,6 +2547,29 @@ sub make_pl_arg {
     $node->{val} = $val;
 
     return $node;
+}
+
+sub make_pl_block {
+    my (undef, $ident, $declare, $body, $exception, $ident2) = @_;
+    my $node = make_node('pl_block');
+
+    $node->{ident} = $ident;
+    $node->{declare} = $declare;
+    $node->{stmts} = $body;
+    $node->{exception} = $exception;
+
+    return node_to_array($node);
+}
+
+sub make_pl_ifthenelse {
+    my (undef, $if, $then, $else, undef) = @_;
+    my $node = make_node('pl_ifthenelse');
+
+    $node->{if} = $if;
+    $node->{then} = $then;
+    $node->{else} = $else;
+
+    return node_to_array($node);
 }
 
 sub make_priorqual {

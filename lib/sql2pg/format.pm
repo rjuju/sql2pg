@@ -23,7 +23,7 @@ use sql2pg::common;
 
 our @fixme;
 my $tab = "  ";
-my $depth = 1;
+my $depth = 0;
 
 sub format_alias {
     my ($alias) = @_;
@@ -712,10 +712,43 @@ sub format_pl_arg {
     return $out;
 }
 
+sub format_pl_block {
+    my ($node) = @_;
+    my $out = '';
+
+    # block delimiter if subblock
+    if ($node->{ident}) {
+        $out .= "\n" . tab() . '<<' . format_node($node->{ident}) .">>\n";
+    }
+
+    # var declaration
+    if ($node->{declare}) {
+        $out .= tab() . "DECLARE\n";
+        $depth++;
+        foreach my $v (@{$node->{declare}}) {
+            $out .= tab() . format_node($v) . " ;\n";
+        }
+        $depth--;
+    }
+
+    $out .= tab() . "BEGIN\n";
+    $depth++;
+    foreach my $s (@{$node->{stmts}}) {
+        $out .= tab() . format_node($s) . " ;\n";
+    }
+    $depth--;
+
+    $out .= tab() . "END";
+
+    return $out;
+}
+
 sub format_pl_func {
     my ($node) = @_;
-    my $out = 'CREATE FUNCTION';
+    my $out = 'CREATE';
 
+    $out .= ' OR REPLACE' if ($node->{replace});
+    $out .= ' FUNCTION';
     # function name
     $out .= ' ' . format_node($node->{ident});
 
@@ -727,20 +760,9 @@ sub format_pl_func {
     $out .= "RETURNS " . format_node($node->{returns}) . " AS\n";
     $out .= "\$_\$\n";
 
-    # var declaration
-    if ($node->{declare}) {
-        $out .= "DECLARE\n";
-        foreach my $v (@{$node->{declare}}) {
-            $out .= tab() . format_node($v) . ";\n";
-        }
-    }
+    $out .= format_node($node->{block});
 
-    $out .= "BEGIN\n";
-
-    foreach my $s (@{$node->{stmts}}) {
-        $out .= tab() . format_node($s) . " ;\n";
-    }
-    $out .= "END;\n\$_\$ language plpgsql";
+    $out .= " ;\n\$_\$ language plpgsql";
 
     return $out;
 }
