@@ -1066,9 +1066,15 @@ pl_body ::=
 pl_stmt ::=
     raw_stmt
     | function
+    | IfThenElse
 
 pl_exception ::=
     EMPTY
+
+IfThenElse ::=
+    (IF) target_el (THEN) pl_body (END IF) action => make_pl_ifthenelse
+    | (IF) target_el (THEN) pl_body (ELSE) pl_body (END IF)
+        action => make_pl_ifthenelse
 
 AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
@@ -1303,6 +1309,7 @@ GROUPING            ~ 'GROUPING':ic
 GROUPS              ~ 'GROUPS':ic
 HAVING              ~ 'HAVING':ic
 HOUR                ~ 'HOUR':ic
+IF                  ~ 'IF':ic
 IGNORE              ~ 'IGNORE':ic
 IMMEDIATE           ~ 'IMMEDIATE':ic
 IN                  ~ 'IN':ic
@@ -2275,6 +2282,17 @@ sub make_ident {
     }
 
     return node_to_array($ident);
+}
+
+sub make_pl_ifthenelse {
+    my (undef, $if, $then, $else, undef) = @_;
+    my $node = make_node('pl_ifthenelse');
+
+    $node->{if} = $if;
+    $node->{then} = $then;
+    $node->{else} = $else;
+
+    return node_to_array($node);
 }
 
 sub make_insert {

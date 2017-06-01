@@ -22,6 +22,8 @@ use sql2pg;
 use sql2pg::common;
 
 our @fixme;
+my $tab = "  ";
+my $depth = 1;
 
 sub format_alias {
     my ($alias) = @_;
@@ -700,16 +702,86 @@ sub format_pk_clause {
     return $out;
 }
 
+sub format_pl_arg {
+    my ($node) = @_;
+
+    return format_node($node->{ident}) . ' ' . format_node($node->{datatype});
+}
+
+sub format_pl_func {
+    my ($node) = @_;
+    my $out = 'CREATE FUNCTION';
+
+    # function name
+    $out .= ' ' . format_node($node->{ident});
+
+    # function args if any
+    $out .= '(';
+    $out .= format_array($node->{args}, ', ') if ($node->{args});
+    $out .= ")\n";
+
+    $out .= "RETURNS " . format_node($node->{returns}) . " AS\n";
+    $out .= "\$_\$\n";
+
+    # var declaration
+    if ($node->{declare}) {
+        $out .= "DECLARE\n";
+        foreach my $v (@{$node->{declare}}) {
+            $out .= tab() . format_node($v) . ";\n";
+        }
+    }
+
+    $out .= "BEGIN\n";
+
+    foreach my $s (@{$node->{stmts}}) {
+        $out .= tab() . format_node($s) . " ;\n";
+    }
+    $out .= "END;\n\$_\$ language plpgsql";
+
+    return $out;
+}
+
+sub format_pl_ifthenelse {
+    my ($node) = @_;
+    my $out;
+
+    $out = "\n" . tab() . 'IF ' . format_node($node->{if}) ." THEN\n";
+
+    $depth++;
+    foreach my $s (@{$node->{then}}) {
+        $out .= tab() . format_node($s) . " ;\n";
+    }
+    $depth--;
+
+    if ($node->{else}) {
+        $out .= tab() . "ELSE\n";
+
+        $depth++;
+        foreach my $s (@{$node->{else}}) {
+            $out .= tab() . format_node($s) . " ;\n";
+        }
+        $depth--;
+    }
+
+    $out .= tab() . "END IF";
+}
+
+sub format_pl_raise {
+    my ($node) = @_;
+
+    return "RAISE $node->{level} " . format_node($node->{val});
+}
+
 sub format_pl_ret {
     my ($node) = @_;
 
-    return "\n    RETURN " . format_node($node->{ident});
+    return "\n" . tab() . "RETURN " . format_node($node->{ident});
 }
 
 sub format_pl_set {
     my ($node) = @_;
 
-    return "    " . format_node($node->{ident}) . ' := ' . format_node($node->{val});
+    return tab() . format_node($node->{ident}) . ' := ' . format_node($node->{val});
 }
 
 sub format_proarg {
@@ -752,51 +824,6 @@ sub format_quallist {
     }
 
     return $out;
-}
-
-sub format_pl_arg {
-    my ($node) = @_;
-
-    return format_node($node->{ident}) . ' ' . format_node($node->{datatype});
-}
-
-sub format_pl_func {
-    my ($node) = @_;
-    my $out = 'CREATE FUNCTION';
-
-    # function name
-    $out .= ' ' . format_node($node->{ident});
-
-    # function args if any
-    $out .= '(';
-    $out .= format_array($node->{args}, ', ') if ($node->{args});
-    $out .= ")\n";
-
-    $out .= "RETURNS " . format_node($node->{returns}) . " AS\n";
-    $out .= "\$_\$\n";
-
-    # var declaration
-    if ($node->{declare}) {
-        $out .= "DECLARE\n";
-        foreach my $v (@{$node->{declare}}) {
-            $out .= "  " . format_node($v) . ";\n";
-        }
-    }
-
-    $out .= "BEGIN\n";
-
-    foreach my $s (@{$node->{stmts}}) {
-        $out .= "  " . format_node($s) . " ;\n";
-    }
-    $out .= "END;\n\$_\$ language plpgsql";
-
-    return $out;
-}
-
-sub format_pl_raise {
-    my ($node) = @_;
-
-    return "RAISE $node->{level} " . format_node($node->{val});
 }
 
 sub format_rollupcube {
@@ -1115,6 +1142,10 @@ sub format_WITH {
     }
 
     return "WITH " . $recursive . format_standard_clause($with, ', ');
+}
+
+sub tab {
+    return $tab x $depth;
 }
 
 1;
