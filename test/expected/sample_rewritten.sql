@@ -106,10 +106,10 @@ CREATE FUNCTION tbl_virtual_virtual_cols()
 RETURNS trigger AS
 $_$
 BEGIN
-      NEW.id1 := to_date(NEW.id) ;
-      NEW.id2 := NEW.id / 10 ;
+    NEW.id1 := to_date(NEW.id) ;
+    NEW.id2 := NEW.id / 10 ;
   
-    RETURN NEW ;
+  RETURN NEW ;
 END;
 $_$ language plpgsql ;
 CREATE TRIGGER tbl_virtual_virtual_cols
@@ -123,4 +123,16 @@ CREATE TEMPORARY TABLE test_glob_tmp (
 -- 1 FIXME for this statement
 -- FIXME: GLOBAL clause of TEMPORARY TABLE ignored
 TRUNCATE TABLE tst_tbl ;
--- I don't belong to any query
+CREATE FUNCTION "Test_Proc"(id numeric)
+RETURNS void AS
+$_$
+DECLARE
+  new text := 'set';
+BEGIN
+  
+  IF id <= 0 THEN
+    RAISE NOTICE 'not correct' ;
+  ELSE
+  END IF ;
+END;
+$_$ language plpgsql ;
