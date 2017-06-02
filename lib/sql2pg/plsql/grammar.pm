@@ -1077,7 +1077,14 @@ pl_stmt ::=
     | pl_raise_exc
 
 pl_exception ::=
-    EMPTY
+    EXCEPTION pl_exception_list action => second
+    | EMPTY
+
+pl_exception_list ::=
+    pl_exception_when+ separator => SEMICOLON action => ::array
+
+pl_exception_when ::=
+    WHEN IDENT THEN pl_body action => make_pl_exception_when
 
 pl_block ::=
     pl_block_ident pl_declareblock (BEGIN) pl_body pl_exception (END) IDENT
@@ -1305,6 +1312,7 @@ ENCRYPT             ~ 'ENCRYPT':ic
 END                 ~ 'END':ic
 ERRORS              ~ 'ERRORS':ic
 ESCAPE              ~ 'ESCAPE':ic
+EXCEPTION           ~ 'EXCEPTION':ic
 EXCLUDE             ~ 'EXCLUDE':ic
 EXISTS              ~ 'EXISTS':ic
 EXPLAIN             ~ 'EXPLAIN':ic
@@ -2568,6 +2576,16 @@ sub make_pl_block {
     $node->{exception} = $exception;
 
     return node_to_array($node);
+}
+
+sub make_pl_exception_when {
+    my (undef, undef, $ident, undef, $stmts) = @_;
+    my $node = make_node('pl_exception_when');
+
+    $node->{ident} = $ident;
+    $node->{stmts} = $stmts;
+
+    return $node;
 }
 
 sub make_pl_ifthenelse {

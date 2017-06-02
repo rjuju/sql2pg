@@ -740,7 +740,31 @@ sub format_pl_block {
     }
     $depth--;
 
+    if ($node->{exception}) {
+        $out .= tab() . "EXCEPTION\n";
+        $depth++;
+        foreach my $e (@{$node->{exception}}) {
+            $out .= tab() . format_node($e) . "";
+        }
+        $depth--;
+    }
+
     $out .= tab() . "END";
+
+    return $out;
+}
+
+sub format_pl_exception_when {
+    my ($node) = @_;
+    my $out;
+
+    $out = 'WHEN ' . format_node($node->{ident}) . " THEN\n";
+
+    $depth++;
+    foreach my $s (@{$node->{stmts}}) {
+        $out .= tab() . format_node($s) . " ;\n";
+    }
+    $depth--;
 
     return $out;
 }
