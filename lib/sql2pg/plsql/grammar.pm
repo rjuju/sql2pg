@@ -1068,14 +1068,13 @@ pl_declarelist ::=
 
 pl_body ::=
     pl_stmt* separator => SEMICOLON action => ::array
-#    pl_body ';' pl_stmt ';' action => append_el_1_3
-#    | pl_stmt ';'
 
 pl_stmt ::=
     raw_stmt
     | function
     | IfThenElse
     | pl_block
+    | pl_raise_exc
 
 pl_exception ::=
     EMPTY
@@ -1092,6 +1091,9 @@ IfThenElse ::=
     (IF) target_el (THEN) pl_body (END IF) action => make_pl_ifthenelse
     | (IF) target_el (THEN) pl_body (ELSE) pl_body (END IF)
         action => make_pl_ifthenelse
+
+pl_raise_exc ::=
+    RAISE IDENT action => make_pl_raise
 
 AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
@@ -1416,6 +1418,7 @@ PRIMARY             ~ 'PRIMARY':ic
 PRIOR               ~ 'PRIOR':ic
 PROCEDURE           ~ 'PROCEDURE':ic
 PURGE               ~ 'PURGE':ic
+RAISE               ~ 'RAISE':ic
 RANGE               ~ 'RANGE':ic
 REFERENCE           ~ 'REFERENCE':ic
 REFERENCES          ~ 'REFERENCES':ic
@@ -2542,6 +2545,12 @@ sub make_pl_arg {
     my (undef, $ident, $datatype, $val) = @_;
     my $node = make_node('pl_arg');
 
+    assert_one_el($datatype);
+    $datatype = pop(@{$datatype});
+
+    # ignore any exception
+    return undef if ($datatype->{ident}->{attribute} eq 'exception');
+
     $node->{ident} = $ident;
     $node->{datatype} = $datatype;
     $node->{val} = $val;
@@ -2568,6 +2577,19 @@ sub make_pl_ifthenelse {
     $node->{if} = $if;
     $node->{then} = $then;
     $node->{else} = $else;
+
+    return node_to_array($node);
+}
+
+sub make_pl_raise {
+    my (undef, undef, $ident) = @_;
+    my $node = make_node('pl_raise');
+    my $name = make_node('literal');
+
+    $name->{value} = format_node($ident);
+
+    $node->{level} = 'EXCEPTION';
+    $node->{val} = $name;
 
     return node_to_array($node);
 }

@@ -59,10 +59,11 @@ create global temporary table test_glob_tmp (id number(9) constraint tmp_fk refe
 truncate table tst_tbl preserve materialized view log;
 create or replace procedure "Test_Proc" (id numeric) is
 new text := 'set';
+invalid_input exception;
 begin
     IF id <= 0 THEN
     DBMS_OUTPUT.put_line
-    ('not correct');
+    ('not correct'); raise invalid_input;
     <<block1>>
     BEGIN
         truncate table tmp;

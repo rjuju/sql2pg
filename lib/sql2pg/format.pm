@@ -725,7 +725,9 @@ sub format_pl_block {
     if ($node->{declare}) {
         $out .= tab() . "DECLARE\n";
         $depth++;
-        foreach my $v (@{$node->{declare}}) {
+        VAR: foreach my $v (@{$node->{declare}}) {
+            # can be undefined, exception var are removed at parse time
+            next VAR unless($v);
             $out .= tab() . format_node($v) . " ;\n";
         }
         $depth--;

@@ -132,6 +132,7 @@ BEGIN
   
   IF id <= 0 THEN
     RAISE NOTICE 'not correct' ;
+    RAISE EXCEPTION 'invalid_input' ;
     
     <<block1>>
     BEGIN
