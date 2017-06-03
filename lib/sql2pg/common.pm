@@ -297,6 +297,8 @@ sub expression_tree_walker {
         } elsif (
             isA($node, 'ident')
             or isA($node, 'number')
+            or isA($node, 'pl_ret')
+            or isA($node, 'pl_set')
         ) {
             no strict;
             return 1 if (&$func($node, $extra));
@@ -311,6 +313,34 @@ sub expression_tree_walker {
         } elsif (isA($node, 'parens')) {
             return 1 if (expression_tree_walker($node->{node}, $func, $extra));
             return 1 if (expression_tree_walker($node->{alias}, $func, $extra));
+        } elsif (isA($node, 'select')) {
+            SEL_ELEM: foreach my $k (keys %{$node}) {
+                next SEL_ELEM if ($k eq 'type');
+                return 1 if (expression_tree_walker($node->{$k}, $func, $extra));
+            }
+        } elsif (
+            isA($node, 'SELECT')
+            or isA($node, 'INTO')
+            or isA($node, 'FROM')
+            or isA($node, 'WHERE')
+            or isA($node, 'GROUPBY')
+            or isA($node, 'HAVING')
+            or isA($node, 'ORDERBY')
+            or isA($node, 'FORUPDATE')
+            or isA($node, 'LIMIT')
+            or isA($node, 'OFFSET')
+        ) {
+                return 1 if (expression_tree_walker($node->{content}, $func, $extra));
+        } elsif (isA($node, 'target_list')) {
+                return 1 if (expression_tree_walker($node->{tlist}, $func, $extra));
+        } elsif (isA($node, 'pl_block')) {
+                return 1 if (expression_tree_walker($node->{declare}, $func, $extra));
+                return 1 if (expression_tree_walker($node->{stmts}, $func, $extra));
+                return 1 if (expression_tree_walker($node->{exception}, $func, $extra));
+        } elsif (isA($node, 'pl_ifthenelse')) {
+                return 1 if (expression_tree_walker($node->{if}, $func, $extra));
+                return 1 if (expression_tree_walker($node->{then}, $func, $extra));
+                return 1 if (expression_tree_walker($node->{else}, $func, $extra));
         } else {
             error("Node \"$node->{type}\" not handled.\n"
                 . "Please report an issue.");

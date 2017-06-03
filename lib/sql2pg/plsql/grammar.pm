@@ -2015,12 +2015,7 @@ sub make_createtrigger {
 
     # Check if original trigger body contained "RETURN ;" instruction, and
     # replace them to "RETURN NEW ;"
-    foreach my $s (@{$block->{stmts}}) {
-        if (isA($s, 'p_ret') and not $s->{ident}) {
-            $s->{ident} = make_node('ident');
-            $s->{ident}->{attribute} = 'NEW';
-        }
-    }
+    expression_tree_walker($block->{stmts}, 'sql2pg::plsql::utils::force_pl_ret_new', undef);
 
     # Force final "RETURN NEW ;" by surrounding all code in a new block and
     # appending a RETURN NEW after

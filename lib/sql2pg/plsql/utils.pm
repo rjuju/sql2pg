@@ -110,6 +110,17 @@ sub createtable_hook {
     return ($node, $stmts);
 }
 
+sub force_pl_ret_new {
+    my ($node, $extra) = @_;
+
+    if (isA($node, 'pl_ret') and not $node->{val}) {
+        $node->{val} = make_node('ident');
+        $node->{val}->{attribute} = 'NEW';
+    }
+
+    return 0;
+}
+
 # This function will transform an oracle hierarchical query (CONNECT BY) to a
 # standard recursive query (WITH RECURSIVE).  A new statement is returned that
 # must replace the original one.
