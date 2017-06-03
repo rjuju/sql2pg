@@ -2002,6 +2002,8 @@ sub make_createtrigger {
     my (undef, $replace, $ident, $when, $on, $for, $block) = @_;
     my $proc = make_node('pl_func');
     my $trig = make_node('createtrigger');
+    my $return = make_node('pl_ret');
+    my $body= make_node('pl_block');
     my $stmts = [];
 
     assert_one_el($block);
@@ -2016,12 +2018,19 @@ sub make_createtrigger {
         }
     }
 
+    # Force final "RETURN NEW ;" by surrounding all code in a new block and
+    # appending a RETURN NEW after
+    $return->{ident}= make_node('ident');
+    $return->{ident}->{attribute} = 'NEW';
+    $body->{stmts} = node_to_array($block);
+    push(@{$body->{stmts}}, $return);
+
     $proc->{ident} = $ident;
     # pg's CREATE TRIGGER doesn't accept "OR REPLACE", so move it to the
     # associated function
     $proc->{replace} = $replace;
     $proc->{returns} = 'trigger';
-    $proc->{block} = $block;
+    $proc->{block} = $body;
     push(@{$stmts}, $proc);
 
     $trig->{ident} = $ident;
