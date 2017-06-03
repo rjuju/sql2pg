@@ -2004,6 +2004,18 @@ sub make_createtrigger {
     my $trig = make_node('createtrigger');
     my $stmts = [];
 
+    assert_one_el($block);
+    $block = pop(@{$block});
+
+    # Check if original trigger body contained "RETURN ;" instruction, and
+    # replace them to "RETURN NEW ;"
+    foreach my $s (@{$block->{stmts}}) {
+        if (isA($s, 'p_ret') and not $s->{ident}) {
+            $s->{ident} = make_node('ident');
+            $s->{ident}->{attribute} = 'NEW';
+        }
+    }
+
     $proc->{ident} = $ident;
     # pg's CREATE TRIGGER doesn't accept "OR REPLACE", so move it to the
     # associated function
