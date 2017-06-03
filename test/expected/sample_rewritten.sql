@@ -106,8 +106,8 @@ CREATE FUNCTION tbl_virtual_virtual_cols()
 RETURNS trigger AS
 $_$
 BEGIN
-    NEW.id1 := to_date(NEW.id) ;
-    NEW.id2 := NEW.id / 10 ;
+  NEW.id1 := to_date(NEW.id) ;
+  NEW.id2 := NEW.id / 10 ;
   
   RETURN NEW ;
 END ;
@@ -150,12 +150,17 @@ $_$ language plpgsql ;
 CREATE OR REPLACE FUNCTION test_trg()
 RETURNS  trigger  AS
 $_$
-DECLARE
-  ok integer ;
 BEGIN
-  SELECT count(*) > 0 INTO ok FROM nsp.tbl ;
+    DECLARE
+    ok integer ;
+  BEGIN
+    SELECT count(*) > 0 INTO ok FROM nsp.tbl ;
+    new.ok := ok ;
+  END ;
+  
+  RETURN NEW ;
 END ;
 $_$ language plpgsql ;
 CREATE TRIGGER test_trg
-    AFTER UPDATE ON nsp.tbl FOR EACH ROW
+    BEFORE UPDATE ON nsp.tbl FOR EACH ROW
     EXECUTE PROCEDURE test_trg() ;

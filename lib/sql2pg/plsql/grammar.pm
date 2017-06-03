@@ -1076,6 +1076,7 @@ pl_stmt ::=
     | IfThenElse
     | pl_block
     | pl_raise_exc
+    | pl_set
 
 pl_exception ::=
     EXCEPTION pl_exception_list action => second
@@ -1102,6 +1103,9 @@ IfThenElse ::=
 
 pl_raise_exc ::=
     RAISE IDENT action => make_pl_raise
+
+pl_set ::=
+    IDENT ':=' target_el action => make_pl_set
 
 CreateTriggerStmt ::=
     (CREATE) or_replace_clause (TRIGGER) IDENT trigger_when (ON) IDENT
@@ -2682,6 +2686,16 @@ sub make_pl_raise {
     $node->{level} = 'EXCEPTION';
     $node->{val} = make_node('literal');
     $node->{val}->{value} = format_node($ident);
+
+    return node_to_array($node);
+}
+
+sub make_pl_set {
+    my (undef, $ident, undef, $el) = @_;
+    my $node = make_node('pl_set');
+
+    $node->{ident} = $ident;
+    $node->{val} = $el;
 
     return node_to_array($node);
 }

@@ -847,7 +847,7 @@ sub format_pl_ret {
 sub format_pl_set {
     my ($node) = @_;
 
-    return tab() . format_node($node->{ident}) . ' := ' . format_node($node->{val});
+    return format_node($node->{ident}) . ' := ' . format_node($node->{val});
 }
 
 sub format_proarg {
