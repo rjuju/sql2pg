@@ -2582,7 +2582,8 @@ sub make_pl_exception_when {
     my (undef, undef, $ident, undef, $stmts) = @_;
     my $node = make_node('pl_exception_when');
 
-    $node->{ident} = $ident;
+    $node->{val} = make_node('literal');
+    $node->{val}->{value} = format_node($ident);
     $node->{stmts} = $stmts;
 
     return $node;
@@ -2602,12 +2603,10 @@ sub make_pl_ifthenelse {
 sub make_pl_raise {
     my (undef, undef, $ident) = @_;
     my $node = make_node('pl_raise');
-    my $name = make_node('literal');
-
-    $name->{value} = format_node($ident);
 
     $node->{level} = 'EXCEPTION';
-    $node->{val} = $name;
+    $node->{val} = make_node('literal');
+    $node->{val}->{value} = format_node($ident);
 
     return node_to_array($node);
 }

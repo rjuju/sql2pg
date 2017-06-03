@@ -24,6 +24,7 @@ use sql2pg::common;
 our @fixme;
 my $tab = "  ";
 my $depth = 0;
+my %exceptions = ('id' => 50001);
 
 sub format_alias {
     my ($alias) = @_;
@@ -757,8 +758,9 @@ sub format_pl_block {
 sub format_pl_exception_when {
     my ($node) = @_;
     my $out;
+    my $name = format_node($node->{val});
 
-    $out = 'WHEN ' . format_node($node->{ident}) . " THEN\n";
+    $out = "WHEN SQLSTATE '" . $exceptions{$name} . "' THEN\n";
 
     $depth++;
     foreach my $s (@{$node->{stmts}}) {
@@ -816,12 +818,24 @@ sub format_pl_ifthenelse {
     }
 
     $out .= tab() . "END IF";
+
+    return $out;
 }
 
 sub format_pl_raise {
     my ($node) = @_;
+    my $out;
+    my $name = format_node($node->{val});
 
-    return "RAISE $node->{level} " . format_node($node->{val});
+    $out = "RAISE $node->{level} $name";
+
+    if ($node->{level} eq 'EXCEPTION') {
+        $exceptions{$name} = $exceptions{id}++
+            unless (exists $exceptions{$name});
+        $out .= " USING ERRCODE = '$exceptions{$name}'";
+    }
+
+    return $out;
 }
 
 sub format_pl_ret {

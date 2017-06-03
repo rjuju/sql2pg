@@ -63,12 +63,13 @@ invalid_input exception;
 begin
     IF id <= 0 THEN
     DBMS_OUTPUT.put_line
-    ('not correct'); raise invalid_input;
+    ('not correct'); raise invalid_input; raise invalid_input2; raise invalid_input;
     <<block1>>
     BEGIN
         truncate table tmp;
     END block1;
 else 
-    end if; end "Test_Proc";
+    end if;
+exception when invalid_input then dbms_output.put_line('exception catched'); end "Test_Proc";
 
 -- I don't belong to any query

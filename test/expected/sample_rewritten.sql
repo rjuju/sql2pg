@@ -132,7 +132,9 @@ BEGIN
   
   IF id <= 0 THEN
     RAISE NOTICE 'not correct' ;
-    RAISE EXCEPTION 'invalid_input' ;
+    RAISE EXCEPTION 'invalid_input' USING ERRCODE = '50001' ;
+    RAISE EXCEPTION 'invalid_input2' USING ERRCODE = '50002' ;
+    RAISE EXCEPTION 'invalid_input' USING ERRCODE = '50001' ;
     
     <<block1>>
     BEGIN
@@ -140,5 +142,8 @@ BEGIN
     END ;
   ELSE
   END IF ;
+EXCEPTION
+  WHEN SQLSTATE '50001' THEN
+    RAISE NOTICE 'exception catched' ;
 END ;
 $_$ language plpgsql ;
