@@ -96,6 +96,7 @@ CreateStmt ::=
     | CreateTblspcStmt
     | CreateSequenceStmt
     | CreateProcStmt
+    | CreateTriggerStmt
 
 TransacStmt ::=
     BEGIN action => make_keyword
@@ -1087,7 +1088,7 @@ pl_exception_when ::=
     WHEN IDENT THEN pl_body action => make_pl_exception_when
 
 pl_block ::=
-    pl_block_ident pl_declareblock (BEGIN) pl_body pl_exception (END) IDENT
+    pl_block_ident pl_declareblock (BEGIN) pl_body pl_exception (END) _IDENT
         action => make_pl_block
 
 pl_block_ident ::=
@@ -1101,6 +1102,24 @@ IfThenElse ::=
 
 pl_raise_exc ::=
     RAISE IDENT action => make_pl_raise
+
+CreateTriggerStmt ::=
+    (CREATE) or_replace_clause (TRIGGER) IDENT trigger_when (ON) IDENT
+        trigger_for pl_block action => make_createtrigger
+
+trigger_when ::=
+    AFTER trigger_event action => concat
+    | BEFORE trigger_event action => concat
+    | INSTEAD OF trigger_event action => concat
+
+trigger_event ::=
+    INSERT
+    | UPDATE
+    | DELETE
+
+trigger_for ::=
+    FOR EACH ROW action => concat
+    | FOR EACH STATEMENT action => concat
 
 AlterTableStmt ::=
     ALTER TABLE IDENT AT_action action => make_altertable
@@ -1211,6 +1230,10 @@ SIZE_CLAUSE ::=
     integer_unit action => discard
     | UNLIMITED action => discard
 
+_IDENT ::=
+    IDENT
+    | EMPTY
+
 _UNIQUE ::=
     UNIQUE
     | EMPTY
@@ -1244,6 +1267,7 @@ OPERATOR ::=
 # keywords
 ACTION              ~ 'ACTION':ic
 ADD                 ~ 'ADD':ic
+AFTER               ~ 'AFTER':ic
 ALWAYS              ~ 'ALWAYS':ic
 ALL                 ~ 'ALL':ic
 ALTER               ~ 'ALTER':ic
@@ -1257,6 +1281,7 @@ AUTO                ~ 'AUTO':ic
 AUTOALLOCATE        ~ 'AUTOALLOCATE':ic
 AUTOEXTEND          ~ 'AUTOEXTEND':ic
 AUTOMATIC           ~ 'AUTOMATIC':ic
+BEFORE              ~ 'BEFORE':ic
 BEGIN               ~ 'BEGIN':ic;
 :lexeme             ~ BEGIN pause => after event => keyword
 BETWEEN             ~ 'BETWEEN':ic
@@ -1306,6 +1331,7 @@ DICTIONNARY         ~ 'DICTIONNARY':ic
 DIMENSION           ~ 'DIMENSION':ic
 DISABLE             ~ 'DISABLE':ic
 DISTINCT            ~ 'DISTINCT':ic
+EACH                ~ 'EACH':ic
 ELSE                ~ 'ELSE':ic
 ENABLE              ~ 'ENABLE':ic
 ENCRYPT             ~ 'ENCRYPT':ic
@@ -1351,6 +1377,7 @@ INITRANS            ~ 'INITRANS':ic
 INTERVAL            ~ 'INTERVAL':ic
 INSERT              ~ 'INSERT':ic
 :lexeme             ~ INSERT pause => after event => keyword
+INSTEAD             ~ 'INSTEAD':ic
 INTERSECT           ~ 'INTERSECT':ic
 INTO                ~ 'INTO':ic
 _IS                 ~ 'IS':ic
@@ -1467,6 +1494,7 @@ SKIP                ~ 'SKIP':ic
 SMALLFILE           ~ 'SMALLFILE':ic
 SPACE               ~ 'SPACE':ic
 START               ~ 'START':ic
+STATEMENT           ~ 'STATEMENT':ic
 STATEMENT_ID        ~ 'STATEMENT_ID':ic
 STORAGE             ~ 'STORAGE':ic
 TABLE               ~ 'TABLE':ic
@@ -1478,6 +1506,7 @@ THEN                ~ 'THEN':ic
 TIME                ~ 'TIME':ic
 TIMESTAMP           ~ 'TIMESTAMP':ic
 TO                  ~ 'TO':ic
+TRIGGER             ~ 'TRIGGER':ic
 TRUNCATE            ~ 'TRUNCATE':ic
 UNBOUNDED           ~ 'UNBOUNDED':ic
 UNDO                ~ 'UNDO':ic
@@ -1967,6 +1996,30 @@ sub make_createtableas {
     # drop $options
 
     return node_to_array($node);
+}
+
+sub make_createtrigger {
+    my (undef, $replace, $ident, $when, $on, $for, $block) = @_;
+    my $proc = make_node('pl_func');
+    my $trig = make_node('createtrigger');
+    my $stmts = [];
+
+    $proc->{ident} = $ident;
+    # pg's CREATE TRIGGER doesn't accept "OR REPLACE", so move it to the
+    # associated function
+    $proc->{replace} = $replace;
+    $proc->{returns} = 'trigger';
+    $proc->{block} = $block;
+    push(@{$stmts}, $proc);
+
+    $trig->{ident} = $ident;
+    $trig->{when} = $when;
+    $trig->{on} = $on;
+    $trig->{for} = $for;
+    $trig->{func} = $ident;
+    push(@{$stmts}, $trig);
+
+    return $stmts;
 }
 
 sub make_createviewas {

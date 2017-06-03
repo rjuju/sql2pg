@@ -147,3 +147,15 @@ EXCEPTION
     RAISE NOTICE 'exception catched' ;
 END ;
 $_$ language plpgsql ;
+CREATE OR REPLACE FUNCTION test_trg()
+RETURNS  trigger  AS
+$_$
+DECLARE
+  ok integer ;
+BEGIN
+  SELECT count(*) > 0 INTO ok FROM nsp.tbl ;
+END ;
+$_$ language plpgsql ;
+CREATE TRIGGER test_trg
+    AFTER UPDATE ON nsp.tbl FOR EACH ROW
+    EXECUTE PROCEDURE test_trg() ;
