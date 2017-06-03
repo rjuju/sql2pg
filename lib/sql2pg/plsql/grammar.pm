@@ -1570,8 +1570,9 @@ operator            ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
                     | '+' | '-' | '*' | '/' | '||' | _IS
 
 :discard                    ~ discard
-discard                     ~ whitespace
+discard                     ~ whitespace | slash
 whitespace                  ~ [\s]+
+slash                       ~ [/]
 :discard                     ~ comment event => add_comment
 comment                     ~ dash_comment | c_comment
 dash_comment                ~ '--' dash_chars
