@@ -297,6 +297,7 @@ sub expression_tree_walker {
         } elsif (
             isA($node, 'ident')
             or isA($node, 'number')
+            or isA($node, 'keyword')
             or isA($node, 'pl_ret')
             or isA($node, 'pl_set')
         ) {
@@ -341,6 +342,9 @@ sub expression_tree_walker {
                 return 1 if (expression_tree_walker($node->{if}, $func, $extra));
                 return 1 if (expression_tree_walker($node->{then}, $func, $extra));
                 return 1 if (expression_tree_walker($node->{else}, $func, $extra));
+        } elsif (isA($node, 'pl_exception_when')) {
+                return 1 if (expression_tree_walker($node->{name}, $func, $extra));
+                return 1 if (expression_tree_walker($node->{stmts}, $func, $extra));
         } else {
             error("Node \"$node->{type}\" not handled.\n"
                 . "Please report an issue.");
