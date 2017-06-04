@@ -760,7 +760,13 @@ sub format_pl_exception_when {
     my $out;
     my $name = format_node($node->{val});
 
-    $out = "WHEN SQLSTATE '" . $exceptions{$name} . "' THEN\n";
+    if ($exceptions{$name}) {
+        # Custom exception, rewritten to SQLSTATE 'id'
+        $out = "WHEN SQLSTATE '" . $exceptions{$name} . "' THEN\n";
+    } else {
+        # Standard exception
+        $out = "WHEN " . uc($node->{val}->{value}) . " THEN\n";
+    }
 
     $depth++;
     foreach my $s (@{$node->{stmts}}) {
