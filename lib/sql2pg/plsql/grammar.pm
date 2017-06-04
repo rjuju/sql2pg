@@ -1078,6 +1078,7 @@ pl_stmt ::=
     | pl_raise_exc
     | pl_return
     | pl_set
+    | NULL action => make_keyword
 
 pl_exception ::=
     EXCEPTION pl_exception_list action => second
