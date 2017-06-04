@@ -91,8 +91,8 @@ sub createtable_hook {
         $block->{stmts} = $proc_body;
 
         $pl_ret = make_node('pl_ret');
-        $pl_ret->{ident} = make_node('ident');
-        $pl_ret->{ident}->{attribute} = 'NEW';
+        $pl_ret->{val} = make_node('ident');
+        $pl_ret->{val}->{attribute} = 'NEW';
         push(@{$block->{stmts}}, $pl_ret);
 
         $proc->{block} = $block;

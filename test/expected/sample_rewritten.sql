@@ -156,6 +156,8 @@ BEGIN
   BEGIN
     SELECT count(*) > 0 INTO ok FROM nsp.tbl ;
     new.ok := ok ;
+    
+    RETURN NEW ;
   END ;
   
   RETURN NEW ;

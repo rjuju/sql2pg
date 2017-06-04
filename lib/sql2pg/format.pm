@@ -841,7 +841,7 @@ sub format_pl_raise {
 sub format_pl_ret {
     my ($node) = @_;
 
-    return "\n" . tab() . "RETURN " . format_node($node->{ident});
+    return "\n" . tab() . "RETURN " . format_node($node->{val});
 }
 
 sub format_pl_set {

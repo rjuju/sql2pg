@@ -1076,6 +1076,7 @@ pl_stmt ::=
     | IfThenElse
     | pl_block
     | pl_raise_exc
+    | pl_return
     | pl_set
 
 pl_exception ::=
@@ -1103,6 +1104,10 @@ IfThenElse ::=
 
 pl_raise_exc ::=
     RAISE IDENT action => make_pl_raise
+
+pl_return ::=
+    RETURN action => make_pl_ret
+    | RETURN target_el action => make_pl_ret
 
 pl_set ::=
     IDENT ':=' target_el action => make_pl_set
@@ -2019,8 +2024,8 @@ sub make_createtrigger {
 
     # Force final "RETURN NEW ;" by surrounding all code in a new block and
     # appending a RETURN NEW after
-    $return->{ident}= make_node('ident');
-    $return->{ident}->{attribute} = 'NEW';
+    $return->{val}= make_node('ident');
+    $return->{val}->{attribute} = 'NEW';
     $body->{stmts} = node_to_array($block);
     push(@{$body->{stmts}}, $return);
 
@@ -2681,6 +2686,15 @@ sub make_pl_raise {
     $node->{level} = 'EXCEPTION';
     $node->{val} = make_node('literal');
     $node->{val}->{value} = format_node($ident);
+
+    return node_to_array($node);
+}
+
+sub make_pl_ret {
+    my (undef, undef, $el) = @_;
+    my $node = make_node('pl_ret');
+
+    $node->{val} = $el;
 
     return node_to_array($node);
 }

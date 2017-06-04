@@ -72,5 +72,5 @@ else
     end if;
 exception when invalid_input then dbms_output.put_line('exception catched'); end "Test_Proc";
 create or replace trigger test_trg before update on nsp.tbl for each row declare
-ok integer; begin select count(*) > 0 into ok from nsp.tbl; NEW.ok := ok;end;
+ok integer; begin select count(*) > 0 into ok from nsp.tbl; NEW.ok := ok;return;end;
 -- I don't belong to any query
