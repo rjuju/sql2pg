@@ -1062,8 +1062,14 @@ pl_args ::=
     pl_arg* separator => COMMA action => ::array
 
 pl_arg ::=
-    IDENT datatype action => make_pl_arg
-    | IDENT datatype (':=') target_el action => make_pl_arg
+    IDENT argmode datatype action => make_pl_arg
+    | IDENT argmode datatype (':=') target_el action => make_pl_arg
+
+argmode ::=
+    IN action => upper
+    | OUT action => upper
+    | IN OUT action => concat
+    | EMPTY
 
 pl_declareblock ::=
     # in a <<IDENT>> block
@@ -1392,10 +1398,10 @@ IN                  ~ 'IN':ic
 INCLUDE             ~ 'INCLUDE':ic
 INCREMENT           ~ 'INCREMENT':ic
 INDEX               ~ 'INDEX':ic
-INNER               ~ 'INNER':ic
 INITIAL             ~ 'INITIAL':ic
 INITIALLY           ~ 'INITIALLY':ic
 INITRANS            ~ 'INITRANS':ic
+INNER               ~ 'INNER':ic
 INTERVAL            ~ 'INTERVAL':ic
 INSERT              ~ 'INSERT':ic
 :lexeme             ~ INSERT pause => after event => keyword
@@ -1460,6 +1466,7 @@ OPTION              ~ 'OPTION':ic
 OR                  ~ 'OR':ic
 ORDER               ~ 'ORDER':ic
 ON                  ~ 'ON':ic
+OUT                 ~ 'OUT':ic
 OUTER               ~ 'OUTER':ic
 OVER                ~ 'OVER':ic
 PARALLEL            ~ 'PARALLEL':ic
@@ -2644,16 +2651,20 @@ sub make_pk_clause {
 }
 
 sub make_pl_arg {
-    my (undef, $ident, $datatype, $val) = @_;
+    my (undef, $ident, $argmode, $datatype, $val) = @_;
     my $node = make_node('pl_arg');
 
     assert_one_el($datatype);
     $datatype = pop(@{$datatype});
 
+    # PG supports IN OUT, but SQL99 standard requires INOUT
+    $argmode = 'INOUT' if ($argmode and $argmode eq 'IN OUT');
+
     # ignore any exception
     return undef if ($datatype->{ident}->{attribute} eq 'exception');
 
     $node->{ident} = $ident;
+    $node->{argmode} = $argmode;
     $node->{datatype} = $datatype;
     $node->{val} = $val;
 

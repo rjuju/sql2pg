@@ -57,7 +57,7 @@ select * from a join b a2 using (id) unpivot (value for value_type in (a,b) ) OR
 create table tbl_virtual(id number primary key, data blob not null, id1 as (to_date(id)), id2 number generated always as (id/10),);
 create global temporary table test_glob_tmp (id number(9) constraint tmp_fk references tbl_virtual(id1));
 truncate table tst_tbl preserve materialized view log;
-create or replace procedure "Test_Proc" (id numeric) is
+create or replace procedure "Test_Proc" (id in out numeric) is
 new text := 'set';
 invalid_input exception;
 begin
@@ -73,7 +73,7 @@ else null;
 exception when invalid_input then dbms_output.put_line('exception catched'); end "Test_Proc";
 create or replace trigger test_trg before update on nsp.tbl for each row declare
 ok integer; begin select count(*) > 0 into ok from nsp.tbl; NEW.ok := ok;return;end;
-create Function "test_func"(id number) return varchar2 is
+create Function "test_func"(id in number) return varchar2 is
 begin
     if id <= 0 then begin if id < 0 then return 'val is negative'; else return
         'id is zero' end if; end; end if;
