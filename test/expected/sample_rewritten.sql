@@ -172,6 +172,21 @@ RETURNS varchar AS
 $_$
 BEGIN
   
+  IF id <= 0 THEN
+        BEGIN
+      
+      IF id < 0 THEN
+        
+        RETURN 'val is negative' ;
+      ELSE
+        
+        RETURN 'id is zero' ;
+      END IF ;
+    END ;
+  END IF ;
+END ;
+BEGIN
+  
   RETURN 'val is ' || COALESCE(id, 'unknown') ;
 END ;
 $_$ language plpgsql ;
