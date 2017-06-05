@@ -75,6 +75,10 @@ create or replace trigger test_trg before update on nsp.tbl for each row declare
 ok integer; begin select count(*) > 0 into ok from nsp.tbl; NEW.ok := ok;return;end;
 create Function "test_func"(id number) return varchar2 is
 begin
+    if id <= 0 then begin if id < 0 then return 'val is negative'; else return
+        'id is zero' end if; end; end if;
+end;
+begin
 return 'val is ' || nvl(id, 'unknown');
 end;
 -- I don't belong to any query

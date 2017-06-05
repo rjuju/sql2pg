@@ -794,9 +794,12 @@ sub format_pl_func {
     $out .= "RETURNS " . format_node($node->{returns}) . " AS\n";
     $out .= "\$_\$\n";
 
-    $out .= format_node($node->{block});
+    foreach my $b (@{$node->{blocks}}) {
+        #$out .= format_node($node->{block});
+        $out .= format_node($b) . " ;\n";
+    }
 
-    $out .= " ;\n\$_\$ language plpgsql";
+    $out .= "\$_\$ language plpgsql";
 
     return $out;
 }

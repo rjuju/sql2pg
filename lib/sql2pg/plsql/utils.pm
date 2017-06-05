@@ -95,7 +95,7 @@ sub createtable_hook {
         $pl_ret->{val}->{attribute} = 'NEW';
         push(@{$block->{stmts}}, $pl_ret);
 
-        $proc->{block} = $block;
+        $proc->{blocks} = node_to_array($block);
 
         $trig->{ident} = $ident;
         $trig->{when} = 'BEFORE INSERT OR UPDATE';
