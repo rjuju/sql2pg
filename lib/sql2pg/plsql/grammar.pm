@@ -1043,8 +1043,16 @@ seq_option ::=
     | (NOCYCLE) action => make_seq_nocycle
 
 CreateProcStmt ::=
-    (CREATE) or_replace_clause (PROCEDURE) IDENT pl_arglist (IS)
-        pl_block action => make_createpl_func
+    (CREATE) or_replace_clause (pl_type) IDENT pl_arglist pl_return_clause
+        (IS) pl_block action => make_createpl_func
+
+pl_type ::=
+    PROCEDURE
+    | FUNCTION
+
+pl_return_clause ::=
+    RETURN datatype action => second
+    | EMPTY
 
 pl_arglist ::=
     ('(') pl_args (')') action => ::first
@@ -1365,6 +1373,7 @@ FREELIST            ~ 'FREELIST':ic
 FREELISTS           ~ 'FREELISTS':ic
 FROM                ~ 'FROM':ic
 FULL                ~ 'FULL':ic
+FUNCTION            ~ 'FUNCTION':ic
 GUARANTEE           ~ 'GUARANTEE':ic
 GENERATED           ~ 'GENERATED':ic
 GLOBAL              ~ 'GLOBAL':ic
@@ -1941,17 +1950,19 @@ sub make_createindex {
 }
 
 sub make_createpl_func {
-    my (undef, $replace, $ident, $args, $block)
+    my (undef, $replace, $ident, $args, $returns, $block)
         = @_;
     my $node = make_node('pl_func');
-    my $returns = make_node('keyword');
-
-    $returns->{val} = 'void';
 
     $node->{ident} = $ident;
     $node->{replace} = $replace;
     $node->{args} = $args;
-    $node->{returns} = $returns;
+    if ($returns) {
+        $node->{returns} = $returns;
+    } else {
+        $node->{returns} = make_node('keyword');
+        $node->{returns}->{val} = 'void';
+    }
     $node->{block} = $block;
 
     return node_to_array($node);

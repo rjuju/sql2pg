@@ -167,3 +167,11 @@ $_$ language plpgsql ;
 CREATE TRIGGER test_trg
     BEFORE UPDATE ON nsp.tbl FOR EACH ROW
     EXECUTE PROCEDURE test_trg() ;
+CREATE FUNCTION test_func(id numeric)
+RETURNS varchar AS
+$_$
+BEGIN
+  
+  RETURN 'val is ' || COALESCE(id, 'unknown') ;
+END ;
+$_$ language plpgsql ;

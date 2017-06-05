@@ -73,4 +73,8 @@ else null;
 exception when invalid_input then dbms_output.put_line('exception catched'); end "Test_Proc";
 create or replace trigger test_trg before update on nsp.tbl for each row declare
 ok integer; begin select count(*) > 0 into ok from nsp.tbl; NEW.ok := ok;return;end;
+create Function "test_func"(id number) return varchar2 is
+begin
+return 'val is ' || nvl(id, 'unknown');
+end;
 -- I don't belong to any query
