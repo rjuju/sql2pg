@@ -1911,6 +1911,14 @@ sub make_coldefault {
     my (undef, undef, $el) = @_;
     my $node = make_node('coldefault');
 
+    assert_one_el($el);
+    $el = pop(@{$el});
+
+    # Remove extraneous parens if any
+    if (isA($el, 'parens') and scalar(@{$el->{node}}) == 1) {
+        $el = pop(@{$el->{node}});
+    }
+
     $node->{el} = $el;
 
     return node_to_array($node);
