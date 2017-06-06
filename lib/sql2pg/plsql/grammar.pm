@@ -1062,8 +1062,8 @@ pl_args ::=
     pl_arg* separator => COMMA action => ::array
 
 pl_arg ::=
-    IDENT argmode datatype action => make_pl_arg
-    | IDENT argmode datatype (':=') target_el action => make_pl_arg
+    IDENT argmode datatype col_default action => make_pl_arg
+    | IDENT argmode datatype col_default (':=') target_el action => make_pl_arg
 
 argmode ::=
     IN action => upper
@@ -2651,7 +2651,7 @@ sub make_pk_clause {
 }
 
 sub make_pl_arg {
-    my (undef, $ident, $argmode, $datatype, $val) = @_;
+    my (undef, $ident, $argmode, $datatype, $default, $val) = @_;
     my $node = make_node('pl_arg');
 
     assert_one_el($datatype);
@@ -2666,6 +2666,7 @@ sub make_pl_arg {
     $node->{ident} = $ident;
     $node->{argmode} = $argmode;
     $node->{datatype} = $datatype;
+    $node->{default} = $default;
     $node->{val} = $val;
 
     return $node;

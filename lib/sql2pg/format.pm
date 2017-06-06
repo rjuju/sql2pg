@@ -712,6 +712,7 @@ sub format_pl_arg {
     $out .= ' ' . $node->{argmode}
         if ($node->{argmode} and $node->{argmode} ne 'IN');
     $out .= ' ' . format_node($node->{datatype});
+    $out .= ' ' . format_node($node->{default}) if ($node->{default});
     $out .= ' := ' . format_node($node->{val}) if ($node->{val});
 
     return $out;
