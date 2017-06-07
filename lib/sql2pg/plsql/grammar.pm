@@ -1044,7 +1044,7 @@ seq_option ::=
 
 CreateProcStmt ::=
     (CREATE) or_replace_clause (pl_type) IDENT pl_arglist pl_return_clause
-        (IS) pl_blocks action => make_createpl_func
+        (AS_IS) pl_blocks action => make_createpl_func
 
 pl_type ::=
     PROCEDURE
@@ -1259,6 +1259,10 @@ SIZE_CLAUSE ::=
     # for now, all usage of this isn't translated
     integer_unit action => discard
     | UNLIMITED action => discard
+
+AS_IS ::=
+    AS
+    | IS
 
 _IDENT ::=
     IDENT
