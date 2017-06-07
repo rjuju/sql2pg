@@ -713,7 +713,6 @@ sub format_pl_arg {
         if ($node->{argmode} and $node->{argmode} ne 'IN');
     $out .= ' ' . format_node($node->{datatype});
     $out .= ' ' . format_node($node->{default}) if ($node->{default});
-    $out .= ' := ' . format_node($node->{val}) if ($node->{val});
 
     return $out;
 }
@@ -862,6 +861,17 @@ sub format_pl_set {
     my ($node) = @_;
 
     return format_node($node->{ident}) . ' := ' . format_node($node->{val});
+}
+
+sub format_pl_var {
+    my ($node) = @_;
+    my $out;
+
+    $out = format_node($node->{ident});
+    $out .= ' ' . format_node($node->{datatype});
+    $out .= ' := ' . format_node($node->{val}) if ($node->{val});
+
+    return $out;
 }
 
 sub format_proarg {

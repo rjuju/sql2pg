@@ -1063,7 +1063,6 @@ pl_args ::=
 
 pl_arg ::=
     IDENT argmode datatype col_default action => make_pl_arg
-    | IDENT argmode datatype col_default (':=') target_el action => make_pl_arg
 
 argmode ::=
     IN action => upper
@@ -1079,7 +1078,11 @@ pl_declareblock ::=
     | EMPTY
 
 pl_declarelist ::=
-    pl_arg* separator => SEMICOLON action => ::array
+    pl_var* separator => SEMICOLON action => ::array
+
+pl_var ::=
+    IDENT datatype col_default action => make_pl_var
+    | IDENT datatype col_default (':=') target_el action => make_pl_var
 
 pl_blocks ::=
     pl_block* separator => SEMICOLON action => ::array
@@ -2659,7 +2662,7 @@ sub make_pk_clause {
 }
 
 sub make_pl_arg {
-    my (undef, $ident, $argmode, $datatype, $default, $val) = @_;
+    my (undef, $ident, $argmode, $datatype, $default) = @_;
     my $node = make_node('pl_arg');
 
     assert_one_el($datatype);
@@ -2668,14 +2671,10 @@ sub make_pl_arg {
     # PG supports IN OUT, but SQL99 standard requires INOUT
     $argmode = 'INOUT' if ($argmode and $argmode eq 'IN OUT');
 
-    # ignore any exception
-    return undef if ($datatype->{ident}->{attribute} eq 'exception');
-
     $node->{ident} = $ident;
     $node->{argmode} = $argmode;
     $node->{datatype} = $datatype;
     $node->{default} = $default;
-    $node->{val} = $val;
 
     return $node;
 }
@@ -2742,6 +2741,30 @@ sub make_pl_set {
     $node->{val} = $el;
 
     return node_to_array($node);
+}
+
+sub make_pl_var {
+    my (undef, $ident, $datatype, $default, $val) = @_;
+    my $node = make_node('pl_var');
+
+    assert_one_el($datatype);
+    $datatype = pop(@{$datatype});
+
+    if ($default) {
+        assert_one_el($default);
+        $default = pop(@{$default});
+    }
+
+    # ignore any exception
+    return undef if ($datatype->{ident}->{attribute} eq 'exception');
+
+    $node->{ident} = $ident;
+    $node->{datatype} = $datatype;
+    # replace DEFAULT clause with simple assignment
+    $node->{val} = $default->{el} if ($default);
+    $node->{val} = $val if ($val);
+
+    return $node;
 }
 
 sub make_priorqual {

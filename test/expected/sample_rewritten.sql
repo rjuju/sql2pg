@@ -170,6 +170,8 @@ CREATE TRIGGER test_trg
 CREATE FUNCTION test_func(id numeric DEFAULT (0))
 RETURNS varchar AS
 $_$
+DECLARE
+  val varchar(255) := 'unset' ;
 BEGIN
   
   IF id <= 0 THEN

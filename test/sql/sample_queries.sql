@@ -74,6 +74,7 @@ exception when invalid_input then dbms_output.put_line('exception catched'); end
 create or replace trigger test_trg before update on nsp.tbl for each row declare
 ok integer; begin select count(*) > 0 into ok from nsp.tbl; NEW.ok := ok;return;end;
 create Function "test_func"(id in number default (0)) return varchar2 is
+declare val varchar2(255) default 'unset';
 begin
     if id <= 0 then begin if id < 0 then return 'val is negative'; else return
         'id is zero' end if; end; end if;
