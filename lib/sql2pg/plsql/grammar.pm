@@ -1087,7 +1087,7 @@ pl_var ::=
 pl_blocks ::=
     pl_block* separator => SEMICOLON action => ::array
 
-pl_body ::=
+pl_stmts ::=
     pl_stmt* separator => SEMICOLON action => ::array
 
 pl_stmt ::=
@@ -1098,6 +1098,7 @@ pl_stmt ::=
     | pl_raise_exc
     | pl_return
     | pl_set
+    | pl_for
     | NULL action => make_keyword
 
 pl_exception ::=
@@ -1108,10 +1109,10 @@ pl_exception_list ::=
     pl_exception_when+ separator => SEMICOLON action => ::array
 
 pl_exception_when ::=
-    WHEN IDENT THEN pl_body action => make_pl_exception_when
+    WHEN IDENT THEN pl_stmts action => make_pl_exception_when
 
 pl_block ::=
-    pl_block_ident pl_declareblock (BEGIN) pl_body pl_exception (END) _IDENT
+    pl_block_ident pl_declareblock (BEGIN) pl_stmts pl_exception (END) _IDENT
         action => make_pl_block
 
 pl_block_ident ::=
@@ -1119,8 +1120,8 @@ pl_block_ident ::=
     | EMPTY
 
 IfThenElse ::=
-    (IF) target_el (THEN) pl_body (END IF) action => make_pl_ifthenelse
-    | (IF) target_el (THEN) pl_body (ELSE) pl_body (END IF)
+    (IF) target_el (THEN) pl_stmts (END IF) action => make_pl_ifthenelse
+    | (IF) target_el (THEN) pl_stmts (ELSE) pl_stmts (END IF)
         action => make_pl_ifthenelse
 
 pl_raise_exc ::=
@@ -1132,6 +1133,12 @@ pl_return ::=
 
 pl_set ::=
     IDENT ':=' target_el action => make_pl_set
+
+pl_for ::=
+    FOR IDENT IN SelectStmt pl_loop action => make_pl_for
+
+pl_loop ::=
+    LOOP pl_stmts END LOOP action => make_pl_loop
 
 CreateTriggerStmt ::=
     (CREATE) or_replace_clause (TRIGGER) IDENT trigger_when (ON) IDENT
@@ -1430,6 +1437,7 @@ LOCAL               ~ 'LOCAL':ic
 LOCKED              ~ 'LOCKED':ic
 LOG                 ~ 'LOG':ic
 LOGGING             ~ 'LOGGING':ic
+LOOP                ~ 'LOOP':ic
 MAIN                ~ 'MAIN':ic
 MANAGEMENT          ~ 'MANAGEMENT':ic
 MANUAL              ~ 'MANUAL':ic
@@ -2706,6 +2714,17 @@ sub make_pl_exception_when {
     return $node;
 }
 
+sub make_pl_for {
+    my (undef, undef, $ident, undef, $select, $loop) = @_;
+    my $node = make_node('pl_for');
+
+    $node->{ident} = $ident;
+    $node->{cond} = $select;
+    $node->{loop} = $loop;
+
+    return node_to_array($node);
+}
+
 sub make_pl_ifthenelse {
     my (undef, $if, $then, $else, undef) = @_;
     my $node = make_node('pl_ifthenelse');
@@ -2713,6 +2732,15 @@ sub make_pl_ifthenelse {
     $node->{if} = $if;
     $node->{then} = $then;
     $node->{else} = $else;
+
+    return node_to_array($node);
+}
+
+sub make_pl_loop {
+    my (undef,undef, $stmts, undef, undef) = @_;
+    my $node = make_node('pl_loop');
+
+    $node->{stmts} = $stmts;
 
     return node_to_array($node);
 }

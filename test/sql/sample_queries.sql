@@ -65,8 +65,10 @@ begin
     DBMS_OUTPUT.put_line
     ('not correct'); raise invalid_input; raise invalid_input2; raise invalid_input;
     <<block1>>
+    declare i integer;
     BEGIN
         truncate table tmp;
+        for i in (select i from tbl where pk = id) loop new := 'set'; end loop;
     END block1;
 else null;
     end if;

@@ -781,6 +781,17 @@ sub format_pl_exception_when {
     return $out;
 }
 
+sub format_pl_for {
+    my ($node) = @_;
+    my $out;
+
+    $out = 'FOR ' . format_node($node->{ident}) . ' IN ';
+    $out .= format_node($node->{cond});
+    $out .= format_node($node->{loop});
+
+    return $out;
+}
+
 sub format_pl_func {
     my ($node) = @_;
     my $out = 'CREATE';
@@ -831,6 +842,22 @@ sub format_pl_ifthenelse {
     }
 
     $out .= tab() . "END IF";
+
+    return $out;
+}
+
+sub format_pl_loop {
+    my ($node) = @_;
+    my $out;
+
+    $out .= "\n" . tab() . "LOOP\n";
+    $depth++;
+        foreach my $s (@{$node->{stmts}}) {
+            $out .= tab() . format_node($s) . " ;\n";
+        }
+    $depth--;
+
+    $out .= tab() . "END LOOP";
 
     return $out;
 }

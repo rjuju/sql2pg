@@ -137,8 +137,14 @@ BEGIN
     RAISE EXCEPTION 'invalid_input' USING ERRCODE = '50001' ;
     
     <<block1>>
+    DECLARE
+      i integer ;
     BEGIN
       TRUNCATE TABLE tmp ;
+      FOR i IN (SELECT i FROM tbl WHERE pk = id)
+      LOOP
+        new := 'set' ;
+      END LOOP ;
     END ;
   ELSE
     NULL ;
