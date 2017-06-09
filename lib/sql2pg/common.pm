@@ -85,11 +85,13 @@ sub combine_and_parens_select {
 sub error {
     my ($msg, @args) = @_;
     my $i=1;
+    my $l;
 
     print "ERROR: $msg\n";
 
     while ( (my @c = (caller($i++))) ) {
-        print "in $c[3]\n";
+        print "in $c[3]$l\n";
+        $l = " line $c[2]";
     }
 
     foreach my $node (@args) {
