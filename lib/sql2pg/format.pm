@@ -759,6 +759,16 @@ sub format_pl_block {
     return $out;
 }
 
+sub format_pl_dotdot {
+    my ($node) = @_;
+    my $out;
+
+    $out = uc($node->{reverse}) . ' ' if ($node->{reverse});
+    $out .= format_node($node->{lower}) . '..' . format_node($node->{upper});
+
+    return $out;
+}
+
 sub format_pl_exception_when {
     my ($node) = @_;
     my $out;

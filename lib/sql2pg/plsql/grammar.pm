@@ -1135,7 +1135,12 @@ pl_set ::=
     IDENT ':=' target_el action => make_pl_set
 
 pl_for ::=
-    FOR IDENT IN SelectStmt pl_loop action => make_pl_for
+    FOR IDENT IN pl_for_cond pl_loop action => make_pl_for
+
+pl_for_cond ::=
+    SelectStmt
+    # a_expr is probably not restrictive enough, assume original query is valid
+    | _REVERSE a_expr '..' a_expr action => make_pl_dotdot
 
 pl_loop ::=
     LOOP pl_stmts END LOOP action => make_pl_loop
@@ -1289,6 +1294,10 @@ _FORCE ::=
 
 _ENCRYPT ::=
     ENCRYPT
+    | EMPTY
+
+_REVERSE ::=
+    REVERSE
     | EMPTY
 
 _VIRTUAL ::=
@@ -1510,6 +1519,7 @@ RETENTION           ~ 'RETENTION':ic
 RETURN              ~ 'RETURN':ic
 RETURNING           ~ 'RETURNING':ic
 REUSE               ~ 'REUSE':ic
+REVERSE             ~ 'REVERSE':ic
 RIGHT               ~ 'RIGHT':ic
 :lexeme             ~ RIGHT priority => 1
 ROLLBACK            ~ 'ROLLBACK';
@@ -2699,6 +2709,17 @@ sub make_pl_block {
     $node->{declare} = $declare;
     $node->{stmts} = $body;
     $node->{exception} = $exception;
+
+    return node_to_array($node);
+}
+
+sub make_pl_dotdot {
+    my (undef, $reverse, $lower, undef, $upper) = @_;
+    my $node = make_node('pl_dotdot');
+
+    $node->{reverse} = $reverse;
+    $node->{lower} = $lower;
+    $node->{upper} = $upper;
 
     return node_to_array($node);
 }

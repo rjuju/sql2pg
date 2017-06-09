@@ -69,6 +69,7 @@ begin
     BEGIN
         truncate table tmp;
         for i in (select i from tbl where pk = id) loop new := 'set'; end loop;
+            for i in reverse 1.. i loop dbms_output.put_line('i is ' || i); end loop;
     END block1;
 else null;
     end if;
