@@ -3124,8 +3124,6 @@ sub make_tbl_coldef {
     if ($datatype->{ident}->{attribute} eq 'raw' and $default) {
         assert_one_el($default);
         $default = pop(@{$default});
-        assert_one_el($default->{el});
-        $default->{el} = pop(@{$default->{el}});
 
         # is the check clause a specific function call?
         if (isA($default->{el}, 'function')) {
