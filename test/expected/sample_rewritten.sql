@@ -145,6 +145,10 @@ BEGIN
       LOOP
         new := 'set' ;
       END LOOP ;
+      FOR i IN REVERSE 1..i
+      LOOP
+        RAISE NOTICE 'i is ' || i ;
+      END LOOP ;
     END ;
   ELSE
     NULL ;
