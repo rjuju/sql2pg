@@ -1044,7 +1044,7 @@ seq_option ::=
 
 CreateProcStmt ::=
     (CREATE) or_replace_clause (pl_type) IDENT pl_arglist pl_return_clause
-        (AS_IS) pl_blocks action => make_createpl_func
+        (AS_IS) pl_block action => make_createpl_func
 
 pl_type ::=
     PROCEDURE
@@ -1083,9 +1083,6 @@ pl_declarelist ::=
 pl_var ::=
     IDENT datatype col_default action => make_pl_var
     | IDENT datatype col_default (':=') target_el action => make_pl_var
-
-pl_blocks ::=
-    pl_block* separator => SEMICOLON action => ::array
 
 pl_stmts ::=
     pl_stmt* separator => SEMICOLON action => ::array
@@ -1993,7 +1990,7 @@ sub make_createindex {
 }
 
 sub make_createpl_func {
-    my (undef, $replace, $ident, $args, $returns, $blocks)
+    my (undef, $replace, $ident, $args, $returns, $block)
         = @_;
     my $node = make_node('pl_func');
 
@@ -2006,7 +2003,9 @@ sub make_createpl_func {
         $node->{returns} = make_node('keyword');
         $node->{returns}->{val} = 'void';
     }
-    $node->{blocks} = $blocks;
+
+    assert_one_el($block);
+    $node->{block} = pop(@{$block});
 
     return node_to_array($node);
 }
@@ -2089,7 +2088,7 @@ sub make_createtrigger {
     # associated function
     $proc->{replace} = $replace;
     $proc->{returns} = 'trigger';
-    $proc->{blocks} = node_to_array($body);
+    $proc->{block} = $body;
     push(@{$stmts}, $proc);
 
     $trig->{ident} = $ident;

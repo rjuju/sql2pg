@@ -197,8 +197,4 @@ BEGIN
     END ;
   END IF ;
 END ;
-BEGIN
-  
-  RETURN 'val is ' || COALESCE(id, 'unknown') ;
-END ;
 $_$ language plpgsql ;
