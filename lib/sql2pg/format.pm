@@ -303,6 +303,7 @@ sub format_datatype {
     }
 
     $out = format_node($node->{ident});
+    $out .= "%$node->{typeref}" if ($node->{typeref});
 
     $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
     $out .= format_node($node->{nullnotnull}) if ($node->{nullnotnull});

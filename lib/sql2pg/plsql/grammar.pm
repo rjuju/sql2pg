@@ -909,7 +909,12 @@ tblspc_clause ::=
     | EMPTY
 
 datatype ::=
-    IDENT typmod action => make_datatype
+    IDENT pl_typeref typmod action => make_datatype
+
+pl_typeref ::=
+    ('%') TYPE action => upper
+    | ('%') ROWTYPE action => upper
+    | EMPTY
 
 col_pk ::=
     PRIMARY KEY
@@ -1525,6 +1530,7 @@ ROLLUP              ~ 'ROLLUP':ic
 :lexeme             ~ ROLLUP priority => 1
 ROW                 ~ 'ROW':ic
 ROWS                ~ 'ROWS':ic
+ROWTYPE             ~ 'ROWTYPE':ic
 RULES               ~ 'RULES':ic
 SAMPLE              ~ 'SAMPLE':ic
 SCN                 ~ 'SCN':ic
@@ -1559,6 +1565,7 @@ TIMESTAMP           ~ 'TIMESTAMP':ic
 TO                  ~ 'TO':ic
 TRIGGER             ~ 'TRIGGER':ic
 TRUNCATE            ~ 'TRUNCATE':ic
+TYPE                ~ 'TYPE':ic
 UNBOUNDED           ~ 'UNBOUNDED':ic
 UNDO                ~ 'UNDO':ic
 UNIFORM             ~ 'UNIFORM':ic
@@ -2126,12 +2133,13 @@ sub make_cycleclause {
 }
 
 sub make_datatype {
-    my (undef, $ident, $typmod) = @_;
+    my (undef, $ident, $typeref, $typmod) = @_;
     my $node = make_node('datatype');
 
     assert_one_el($ident);
 
     $node->{ident} = pop(@{$ident});
+    $node->{typeref} = $typeref;
     $node->{typmod} = $typmod;
     $node->{hook} = 'sql2pg::plsql::utils::handle_datatype';
 
