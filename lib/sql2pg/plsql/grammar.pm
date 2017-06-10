@@ -193,6 +193,7 @@ no_parens_target_el ::=
     | '(' target_list ')' action => parens_node
     | '(' SelectStmt ')' action => parens_node
     | qual_list action => make_target_qual_list
+    | trim_arg
 
 at_tz_prefix_opt ::=
     at_tz_prefix
@@ -244,6 +245,16 @@ when_elem ::=
 
 else_expr ::=
     ELSE target_el action => make_else
+    | EMPTY
+
+# special grammar notation, handle it explicitely to avoid ambiguity
+trim_arg ::=
+    TRIM_KIND literal FROM ident action => make_trim_arg
+
+TRIM_KIND ::=
+    LEADING action => upper
+    | TRAILING action => upper
+    | BOTH action => upper
     | EMPTY
 
 interval ::=
@@ -1350,6 +1361,7 @@ BETWEEN             ~ 'BETWEEN':ic
 BIGFILE             ~ 'BIGFILE':ic
 BLOCK               ~ 'BLOCK':ic
 BLOCKSIZE           ~ 'BLOCKSIZE':ic
+BOTH                ~ 'BOTH':ic
 BREADTH             ~ 'BREADTH':ic
 BUFFER_POOL         ~ 'BUFFER_POOL':ic
 BY                  ~ 'BY':ic
@@ -1451,6 +1463,7 @@ JOIN                ~ 'JOIN':ic
 KEEP                ~ 'KEEP':ic
 KEY                 ~ 'KEY':ic
 LAST                ~ 'LAST':ic
+LEADING             ~ 'LEADING':ic
 LEFT                ~ 'LEFT':ic
 :lexeme             ~ LEFT priority => 1
 LIKE                ~ 'LIKE':ic
@@ -1574,6 +1587,7 @@ THEN                ~ 'THEN':ic
 TIME                ~ 'TIME':ic
 TIMESTAMP           ~ 'TIMESTAMP':ic
 TO                  ~ 'TO':ic
+TRAILING            ~ 'TRAILING':ic
 TRIGGER             ~ 'TRIGGER':ic
 TRUNCATE            ~ 'TRUNCATE':ic
 TYPE                ~ 'TYPE':ic
@@ -3229,6 +3243,17 @@ sub make_timezoneexpr {
     my (undef, undef, undef, undef, $val) = @_;
 
     return $val;
+}
+
+sub make_trim_arg {
+    my (undef, $kind, $literal, undef, $ident) = @_;
+    my $node = make_node('trim_arg');
+
+    $node->{trim_kind} = $kind;
+    $node->{literal} = $literal;
+    $node->{ident} = $ident;
+
+    return node_to_array($node);
 }
 
 sub make_truncatestmt {

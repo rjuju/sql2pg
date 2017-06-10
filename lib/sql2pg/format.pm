@@ -1095,6 +1095,17 @@ sub format_tbl_condef {
     return $out;
 }
 
+sub format_trim_arg {
+    my ($node) = @_;
+    my $out;
+
+    $out = $node->{trim_kind} . ' ' if ($node->{trim_kind});
+    $out .= format_node($node->{literal});
+    $out .= ' FROM ' . format_node($node->{ident});
+
+    return $out;
+}
+
 sub format_truncate_table {
     my ($node) = @_;
 
