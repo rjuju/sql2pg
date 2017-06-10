@@ -463,12 +463,6 @@ sub format_function_arg {
     my $hook = $node->{hook};
     my $out = '';
 
-    if ($hook) {
-        no strict;
-        &$hook($node);
-        use strict;
-    }
-
     foreach my $a (@{$node->{arg}}) {
         $out .= ' ' unless($out eq '');
         $out .= format_node($a);
