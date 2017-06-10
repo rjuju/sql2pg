@@ -536,13 +536,13 @@ LITERALS ::=
 # join_op can't be on the LHS and RHS at the same time, assume original query
 # is valid
 qual_no_parens ::=
-    qual_elem join_op OPERATOR qual_elem join_op action => make_qual
+    qual_elem join_op QUAL_OPERATOR qual_elem join_op action => make_qual
     | qual_elem join_op qual_inop qual_elem join_op action => make_qual
     | qual_exists '(' SelectStmt ')' action => make_existsqual
     | qual_elem like_clause action => make_likeexpr
     | qual_elem BETWEEN qual_elem AND qual_elem action => make_betweenqual
-    | PRIOR qual_elem OPERATOR qual_elem join_op action => make_priorqual
-    | qual_elem OPERATOR PRIOR qual_elem join_op action => make_qualprior
+    | PRIOR qual_elem QUAL_OPERATOR qual_elem join_op action => make_priorqual
+    | qual_elem QUAL_OPERATOR PRIOR qual_elem join_op action => make_qualprior
 
 qual_elem ::=
     target_el
@@ -1323,6 +1323,9 @@ COMMA ::=
 OPERATOR ::=
     operator action => upper
 
+QUAL_OPERATOR ::=
+    qual_operator action => upper
+
 # keywords
 ACTION              ~ 'ACTION':ic
 ADD                 ~ 'ADD':ic
@@ -1663,6 +1666,10 @@ literal_chars       ~ [^']*
 
 operator            ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
                     | '+' | '-' | '*' | '/' | '||' | _IS
+
+# all operators except ||
+qual_operator       ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
+                    | '+' | '-' | '*' | '/' | _IS
 
 :discard                    ~ discard
 discard                     ~ whitespace | slash
