@@ -289,9 +289,7 @@ function_args ::=
     | EMPTY action => ::undef
 
 function_arg ::=
-    # this is ambiguous for nested function call
-    function_arg target_el action => append_function_arg
-    | target_el action => make_function_arg
+    target_el respect_ignore_nulls action => make_function_arg
 
 # this clause is only legal in some cases (LAG, FIRST_VALUE...), and the
 # RESPECT variant isn't legal in all cases, but I couldn't find any doc that
@@ -2407,7 +2405,6 @@ sub make_function_arg {
     assert_one_el($el);
 
     $node->{arg} = $el;
-    $node->{hook} = 'sql2pg::plsql::utils::handle_respect_ignore_nulls';
 
     return node_to_array($node);
 }

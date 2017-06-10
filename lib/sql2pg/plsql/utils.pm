@@ -459,38 +459,6 @@ sub handle_nonsqljoin {
     return $stmt;
 }
 
-# If space-separated arguments is respect_ignore_nulls clause, remove it and
-# add a FIXME.  It's way easier to handle it here than in the grammar.
-sub handle_respect_ignore_nulls {
-    my ($node) = @_;
-    my $i = 0;
-
-    assert_isA($node, 'function_arg');
-
-    while ( $i < scalar(@{$node->{arg}}) ) {
-        my $cur;
-        my $next;
-
-        return if ($i >= (scalar(@{$node->{arg}})-1));
-
-        $cur = @{$node->{arg}}[$i];
-        $next = @{$node->{arg}}[$i+1];
-
-        $i++;
-
-        next unless (isA($cur, 'ident') and isA($next, 'ident'));
-
-        $cur = format_node($cur);
-        $next = format_node($next);
-
-        if (($cur eq 'respect' or $cur eq 'ignore') and ($next eq 'nulls')) {
-            sql2pg::plsql::grammar::make_respect_ignore_nulls_clause(undef, $cur,
-                $next);
-            splice(@{$node->{arg}}, $i-1, 2);
-        }
-    }
-}
-
 # This function will transform any rownum OPERATOR number to a LIMIT/OFFSET
 # clause.  No effort is done to make sure OR-ed or overlapping rownum
 # expressions will have expected result, such query would be stupid anyway.
