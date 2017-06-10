@@ -80,6 +80,6 @@ create Function "test_func"(id in number default (0), val tbl.val%type) return v
 declare val varchar2(255) default 'unset';
 begin
     if id <= 0 then begin if id < 0 then return 'val is negative'; else return
-        'id is zero' end if; end; end if;
+        'id is zero' end if; end; elsif id = 42 then id:=1;id := 0;return 'true' else return 'false' end if;
 end;
 -- I don't belong to any query

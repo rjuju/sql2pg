@@ -195,6 +195,14 @@ BEGIN
         RETURN 'id is zero' ;
       END IF ;
     END ;
+  ELSIF id = 42 THEN 
+    id := 1 ;
+    id := 0 ;
+    
+    RETURN 'true' ;
+  ELSE
+    
+    RETURN 'false' ;
   END IF ;
 END ;
 $_$ language plpgsql ;

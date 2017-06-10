@@ -1122,9 +1122,16 @@ pl_block_ident ::=
     | EMPTY
 
 IfThenElse ::=
-    (IF) target_el (THEN) pl_stmts (END IF) action => make_pl_ifthenelse
-    | (IF) target_el (THEN) pl_stmts (ELSE) pl_stmts (END IF)
+    (IF) target_el (THEN) pl_stmts pl_elsifs (END IF)
         action => make_pl_ifthenelse
+    | (IF) target_el (THEN) pl_stmts pl_elsifs (ELSE) pl_stmts (END IF)
+        action => make_pl_ifthenelse
+
+pl_elsifs ::=
+    pl_elsif* separator => SEMICOLON action => ::array
+
+pl_elsif ::=
+    (ELSIF) target_el (THEN) pl_stmts action => make_pl_elsif
 
 pl_raise_exc ::=
     RAISE IDENT action => make_pl_raise
@@ -1385,6 +1392,7 @@ DISABLE             ~ 'DISABLE':ic
 DISTINCT            ~ 'DISTINCT':ic
 EACH                ~ 'EACH':ic
 ELSE                ~ 'ELSE':ic
+ELSIF               ~ 'ELSIF':ic
 ENABLE              ~ 'ENABLE':ic
 ENCRYPT             ~ 'ENCRYPT':ic
 END                 ~ 'END':ic
@@ -2731,6 +2739,16 @@ sub make_pl_dotdot {
     return node_to_array($node);
 }
 
+sub make_pl_elsif {
+    my (undef, $el, $stmts) = @_;
+    my $node = make_node('pl_elsif');
+
+    $node->{el} = $el;
+    $node->{stmts} = $stmts;
+
+    return $node;
+}
+
 sub make_pl_exception_when {
     my (undef, undef, $ident, undef, $stmts) = @_;
     my $node = make_node('pl_exception_when');
@@ -2754,11 +2772,12 @@ sub make_pl_for {
 }
 
 sub make_pl_ifthenelse {
-    my (undef, $if, $then, $else, undef) = @_;
+    my (undef, $if, $then, $elsifs, $else, undef) = @_;
     my $node = make_node('pl_ifthenelse');
 
     $node->{if} = $if;
     $node->{then} = $then;
+    $node->{elsifs} = $elsifs;
     $node->{else} = $else;
 
     return node_to_array($node);

@@ -770,6 +770,21 @@ sub format_pl_dotdot {
     return $out;
 }
 
+sub format_pl_elsif {
+    my ($node) = @_;
+    my $out = 'ELSIF ';
+
+    $out .= format_node($node->{el}) . " THEN \n";
+
+    $depth++;
+    foreach my $s (@{$node->{stmts}}) {
+        $out .= tab() . format_node($s) . " ;\n";
+    }
+    $depth--;
+
+    return $out;
+}
+
 sub format_pl_exception_when {
     my ($node) = @_;
     my $out;
@@ -838,6 +853,10 @@ sub format_pl_ifthenelse {
         $out .= tab() . format_node($s) . " ;\n";
     }
     $depth--;
+
+    foreach my $s (@{$node->{elsifs}}) {
+        $out .= tab() . format_node($s);
+    }
 
     if ($node->{else}) {
         $out .= tab() . "ELSE\n";
