@@ -3128,7 +3128,6 @@ sub make_tbl_attribute {
     my (undef, $kw, $val) = @_;
     my $node = make_node('tbl_attribute');
 
-    a
     $node->{kw} = uc($kw);
     $node->{val} = $val;
     $node->{hook} = 'sql2pg::plsql::utils::handle_tbl_attribute';
