@@ -147,7 +147,7 @@ BEGIN
       END LOOP ;
       FOR i IN REVERSE 1..i
       LOOP
-        RAISE NOTICE 'i is ' || i ;
+        RAISE NOTICE 'i is % and%', i, f(a, b) ;
       END LOOP ;
     END ;
   ELSE

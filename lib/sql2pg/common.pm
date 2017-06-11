@@ -14,7 +14,7 @@ BEGIN {
                  make_clause inverse_operator node_to_array assert assert_isA
                  assert_one_el add_fixme useless_bindvar translate_bindvar
                  get_alias whereclause_walker splice_table_from_fromlist
-                 find_table_in_array combine_and_parens_select
+                 find_table_in_array combine_and_parens_select append_literal
                  expression_tree_walker generate_datatype);
 }
 
@@ -37,6 +37,16 @@ sub add_fixme {
     my ($msg) = @_;
 
     push(@sql2pg::format::fixme, $msg);
+}
+
+sub append_literal {
+    my ($l1, $l2) = @_;
+
+    if (isA($l2, 'literal')) {
+        $l1->{value} .= $l2->{value};
+    } else {
+        $l1->{value} .= $l2;
+    }
 }
 
 sub assert {

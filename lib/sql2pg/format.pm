@@ -890,6 +890,10 @@ sub format_pl_raise {
 
     $out = "RAISE $node->{level} $name";
 
+    if ($node->{args} and scalar @{$node->{args}} > 0) {
+        $out .= ', ' . format_array($node->{args}, ', ');
+    }
+
     if ($node->{level} eq 'EXCEPTION') {
         $exceptions{$name} = $exceptions{id}++
             unless (exists $exceptions{$name});

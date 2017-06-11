@@ -337,9 +337,18 @@ sub handle_function {
         and $funcname eq 'put_line'
     ) {
         my $raise = make_node('pl_raise');
+        my $args;
+
+        $raise->{args} = [];
+        $raise->{val} = make_node('literal');
 
         $raise->{level} = 'NOTICE';
-        $raise->{val} = $func->{args};
+
+        assert_one_el($func->{args});
+        $args = pop(@{$func->{args}});
+
+        # Convert "a || b" to PG "% %, a, b" syntax
+        putline_to_raise($args, $raise);
 
         return $raise;
     }
@@ -516,6 +525,56 @@ sub handle_tbl_attribute {
     }
 
     return $node;
+}
+
+# This function walks through pl/sql dbms_output.put_line arguments and
+# transforms || operators to PG compatible one (%)
+sub putline_to_raise {
+    my ($node, $raise) = @_;
+
+    # this should be the root call
+    if (isA($node, 'function_arg')) {
+        foreach my $a (@{$node->{arg}}) {
+            putline_to_raise($a, $raise);
+        }
+    }
+    # simple literal, append content
+    elsif (isA($node, 'literal')) {
+        append_literal($raise->{val}, $node);
+    }
+    # start looking for || operator
+    elsif (isA($node, 'opexpr')) {
+        # found it
+        if ($node->{op} eq '||') {
+            my ($left, $right);
+
+            assert_one_el($node->{left});
+            $left = pop(@{$node->{left}});
+
+            assert_one_el($node->{right});
+            $right = pop(@{$node->{right}});
+
+            if (isA($left, 'literal')) {
+                append_literal($raise->{val}, $left);
+            } else {
+                putline_to_raise($left, $raise);
+            }
+
+            if (isA($right, 'literal')) {
+                append_literal($raise->{val}, $right);
+            } else {
+                putline_to_raise($right, $raise);
+            }
+        # nope, put is as another arg to the RAISE
+        } else {
+            append_literal($raise->{val}, '%');
+            push(@{$raise->{args}}, $node);
+        }
+    # anything else is put as another arg to the RAISE
+    } else {
+        append_literal($raise->{val}, '%');
+        push(@{$raise->{args}}, $node);
+    }
 }
 
 sub qual_is_join_op {
