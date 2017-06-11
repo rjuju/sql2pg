@@ -1288,6 +1288,7 @@ NUMBER ::=
 SIZE_CLAUSE ::=
     # for now, all usage of this isn't translated
     integer_unit action => discard
+    | INTEGER action => discard
     | UNLIMITED action => discard
 
 AS_IS ::=
