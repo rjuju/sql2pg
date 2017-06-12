@@ -35,7 +35,7 @@ select count(*) from t where val in ('a', 'b') or val not in (('test')) or not e
 select null, 1, (1, (select count(*) from t)) from t2 where id1 is not and ((((id2 is not null))));
 select interval '3' hour, interval '3-6' hour(:"h") to second(:a,:b) from dual where val = :"h";
 select INTERVAL'20' DAY - INTERVAL'240' HOUR = INTERVAL'10-0' DAY TO SECOND from t;
-select :a, b,:1,d,:1 from t where b = :a;
+select :a, b,:1,?,d,:1 from t where b = :a and d > ?;
 select to_date('2017-01-01', 'YYYY-MM-DD') at time zone 'Europe/Paris' "paris time", to_date(dt, :fmt) at time zone :tz, timestamp '2017-02-01 23:12:15' at time zone 'CET', date '2017-02-01' from t;
 select a,b,c from t sample block (3) seed (.2)"S";
 select a = 1 OR b = 2 v1,(a = 1 OR b = 2)v2 from t;
@@ -81,5 +81,10 @@ declare val varchar2(255) default 'unset';
 begin
     if id <= 0 then begin if id < 0 then return 'val is negative'; else return
         'id is zero' end if; end; elsif id = 42 then id:=1;id := 0;return 'true' else return 'false' end if;
+end;
+create function toto as
+begin
+    select ?,:d,? from t;
+    select ? from t2;
 end;
 -- I don't belong to any query

@@ -10,7 +10,7 @@ require Exporter;
 
 BEGIN {
     @ISA = qw(Exporter);
-    @EXPORT = qw(inc_stmtno get_comment);
+    @EXPORT = qw(inc_stmtno get_comment next_preparedstmtparamno);
 }
 
 use strict;
@@ -33,6 +33,7 @@ our $input;
 # all found comments in the according hash element.
 my %comments;
 my $stmtno = 1;
+my $preparedstmtparam = 1;
 
 my $query_started = 0;
 
@@ -128,6 +129,7 @@ sub convert {
 
 sub inc_stmtno {
     $stmtno++;
+    $preparedstmtparam = 1;
 
     return $stmtno;
 }
@@ -136,6 +138,10 @@ sub get_comment {
     my ($kind) = @_;
 
     return $comments{$stmtno}{$kind};
+}
+
+sub next_preparedstmtparamno {
+    return $preparedstmtparam++;
 }
 
 sub version {

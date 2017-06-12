@@ -49,10 +49,12 @@ SELECT INTERVAL '3' HOUR, INTERVAL '3-6' HOUR TO SECOND($1) WHERE val = $2 ;
 -- FIXME: Bindvar :"h" has been translated to parameter $2
 -- FIXME: Bindvar :a is now useless
 SELECT INTERVAL '20' DAY - INTERVAL '240' HOUR = INTERVAL '10-0' DAY TO SECOND FROM t ;
-SELECT $1, b, $2, d, $2 FROM t WHERE b = $1 ;
--- 2 FIXME for this statement
+SELECT $1, b, $2, $3, d, $2 FROM t WHERE b = $1 AND d > $4 ;
+-- 4 FIXME for this statement
 -- FIXME: Bindvar :a has been translated to parameter $1
 -- FIXME: Bindvar :1 has been translated to parameter $2
+-- FIXME: Prepared statement parameter n°1 has been translated to parameter $3
+-- FIXME: Prepared statement parameter n°2 has been translated to parameter $4
 SELECT to_date('2017-01-01', 'YYYY-MM-DD') AT TIME ZONE 'Europe/Paris' AS "paris time", to_date(dt, $1) AT TIME ZONE $2, TIMESTAMP '2017-02-01 23:12:15' AT TIME ZONE 'CET', DATE '2017-02-01' FROM t ;
 -- 2 FIXME for this statement
 -- FIXME: Bindvar :fmt has been translated to parameter $1
@@ -206,3 +208,16 @@ BEGIN
   END IF ;
 END ;
 $_$ language plpgsql ;
+CREATE FUNCTION toto()
+RETURNS void AS
+$_$
+BEGIN
+  SELECT $1, $2, $3 FROM t ;
+  SELECT $4 FROM t2 ;
+END ;
+$_$ language plpgsql ;
+-- 4 FIXME for this statement
+-- FIXME: Prepared statement parameter n°1 has been translated to parameter $1
+-- FIXME: Bindvar :d has been translated to parameter $2
+-- FIXME: Prepared statement parameter n°2 has been translated to parameter $3
+-- FIXME: Prepared statement parameter n°3 has been translated to parameter $4

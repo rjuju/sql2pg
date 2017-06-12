@@ -594,10 +594,16 @@ sub translate_bindvar {
     delete($bindvars{useless}{$v->{var}});
 
     if (not defined($bindvars{used}{$v->{var}})) {
+        my $txt = "Bindvar $v->{var}";
+
+        if ($v->{var} =~ /^\? (\d+)$/) {
+            $txt = "Prepared statement parameter n°$1";
+        }
+
         # pick up next param number
         $bindvars{used}{$v->{var}} = '$' . (scalar(keys %{$bindvars{used}})+1);
 
-        add_fixme('Bindvar ' . $v->{var}
+        add_fixme("$txt"
                 . ' has been translated to parameter '
                 . $bindvars{used}{$v->{var}});
     }

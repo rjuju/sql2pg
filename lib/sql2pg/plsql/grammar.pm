@@ -11,6 +11,7 @@ use warnings;
 use 5.010;
 
 use Data::Dumper;
+use sql2pg;
 use sql2pg::plsql::utils;
 use sql2pg::format;
 use sql2pg::common;
@@ -1662,6 +1663,7 @@ ident               ~ unquoted_ident
 bindvar             ~ ':' unquoted_ident
                     | ':' digits
                     | ':' quoted_ident
+                    | '?'
 
 ALIAS               ~ unquoted_start unquoted_chars
                     | quoted_ident
@@ -1934,6 +1936,10 @@ sub make_bindvar {
     # guarantee that every bindvar will be used, so we can't do the conversion
     # now. Instead save the original bindvar name in a hash
     $node->{var} = $var;
+
+    # For prepared statement parameters, we need to make the representation
+    # unique, otherwise only one will be saved in the hash
+    $node->{var} .= " " . next_preparedstmtparamno() if ($var eq '?');
 
     # Also, declare by default this bindvar as useless.  This way, we can warn
     # automatically about all bindvars that won't be used (this function will
