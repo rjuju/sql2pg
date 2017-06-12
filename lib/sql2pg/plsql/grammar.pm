@@ -194,7 +194,6 @@ no_parens_target_el ::=
     | '(' target_list ')' action => parens_node
     | '(' SelectStmt ')' action => parens_node
     | qual_list action => make_target_qual_list
-    | trim_arg
 
 at_tz_prefix_opt ::=
     at_tz_prefix
@@ -291,6 +290,7 @@ function_args ::=
 
 function_arg ::=
     target_el respect_ignore_nulls action => make_function_arg
+    | trim_arg action => make_function_arg
 
 # this clause is only legal in some cases (LAG, FIRST_VALUE...), and the
 # RESPECT variant isn't legal in all cases, but I couldn't find any doc that
