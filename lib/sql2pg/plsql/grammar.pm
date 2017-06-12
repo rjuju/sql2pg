@@ -1735,6 +1735,8 @@ sub add_sample_clause {
 sub alias_node {
     my (undef, $node, $alias) = @_;
 
+    return $node unless($alias);
+
     assert_one_el($node);
 
     @{$node}[0]->{alias} = $alias;
