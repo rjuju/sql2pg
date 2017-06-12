@@ -27,7 +27,7 @@ select a.id from a,d,b,c where b.id = c.id(+) or b.id2 = c.id2(+) and c.id = d.i
 select round(t.val /100, 2) from t;
 select id, case id when 0 then 'blah' else id % 3 > 1 end as val from t;
 select id, case when val = 0 then 'nothing' when val < 100 then 'little' when val >=100 then 'lot' end from t;
-select trim(leading ' ' from v) from t where id > (select count(*) from t2);
+select trim(leading ' ' from v), cast(t as number(2)) from t where id > (select count(*) from t2);
 select count(*) from t where val like '%the_val%' escape '\' and rownum <= 5 or val like (fct(val)) for update skip locked;
 with s (id, val) as (select 1, 'val' from dual) search breadth first by id nulls first, val asc set id cycle id2,id3 set id4 to '1' default '0' select * from s;
 select * from dual, (((((t t1 left join (select 1 from t2) tt using (((id)))))) right join t using (id)));

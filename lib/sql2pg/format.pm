@@ -122,6 +122,13 @@ sub format_case_when {
     return $out;
 }
 
+sub format_cast_arg {
+    my ($node) = @_;
+
+    return format_node($node->{ident})
+        . ' AS ' . format_node($node->{datatype});
+}
+
 sub format_check_clause {
     my ($node) = @_;
     my $out;

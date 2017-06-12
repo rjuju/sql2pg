@@ -191,6 +191,8 @@ no_parens_target_el ::=
     | at_tz_prefix_opt target_el at_time_zone action => make_at_time_zone
     | at_tz_prefix target_el action => make_at_time_zone
     | simple_target_el
+    # this can also match f(a AS alias) as valid (through function_arg), assume
+    # original query is valid
     | '(' target_list ')' action => parens_node
     | '(' SelectStmt ')' action => parens_node
     | qual_list action => make_target_qual_list
@@ -257,6 +259,9 @@ TRIM_KIND ::=
     | BOTH action => upper
     | EMPTY
 
+cast_arg ::=
+    a_expr AS datatype action => make_cast_arg
+
 interval ::=
     INTERVAL LITERAL interval_kind action => make_interval
     | INTERVAL LITERAL interval_kind TO interval_kind action => make_interval
@@ -291,6 +296,7 @@ function_args ::=
 function_arg ::=
     target_el respect_ignore_nulls action => make_function_arg
     | trim_arg action => make_function_arg
+    | cast_arg action => make_function_arg
 
 # this clause is only legal in some cases (LAG, FIRST_VALUE...), and the
 # RESPECT variant isn't legal in all cases, but I couldn't find any doc that
@@ -1958,6 +1964,16 @@ sub make_case_when {
 
     $node->{whens} = $whens;
     $node->{else} = $else;
+
+    return node_to_array($node);
+}
+
+sub make_cast_arg {
+    my (undef, $ident, undef, $datatype) = @_;
+    my $node = make_node('cast_arg');
+
+    $node->{ident} = $ident;
+    $node->{datatype} = $datatype;
 
     return node_to_array($node);
 }
