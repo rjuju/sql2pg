@@ -1117,6 +1117,7 @@ pl_stmt ::=
     | pl_return
     | pl_set
     | pl_for
+    | pl_open_cursor_for
     | NULL action => make_keyword
 
 pl_exception ::=
@@ -1169,6 +1170,9 @@ pl_for_cond ::=
 
 pl_loop ::=
     LOOP pl_stmts END LOOP action => make_pl_loop
+
+pl_open_cursor_for ::=
+    OPEN IDENT FOR SelectStmt action => make_pl_open_cursor
 
 CreateTriggerStmt ::=
     (CREATE) or_replace_clause (TRIGGER) IDENT trigger_when (ON) IDENT
@@ -1522,6 +1526,7 @@ OPTION              ~ 'OPTION':ic
 OR                  ~ 'OR':ic
 ORDER               ~ 'ORDER':ic
 ON                  ~ 'ON':ic
+OPEN                ~ 'OPEN':ic
 OUT                 ~ 'OUT':ic
 OUTER               ~ 'OUTER':ic
 OVER                ~ 'OVER':ic
@@ -2831,6 +2836,16 @@ sub make_pl_loop {
     my $node = make_node('pl_loop');
 
     $node->{stmts} = $stmts;
+
+    return node_to_array($node);
+}
+
+sub make_pl_open_cursor {
+    my (undef, undef, $ident, undef, $stmt) = @_;
+    my $node = make_node('pl_open_cursor');
+
+    $node->{ident} = $ident;
+    $node->{stmt} = $stmt;
 
     return node_to_array($node);
 }

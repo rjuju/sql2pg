@@ -211,9 +211,14 @@ $_$ language plpgsql ;
 CREATE FUNCTION toto()
 RETURNS void AS
 $_$
+DECLARE
+  cur refcursor ;
 BEGIN
   SELECT $1, $2, $3 FROM t ;
   SELECT $4 FROM t2 ;
+  
+  OPEN cur FOR
+    SELECT * FROM tbl ORDER BY id ASC ;
 END ;
 $_$ language plpgsql ;
 -- 4 FIXME for this statement

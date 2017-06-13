@@ -83,8 +83,10 @@ begin
         'id is zero' end if; end; elsif id = 42 then id:=1;id := 0;return 'true' else return 'false' end if;
 end;
 create function toto as
+cur SYS_REFCURSOR;
 begin
     select ?,:d,? from t;
     select ? from t2;
+    open cur for select * from tbl order by id;
 end;
 -- I don't belong to any query

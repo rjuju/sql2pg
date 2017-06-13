@@ -890,6 +890,18 @@ sub format_pl_loop {
     return $out;
 }
 
+sub format_pl_open_cursor {
+    my ($node) = @_;
+    my $out;
+
+    $out = "\n". tab() . 'OPEN ' . format_node($node->{ident}) . " FOR\n";
+    $depth++;
+    $out .= tab() . format_node($node->{stmt});
+    $depth--;
+
+    return $out;
+}
+
 sub format_pl_raise {
     my ($node) = @_;
     my $out;
