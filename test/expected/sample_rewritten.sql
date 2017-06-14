@@ -221,7 +221,10 @@ BEGIN
   
   OPEN cur FOR
     SELECT * FROM tbl ORDER BY id ASC ;
-  FETCH cur INTO id, val ;
+  
+  LOOP
+    FETCH cur INTO id, val ;
+  END LOOP ;
 END ;
 $_$ language plpgsql ;
 -- 4 FIXME for this statement

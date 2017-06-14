@@ -1113,12 +1113,13 @@ pl_stmt ::=
     | function
     | IfThenElse
     | pl_block
+    | pl_loop
+    | pl_fetch_into
+    | pl_for
+    | pl_open_cursor_for
     | pl_raise_exc
     | pl_return
     | pl_set
-    | pl_for
-    | pl_open_cursor_for
-    | pl_fetch_into
     | NULL action => make_keyword
 
 pl_exception ::=

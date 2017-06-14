@@ -90,6 +90,6 @@ begin
     select ?,:d,? from t;
     select ? from t2;
     open cur for select * from tbl order by id;
-fetch cur into id, val;
+    loop fetch cur into id, val; end loop;
 end;
 -- I don't belong to any query
