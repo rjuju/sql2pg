@@ -84,9 +84,12 @@ begin
 end;
 create function toto as
 cur SYS_REFCURSOR;
+id number;
+val varchar2(255);
 begin
     select ?,:d,? from t;
     select ? from t2;
     open cur for select * from tbl order by id;
+fetch cur into id, val;
 end;
 -- I don't belong to any query

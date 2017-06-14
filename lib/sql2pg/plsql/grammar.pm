@@ -1118,6 +1118,7 @@ pl_stmt ::=
     | pl_set
     | pl_for
     | pl_open_cursor_for
+    | pl_fetch_into
     | NULL action => make_keyword
 
 pl_exception ::=
@@ -1173,6 +1174,9 @@ pl_loop ::=
 
 pl_open_cursor_for ::=
     OPEN IDENT FOR SelectStmt action => make_pl_open_cursor
+
+pl_fetch_into ::=
+    FETCH IDENT INTO IDENTS action => make_pl_fetch_into
 
 CreateTriggerStmt ::=
     (CREATE) or_replace_clause (TRIGGER) IDENT trigger_when (ON) IDENT
@@ -1429,6 +1433,7 @@ EXISTS              ~ 'EXISTS':ic
 EXPLAIN             ~ 'EXPLAIN':ic
 :lexeme             ~ EXPLAIN pause => after event => keyword
 EXTENT              ~ 'EXTENT':ic
+FETCH               ~ 'FETCH':ic
 FLASHBACK           ~ 'FLASHBACK':ic
 FLASH_CACHE         ~ 'FLASH_CACHE':ic
 FIRST               ~ 'FIRST':ic
@@ -2806,6 +2811,16 @@ sub make_pl_exception_when {
     $node->{stmts} = $stmts;
 
     return $node;
+}
+
+sub make_pl_fetch_into {
+    my (undef, undef, $ident, undef, $into) = @_;
+    my $node = make_node('pl_fetch_into');
+
+    $node->{ident} = $ident;
+    $node->{into} = $into;
+
+    return node_to_array($node);
 }
 
 sub make_pl_for {

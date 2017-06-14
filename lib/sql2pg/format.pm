@@ -808,6 +808,13 @@ sub format_pl_exception_when {
     return $out;
 }
 
+sub format_pl_fetch_into {
+    my ($node) = @_;
+
+    return 'FETCH ' . format_node($node->{ident})
+        . ' INTO ' . format_array($node->{into}, ', ');
+}
+
 sub format_pl_for {
     my ($node) = @_;
     my $out;
