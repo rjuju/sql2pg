@@ -1113,6 +1113,7 @@ pl_stmt ::=
     | function
     | IfThenElse
     | pl_block
+    | pl_exit
     | pl_loop
     | pl_fetch_into
     | pl_for
@@ -1151,6 +1152,9 @@ pl_elsifs ::=
 
 pl_elsif ::=
     (ELSIF) target_el (THEN) pl_stmts action => make_pl_elsif
+
+pl_exit ::=
+    EXIT WHEN qual_list action => make_pl_exit
 
 pl_raise_exc ::=
     RAISE IDENT action => make_pl_raise
@@ -1431,6 +1435,7 @@ ESCAPE              ~ 'ESCAPE':ic
 EXCEPTION           ~ 'EXCEPTION':ic
 EXCLUDE             ~ 'EXCLUDE':ic
 EXISTS              ~ 'EXISTS':ic
+EXIT                ~ 'EXIT':ic
 EXPLAIN             ~ 'EXPLAIN':ic
 :lexeme             ~ EXPLAIN pause => after event => keyword
 EXTENT              ~ 'EXTENT':ic
@@ -2812,6 +2817,15 @@ sub make_pl_exception_when {
     $node->{stmts} = $stmts;
 
     return $node;
+}
+
+sub make_pl_exit {
+    my (undef, undef, undef, $quals) = @_;
+    my $node = make_node('pl_exit');
+
+    $node->{when} = $quals;
+
+    return node_to_array($node);
 }
 
 sub make_pl_fetch_into {

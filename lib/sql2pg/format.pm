@@ -808,6 +808,12 @@ sub format_pl_exception_when {
     return $out;
 }
 
+sub format_pl_exit {
+    my ($node) = @_;
+
+    return 'EXIT WHEN ' . format_node($node->{when});
+}
+
 sub format_pl_fetch_into {
     my ($node) = @_;
 
