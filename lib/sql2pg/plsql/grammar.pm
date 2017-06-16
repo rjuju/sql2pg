@@ -1520,9 +1520,7 @@ NOCOMPRESS          ~ 'NOCOMPRESS':ic
 NOCYCLE             ~ 'NOCYCLE':ic
 NOGUARANTEE         ~ 'NOGUARANTEE':ic
 NOLOGGING           ~ 'NOLOGGING':ic
-# this one is unsed in qual_inop G1 rule
 NOT                 ~ 'NOT':ic
-# this one is used in OPERATOR L0 rule
 NOVALIDATE          ~ 'NOVALIDATE':ic
 NOWAIT              ~ 'NOWAIT':ic
 NULL                ~ 'NULL':ic
@@ -2521,6 +2519,9 @@ sub make_ident {
     return node_to_array($ident);
 }
 
+sub make_ident_not_found {
+}
+
 sub make_insert {
     my (undef, undef, undef, $from, $cols, $data, $error_logging) = @_;
     my $stmt = make_node('insert');
@@ -2953,17 +2954,36 @@ sub make_qual {
     my (undef, $left, $join_op1, $op, $right, $join_op2) = @_;
     my $qual = make_node('qual');
 
+    assert_one_el($left);
+    $left = pop(@{$left});
+    assert_one_el($right);
+    $right = pop(@{$right});
+
+    # special kludge for NOTFOUND cursor in pl/sql
+    if (
+        ($op eq '%')
+        and (isA($right, 'ident'))
+        and (not exists $right->{table})
+        and ($right->{attribute} eq 'notfound')
+    ) {
+        my $node = make_node('deparse');
+
+        $node->{deparse} = 'NOT FOUND';
+
+        return node_to_array($node);
+    }
+
     # uc the operator in case it has alpha char (IN, IS...)
     $qual->{op} = uc($op);
     # if the join_op is on the LHS, permute args to simplify further code
     if (defined($join_op1)) {
-        $qual->{left} = pop(@{$right});
-        $qual->{right} = pop(@{$left});
+        $qual->{left} = $right;
+        $qual->{right} = $left;
         $qual->{join_op} = $join_op1;
         $qual->{op} = inverse_operator($op);
     } else {
-        $qual->{left} = pop(@{$left});
-        $qual->{right} = pop(@{$right});
+        $qual->{left} = $left;
+        $qual->{right} = $right;
         $qual->{join_op} = $join_op2;
     }
 

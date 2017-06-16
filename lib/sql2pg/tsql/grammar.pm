@@ -141,8 +141,7 @@ tbl_on ::=
     ON IDENT
 
 tbl_cols ::=
-    tbl_cols ',' tbl_coldef action => append_el_1_3
-    | tbl_coldef
+    tbl_coldef+ separator => COMMA action => ::array
 
 tbl_coldef ::=
     IDENT datatype col_default action => make_tbl_coldef
@@ -160,8 +159,7 @@ clustered ::=
     | EMPTY
 
 tbl_conlist ::=
-    tbl_conlist ',' tbl_conelem action => append_el_1_3
-    | tbl_conelem
+    tbl_conelem* separator => COMMA action => ::array
 
 tbl_conelem ::=
     # ignore ordering
@@ -219,8 +217,7 @@ target_list ::=
     node_target_list action => make_target_list
 
 node_target_list ::=
-    node_target_list ',' alias_target_el action => append_el_1_3
-    | alias_target_el
+    alias_target_el+ separator => COMMA action => ::array
 
 alias_target_el ::=
     target_el ALIAS_CLAUSE action => alias_node
@@ -229,8 +226,7 @@ unalias_target_list ::=
     unalias_node_target_list action => make_target_list
 
 unalias_node_target_list ::=
-    target_list ',' target_el action => append_el_1_3
-    | target_el
+    target_el+ separator => COMMA action => ::array
 
 # aliasing is done in a different rule, so target_el can be used in qual rule,
 # to allow function in quals without ambiguity (having function in a_expr is
@@ -264,8 +260,7 @@ from_clause ::=
     | EMPTY
 
 from_list ::=
-    from_list ',' from_elem action => append_el_1_3
-    | from_elem
+    from_elem+ separator => COMMA action => ::array
 
 from_elem ::=
     aliased_simple_from_elem join_clause action => append_joinlist
@@ -293,8 +288,7 @@ join_clause ::=
     | EMPTY action => ::undef
 
 join_list ::=
-    join_list join_elem action => append_el_1_2
-    | join_elem
+    join_elem+ separator => COMMA action => ::array
 
 join_elem ::=
     join_type JOIN join_ident ALIAS_CLAUSE join_cond action => make_normaljoin
@@ -331,8 +325,7 @@ using_list ::=
     | '(' using_list ')' action => second
 
 parens_using_list ::=
-    parens_using_list ',' using_el action => append_el_1_3
-    | using_el
+    using_el+ separator => COMMA action => ::array
 
 using_el ::=
     a_expr ALIAS_CLAUSE action => alias_node
@@ -391,8 +384,7 @@ order_list ::=
     | '(' simple_order_list ')' action => second
 
 simple_order_list ::=
-    simple_order_list ',' order_elem action => append_el_1_3
-    | order_elem
+    order_elem+ separator => COMMA action => ::array
 
 order_elem ::=
     a_expr ordering nulls_pos action => make_orderby
@@ -479,16 +471,13 @@ NUMBER ::=
     | FLOAT
 
 number_list ::=
-    number_list ',' NUMBER action => append_el_1_3
-    | NUMBER
+    NUMBER+ separator => COMMA action => ::array
 
 function ::=
     IDENT '(' function_args ')' window_clause action => make_function
 
 function_args ::=
-    function_args ',' function_arg action => append_el_1_3
-    | function_arg
-    | EMPTY action => ::undef
+    function_arg* separator => COMMA action => ::array
 
 function_arg ::=
     # this is ambiguous for nested function call
@@ -639,6 +628,7 @@ SEPARATOR   ~ ';' GO
             | GO
             | ';'
 :lexeme     ~ SEPARATOR pause => after event => new_query
+COMMA      ~ ','
 
 # everything else
 digits      ~ [0-9]+

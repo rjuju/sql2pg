@@ -224,7 +224,7 @@ BEGIN
   
   LOOP
     FETCH cur INTO id, val ;
-    EXIT WHEN id IS NULL OR id < 0 ;
+    EXIT WHEN NOT FOUND OR id IS NULL OR id < 0 ;
   END LOOP ;
 END ;
 $_$ language plpgsql ;
