@@ -1113,6 +1113,7 @@ pl_stmt ::=
     | function
     | IfThenElse
     | pl_block
+    | pl_close
     | pl_exit
     | pl_loop
     | pl_fetch_into
@@ -1140,6 +1141,9 @@ pl_block ::=
 pl_block_ident ::=
     ('<<') IDENT ('>>') action => ::first
     | EMPTY
+
+pl_close ::=
+    CLOSE IDENT action => make_pl_close
 
 IfThenElse ::=
     (IF) target_el (THEN) pl_stmts pl_elsifs (END IF)
@@ -1390,6 +1394,7 @@ CASE                ~ 'CASE':ic
 CELL_FLASH_CACHE    ~ 'CELL_FLASH_CACHE':ic
 CHAR                ~ 'CHAR':ic
 CHECK               ~ 'CHECK':ic
+CLOSE               ~ 'CLOSE':ic
 COLUMN              ~ 'COLUMN':ic
 COMMENT             ~ 'COMMENT':ic
 :lexeme             ~ COMMENT pause => after event => keyword
@@ -2784,6 +2789,15 @@ sub make_pl_block {
     $node->{declare} = $declare;
     $node->{stmts} = $body;
     $node->{exception} = $exception;
+
+    return node_to_array($node);
+}
+
+sub make_pl_close {
+    my (undef, undef, $ident) = @_;
+    my $node = make_node('pl_close');
+
+    $node->{ident} = $ident;
 
     return node_to_array($node);
 }

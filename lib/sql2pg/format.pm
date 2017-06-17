@@ -761,6 +761,12 @@ sub format_pl_block {
     return $out;
 }
 
+sub format_pl_close {
+    my ($node) = @_;
+
+    return 'CLOSE ' . format_node($node->{ident});
+}
+
 sub format_pl_dotdot {
     my ($node) = @_;
     my $out;

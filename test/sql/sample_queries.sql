@@ -90,6 +90,6 @@ begin
     select ?,:d,? from t;
     select ? from t2;
     open cur for select * from tbl order by id;
-    loop fetch cur into id, val; exit when cur%notfound or id is null or id < 0;end loop;
+    loop fetch cur into id, val; exit when cur%notfound or id is null or id < 0;end loop; close cur;
 end;
 -- I don't belong to any query
