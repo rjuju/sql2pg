@@ -817,6 +817,7 @@ sub format_pl_exception_when {
 sub format_pl_exit {
     my ($node) = @_;
 
+    return 'EXIT' unless($node->{when});
     return 'EXIT WHEN ' . format_node($node->{when});
 }
 

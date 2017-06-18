@@ -1158,7 +1158,8 @@ pl_elsif ::=
     (ELSIF) target_el (THEN) pl_stmts action => make_pl_elsif
 
 pl_exit ::=
-    EXIT WHEN qual_list action => make_pl_exit
+    EXIT action => make_pl_exit
+    | EXIT WHEN qual_list action => make_pl_exit
 
 pl_raise_exc ::=
     RAISE IDENT action => make_pl_raise

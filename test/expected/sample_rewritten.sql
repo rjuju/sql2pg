@@ -227,6 +227,7 @@ BEGIN
     EXIT WHEN NOT FOUND OR id IS NULL OR id < 0 ;
   END LOOP ;
   CLOSE cur ;
+  EXIT ;
 END ;
 $_$ language plpgsql ;
 -- 4 FIXME for this statement
