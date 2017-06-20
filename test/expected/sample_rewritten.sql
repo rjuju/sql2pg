@@ -228,6 +228,12 @@ BEGIN
   END LOOP ;
   CLOSE cur ;
   EXIT ;
+  id := 3 ;
+  WHILE id > 0
+  LOOP
+    RAISE NOTICE 'id is %', id ;
+    id := id - 1 ;
+  END LOOP ;
 END ;
 $_$ language plpgsql ;
 -- 4 FIXME for this statement

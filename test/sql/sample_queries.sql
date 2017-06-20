@@ -91,6 +91,6 @@ begin
     select ? from t2;
     open cur for select * from tbl order by id;
     loop fetch cur into id, val; exit when cur%notfound or id is null or id < 0;end loop; close cur;
-        exit;
+        exit; id := 3; while id > 0 loop dbms_output.put_line('id is ' || id); id := id-1;end loop;
 end;
 -- I don't belong to any query

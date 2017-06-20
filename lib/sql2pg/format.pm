@@ -965,6 +965,16 @@ sub format_pl_var {
     return $out;
 }
 
+sub format_pl_while {
+    my ($node) = @_;
+    my $out;
+
+    $out = 'WHILE ' . format_node($node->{cond});
+    $out .= format_node($node->{loop});
+
+    return $out;
+}
+
 sub format_proarg {
     my ($arg) = @_;
     my $out;

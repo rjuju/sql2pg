@@ -1122,6 +1122,7 @@ pl_stmt ::=
     | pl_raise_exc
     | pl_return
     | pl_set
+    | pl_while
     | NULL action => make_keyword
 
 pl_exception ::=
@@ -1187,6 +1188,9 @@ pl_open_cursor_for ::=
 
 pl_fetch_into ::=
     FETCH IDENT INTO IDENTS action => make_pl_fetch_into
+
+pl_while ::=
+    WHILE qual_list pl_loop action => make_pl_while
 
 CreateTriggerStmt ::=
     (CREATE) or_replace_clause (TRIGGER) IDENT trigger_when (ON) IDENT
@@ -1638,6 +1642,7 @@ VIRTUAL             ~ 'VIRTUAL':ic
 WHEN                ~ 'WHEN':ic
 WHERE               ~ 'WHERE':ic
 WAIT                ~ 'WAIT':ic
+WHILE               ~ 'WHILE':ic
 WITH                ~ 'WITH':ic
 :lexeme             ~ WITH pause => after event => keyword
 XML                 ~ 'XML':ic
@@ -2948,6 +2953,16 @@ sub make_pl_var {
     $node->{val} = $val if ($val);
 
     return $node;
+}
+
+sub make_pl_while {
+    my (undef, undef, $quals, $loop) = @_;
+    my $node = make_node('pl_while');
+
+    $node->{cond} = $quals;
+    $node->{loop} = $loop;
+
+    return node_to_array($node);
 }
 
 sub make_priorqual {
