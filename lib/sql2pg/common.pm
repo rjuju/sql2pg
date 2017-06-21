@@ -59,7 +59,17 @@ sub assert_isA {
     my ($node, $type, @args) = @_;
 
     if (not isA($node, $type)) {
-        error("Unexpected node type " . $node->{type} . ", expected $type",
+        my $tmp;
+
+        if (ref $node eq 'ARRAY') {
+            $tmp = "Unexpected array"
+        } elsif (ref $node eq 'HASH') {
+            $tmp = "Unexpected node type " . $node->{type};
+        } else {
+            $tmp = "Unexpected scalar " . $node;
+        }
+
+        error("$tmp, expected nodetype $type",
             $node, @args);
     }
 }
