@@ -1099,11 +1099,12 @@ pl_declareblock ::=
     | EMPTY
 
 pl_declarelist ::=
-    pl_var* separator => SEMICOLON action => ::array
+    pl_var* separator => SEMICOLON action => make_pl_declarelist
 
 pl_var ::=
     IDENT datatype col_default action => make_pl_var
     | IDENT datatype col_default (':=') target_el action => make_pl_var
+    | pl_type
 
 pl_stmts ::=
     pl_stmt* separator => SEMICOLON action => ::array
@@ -1171,6 +1172,9 @@ pl_return ::=
 
 pl_set ::=
     IDENT ':=' target_el action => make_pl_set
+
+pl_type ::=
+    TYPE IDENT IS datatype action => make_pl_type
 
 pl_for ::=
     FOR IDENT IN pl_for_cond pl_loop action => make_pl_for
@@ -2808,6 +2812,24 @@ sub make_pl_close {
     return node_to_array($node);
 }
 
+sub make_pl_declarelist {
+    my (undef, @nodes) = @_;
+    my $node = make_node('pl_declarelist');
+
+    foreach my $n (@nodes) {
+        if (isA($n, 'pl_type')) {
+            push(@{$node->{types}}, $n);
+        } else {
+            push(@{$node->{vars}}, $n);
+        }
+    }
+
+    $node->{hook} = 'sql2pg::plsql::utils::handle_declarelist'
+        if ($node->{types});
+
+    return $node;
+}
+
 sub make_pl_dotdot {
     my (undef, $reverse, $lower, undef, $upper) = @_;
     my $node = make_node('pl_dotdot');
@@ -2929,6 +2951,21 @@ sub make_pl_set {
     $node->{val} = $el;
 
     return node_to_array($node);
+}
+
+sub make_pl_type {
+    my (undef, undef, $ident, undef, $datatype) = @_;
+    my $node = make_node('pl_type');
+
+    assert_one_el($ident);
+    $ident = pop(@{$ident});
+    assert_one_el($datatype);
+    $datatype = pop(@{$datatype});
+
+    $node->{ident} = $ident;
+    $node->{datatype} = $datatype;
+
+    return $node;
 }
 
 sub make_pl_var {

@@ -234,6 +234,12 @@ BEGIN
     RAISE NOTICE 'id is %', id ;
     id := id - 1 ;
   END LOOP ;
+  
+  <<nested>>
+  DECLARE
+    cur2 mytype ;
+  BEGIN
+  END ;
 END ;
 $_$ language plpgsql ;
 -- 4 FIXME for this statement

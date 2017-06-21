@@ -83,7 +83,8 @@ begin
         'id is zero' end if; end; elsif id = 42 then id:=1;id := 0;return 'true' else return 'false' end if;
 end;
 create function toto as
-cur SYS_REFCURSOR;
+cur mytype;
+type mytype is sys_refcursor;
 id number;
 val varchar2(255);
 begin
@@ -92,5 +93,9 @@ begin
     open cur for select * from tbl order by id;
     loop fetch cur into id, val; exit when cur%notfound or id is null or id < 0;end loop; close cur;
         exit; id := 3; while id > 0 loop dbms_output.put_line('id is ' || id); id := id-1;end loop;
+        <<nested>>
+        declare cur2 mytype; -- should it be handled?
+        begin
+        end;
 end;
 -- I don't belong to any query

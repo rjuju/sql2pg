@@ -222,6 +222,22 @@ sub handle_datatype {
     return $node;
 }
 
+# get all TYPE ... IS and replace accordingly all declared vars
+# TODO how does it behave in nested code blocks and possible overloading? for
+# now do not track them outside current block level
+sub handle_declarelist {
+    my ($node) = @_;
+
+    foreach my $v (@{$node->{vars}}) {
+        TYPES: foreach my $t (@{$node->{types}}) {
+            if ($t->{ident}->{attribute} eq $v->{datatype}->{ident}->{attribute}) {
+                $v->{datatype} = $t->{datatype};
+                last TYPES;
+            }
+        }
+    }
+}
+
 # Oracle wants column name, pg wants table name, try to figure it out.  It's
 # done here just in case original query only provided column name without
 # reference to column and there was only one table ref.

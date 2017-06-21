@@ -730,9 +730,17 @@ sub format_pl_block {
 
     # var declaration
     if ($node->{declare}) {
+        my $hook = $node->{declare}->{hook};
+
+        if ($hook) {
+            no strict;
+            &$hook($node->{declare});
+            use strict;
+        }
+
         $out .= tab() . "DECLARE\n";
         $depth++;
-        VAR: foreach my $v (@{$node->{declare}}) {
+        VAR: foreach my $v (@{$node->{declare}->{vars}}) {
             # can be undefined, exception var are removed at parse time
             next VAR unless($v);
             $out .= tab() . format_node($v) . " ;\n";
