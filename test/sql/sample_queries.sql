@@ -84,9 +84,10 @@ begin
 end;
 create function toto as
 cur mytype;
-type mytype is sys_refcursor;
+type mytype is ref Cursor;
 id number;
 val varchar2(255);
+cur2 sys_refcursor;
 begin
     select ?,:d,? from t;
     select ? from t2;

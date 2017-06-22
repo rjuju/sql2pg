@@ -215,7 +215,7 @@ sub handle_datatype {
         $node->{ident}->{attribute} = 'text';
     } elsif ($name eq 'nclob') {
         $node->{ident}->{attribute} = 'text';
-    } elsif ($name eq 'sys_refcursor') {
+    } elsif (($name eq 'sys_refcursor') or ($name eq 'ref cursor')){
         $node->{ident}->{attribute} = 'refcursor';
     }
 

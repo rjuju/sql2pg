@@ -215,6 +215,7 @@ DECLARE
   cur refcursor ;
   id numeric ;
   val varchar(255) ;
+  cur2 refcursor ;
 BEGIN
   SELECT $1, $2, $3 FROM t ;
   SELECT $4 FROM t2 ;

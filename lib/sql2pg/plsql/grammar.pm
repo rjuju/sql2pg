@@ -528,10 +528,17 @@ qual_exists ::=
     EXISTS action => upper
     | NOT EXISTS action => concat
 
+# by default, array version
 IDENT ::=
-    ident '.' ident '.' ident action => make_ident
-    | ident '.' ident action => make_ident
-    | ident action => make_ident
+    ident '.' ident '.' ident action => make_ident_a
+    | ident '.' ident action => make_ident_a
+    | ident action => make_ident_a
+
+# scalar node
+IDENT_S ::=
+    ident '.' ident '.' ident action => make_ident_s
+    | ident '.' ident action => make_ident_s
+    | ident action => make_ident_s
 
 IDENTS ::=
     IDENTS ',' IDENT action => append_el_1_3
@@ -925,7 +932,11 @@ tblspc_clause ::=
     | EMPTY
 
 datatype ::=
-    IDENT pl_typeref typmod action => make_datatype
+    datatype_ident pl_typeref typmod action => make_datatype
+
+datatype_ident ::=
+    IDENT_S
+    | REF CURSOR action => concat
 
 pl_typeref ::=
     ('%') TYPE action => upper
@@ -1420,6 +1431,7 @@ CROSS               ~ 'CROSS':ic
 CUBE                ~ 'CUBE':ic
 :lexeme             ~ CUBE priority => 1
 CURRENT             ~ 'CURRENT':ic
+CURSOR              ~ 'CURSOR':ic
 CYCLE               ~ 'CYCLE':ic
 DATAFILE            ~ 'DATAFILE':ic
 DATE                ~ 'DATE':ic
@@ -1568,6 +1580,7 @@ PROCEDURE           ~ 'PROCEDURE':ic
 PURGE               ~ 'PURGE':ic
 RAISE               ~ 'RAISE':ic
 RANGE               ~ 'RANGE':ic
+REF                 ~ 'REF':ic
 REFERENCE           ~ 'REFERENCE':ic
 REFERENCES          ~ 'REFERENCES':ic
 REJECT              ~ 'REJECT':ic
@@ -2217,9 +2230,13 @@ sub make_datatype {
     my (undef, $ident, $typeref, $typmod) = @_;
     my $node = make_node('datatype');
 
-    assert_one_el($ident);
-
-    $node->{ident} = pop(@{$ident});
+    # special constructs like REF CURSOR wont be explicit nodes, construct them
+    # now
+    if (not ref $ident) {
+        $node->{ident} = make_ident(undef, undef, $ident);
+    } else {
+        $node->{ident} = $ident;
+    }
     $node->{typeref} = $typeref;
     $node->{typmod} = $typmod;
     $node->{hook} = 'sql2pg::plsql::utils::handle_datatype';
@@ -2515,7 +2532,7 @@ sub make_hierarchicalclause {
 }
 
 sub make_ident {
-    my (undef, $table, undef, $schema, undef, $attribute) = @_;
+    my ($table, $schema, $attribute) = @_;
     my @atts = ('schema', 'table', 'attribute');
     my $ident = make_node('ident');
 
@@ -2531,10 +2548,19 @@ sub make_ident {
         $ident->{pop(@atts)} = quote_ident($table);
     }
 
-    return node_to_array($ident);
+    return $ident;
 }
 
-sub make_ident_not_found {
+sub make_ident_a {
+    my (undef, $table, undef, $schema, undef, $attribute) = @_;
+
+    return node_to_array(make_ident($table, $schema, $attribute));
+}
+
+sub make_ident_s {
+    my (undef, $table, undef, $schema, undef, $attribute) = @_;
+
+    return make_ident($table, $schema, $attribute);
 }
 
 sub make_insert {
