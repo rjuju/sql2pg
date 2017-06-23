@@ -922,10 +922,15 @@ sub format_pl_open_cursor {
     my ($node) = @_;
     my $out;
 
-    $out = "\n". tab() . 'OPEN ' . format_node($node->{ident}) . " FOR\n";
-    $depth++;
-    $out .= tab() . format_node($node->{stmt});
-    $depth--;
+    $out = "\n". tab() . 'OPEN ' . format_node($node->{ident}) . ' FOR';
+
+    if (isA($node->{content}, 'ident')) {
+        $out .= ' EXECUTE ' . format_node($node->{content});
+    } else {
+        $depth++;
+        $out .= "\n" . tab() . format_node($node->{content});
+        $depth--;
+    }
 
     return $out;
 }

@@ -1200,6 +1200,7 @@ pl_loop ::=
 
 pl_open_cursor_for ::=
     OPEN IDENT FOR SelectStmt action => make_pl_open_cursor
+    | OPEN IDENT FOR IDENT_S action => make_pl_open_cursor
 
 pl_fetch_into ::=
     FETCH IDENT INTO IDENTS action => make_pl_fetch_into
@@ -2940,11 +2941,11 @@ sub make_pl_loop {
 }
 
 sub make_pl_open_cursor {
-    my (undef, undef, $ident, undef, $stmt) = @_;
+    my (undef, undef, $ident, undef, $content) = @_;
     my $node = make_node('pl_open_cursor');
 
     $node->{ident} = $ident;
-    $node->{stmt} = $stmt;
+    $node->{content} = $content;
 
     return node_to_array($node);
 }

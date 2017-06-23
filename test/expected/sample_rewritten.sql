@@ -241,6 +241,9 @@ BEGIN
     cur2 mytype ;
   BEGIN
   END ;
+  val := 'select * from t' ;
+  
+  OPEN cur FOR EXECUTE val ;
 END ;
 $_$ language plpgsql ;
 -- 4 FIXME for this statement
