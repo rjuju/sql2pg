@@ -1118,7 +1118,7 @@ pl_var ::=
     | pl_type
 
 pl_stmts ::=
-    pl_stmt* separator => SEMICOLON action => ::array
+    pl_stmt* separator => SEMICOLON action => make_simple_array
 
 pl_stmt ::=
     raw_stmt
@@ -3122,6 +3122,21 @@ sub make_rollupcube {
     $rollbupcube->{tlist} = $tlist;
 
     return node_to_array($rollbupcube);
+}
+
+sub make_simple_array {
+    my (undef, @nodes) = @_;
+    my $array = [];
+
+    foreach my $n (@nodes) {
+        if (ref $n eq 'ARRAY') {
+            $n = pop(@{$n});
+        }
+
+        push(@{$array}, $n);
+    }
+
+    return $array;
 }
 
 sub make_sample_clause {

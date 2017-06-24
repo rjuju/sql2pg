@@ -241,9 +241,10 @@ BEGIN
     cur2 mytype ;
   BEGIN
   END ;
-  val := 'select * from t' ;
+  val := get_select('*', 't') ;
   
   OPEN cur FOR EXECUTE val ;
+  PERFORM fct(cur.id)
 END ;
 $_$ language plpgsql ;
 -- 4 FIXME for this statement

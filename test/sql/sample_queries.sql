@@ -97,6 +97,6 @@ begin
         <<nested>>
         declare cur2 mytype; -- should it be handled?
         begin
-        end; val := 'select * from t'; open cur for val;
+        end; val := get_select('*', 't'); open cur for val; fct(cur.id);
 end;
 -- I don't belong to any query
