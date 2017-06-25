@@ -1726,7 +1726,10 @@ quoted_chars        ~ [^"]+
 
 literal             ~ literal_delim literal_chars literal_delim
 literal_delim       ~ [']
-literal_chars       ~ [^']*
+literal_chars       ~ literal_char*
+literal_char        ~ non_quote | two_quotes
+non_quote           ~ [^']
+two_quotes          ~ ['][']
 
 operator            ~ '=' | '!=' | '<>' | '<' | '<=' | '>' | '>=' | '%'
                     | '+' | '-' | '*' | '/' | '||' | _IS

@@ -68,6 +68,7 @@ SELECT * FROM a LEFT JOIN a1 ON a.id = a1.id LEFT JOIN a2 ON a1.id = a2.id, b LE
 CREATE TABLE nsp.t AS SELECT 1 ;
 COMMENT ON TABLE nsp.t IS 'this table should have only one line' ;
 CREATE OR REPLACE VIEW v AS SELECT * FROM nsp.t ;
+SELECT '''it''s a ''''lot of quotes''', 'it''s fine' ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement

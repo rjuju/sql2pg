@@ -44,6 +44,7 @@ select * from a, a1, a2, b, b1, b2 where a.id = a1.id(+) and a1.id = a2.id(+) an
 CREAte table nsp.t as select 1 from dual;
 comment on table nsp.t is 'this table should have only one line';
 create or replace view v as select * from nsp.t;
+select '''it''s a ''''lot of quotes''', 'it''s fine' from dual;
 -- now unsupported stuff
 SELECT 1 FROM t1 VERSIONS BETWEEN TIMESTAMP MINVALUE AND CURRENT_TIMESTAMP t WHERE id < 10;
 UPDATE t1 SET val = 't' WHERE id = 1 LOG ERRORS INTO err.log (to_char(SYSDATE), id);
