@@ -826,6 +826,19 @@ sub format_pl_exception_when {
     return $out;
 }
 
+sub format_pl_execute {
+    my ($node) = @_;
+    my $out = 'EXECUTE ' . format_node($node->{el});
+
+    if ($node->{into}) {
+        $depth++;
+        $out .= "\n" . tab() . format_node($node->{into}) if ($node->{into});
+        $depth--;
+    }
+
+    return $out;
+}
+
 sub format_pl_exit {
     my ($node) = @_;
 

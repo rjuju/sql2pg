@@ -246,6 +246,8 @@ BEGIN
   
   OPEN cur FOR EXECUTE val ;
   PERFORM fct(cur.id)
+  EXECUTE 'select 1, 1 from' || 'cur.tbl'
+    INTO id, id ;
 END ;
 $_$ language plpgsql ;
 -- 4 FIXME for this statement

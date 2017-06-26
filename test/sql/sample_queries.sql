@@ -99,5 +99,6 @@ begin
         declare cur2 mytype; -- should it be handled?
         begin
         end; val := get_select('*', 't'); open cur for val; fct(cur.id);
+        execute immediate 'select 1, 1 from' || 'cur.tbl' into id, id;
 end;
 -- I don't belong to any query

@@ -1126,6 +1126,7 @@ pl_stmt ::=
     | IfThenElse
     | pl_block
     | pl_close
+    | pl_execute
     | pl_exit
     | pl_loop
     | pl_fetch_into
@@ -1169,6 +1170,9 @@ pl_elsifs ::=
 
 pl_elsif ::=
     (ELSIF) target_el (THEN) pl_stmts action => make_pl_elsif
+
+pl_execute ::=
+    EXECUTE IMMEDIATE target_el into_clause action => make_pl_execute
 
 pl_exit ::=
     EXIT action => make_pl_exit
@@ -1461,6 +1465,7 @@ ERRORS              ~ 'ERRORS':ic
 ESCAPE              ~ 'ESCAPE':ic
 EXCEPTION           ~ 'EXCEPTION':ic
 EXCLUDE             ~ 'EXCLUDE':ic
+EXECUTE             ~ 'EXECUTE':ic
 EXISTS              ~ 'EXISTS':ic
 EXIT                ~ 'EXIT':ic
 EXPLAIN             ~ 'EXPLAIN':ic
@@ -2888,6 +2893,16 @@ sub make_pl_exception_when {
     $node->{val} = make_node('literal');
     $node->{val}->{value} = format_node($ident);
     $node->{stmts} = $stmts;
+
+    return $node;
+}
+
+sub make_pl_execute {
+    my (undef, undef, undef, $el, $into) = @_;
+    my $node = make_node('pl_execute');
+
+    $node->{el} = $el;
+    $node->{into} = $into;
 
     return $node;
 }
