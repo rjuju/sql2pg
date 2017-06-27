@@ -94,9 +94,10 @@ CreateStmt ::=
     | CreateTableStmt
     | CreateViewAsStmt
     | CreateIndexStmt
+    | CreatePkgStmt
+    | CreateProcStmt
     | CreateTblspcStmt
     | CreateSequenceStmt
-    | CreateProcStmt
     | CreateTriggerStmt
 
 TransacStmt ::=
@@ -1004,6 +1005,16 @@ CreateIndexStmt ::=
     CREATE _UNIQUE INDEX IDENT ON IDENT ('(') simple_order_list (')')
         tblspc_clause action => make_createindex
 
+CreatePkgStmt ::=
+    CREATE PACKAGE IDENT AS pkg_headers END IDENT action => make_createpkg
+
+pkg_headers ::=
+    pkg_header* separator => SEMICOLON action => ::array
+
+pkg_header ::=
+    # procedure header, discard it
+    PROCEDURE IDENT pl_arglist pl_return_clause action => discard
+
 CreateTblspcStmt ::=
     # ignore BIG|SMALL and tablespace kind
     (CREATE tblspc_bigsmall tblspc_kind TABLESPACE) IDENT tblspc_options
@@ -1571,6 +1582,7 @@ OPEN                ~ 'OPEN':ic
 OUT                 ~ 'OUT':ic
 OUTER               ~ 'OUTER':ic
 OVER                ~ 'OVER':ic
+PACKAGE             ~ 'PACKAGE':ic
 PARALLEL            ~ 'PARALLEL':ic
 PARTITION           ~ 'PARTITION':ic
 PCTFREE             ~ 'PCTFREE':ic
@@ -2116,6 +2128,17 @@ sub make_createpl_func {
 
     assert_one_el($block);
     $node->{block} = pop(@{$block});
+
+    return node_to_array($node);
+}
+
+sub make_createpkg {
+    my (undef, undef, undef, $ident, undef, $headers) = @_;
+    my $node = make_node('createobject');
+
+    # Drop all headers for now, and replace package by a schema
+    $node->{kind} = 'SCHEMA';
+    $node->{ident} = $ident;
 
     return node_to_array($node);
 }

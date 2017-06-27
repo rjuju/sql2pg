@@ -255,3 +255,4 @@ $_$ language plpgsql ;
 -- FIXME: Bindvar :d has been translated to parameter $2
 -- FIXME: Prepared statement parameter n°2 has been translated to parameter $3
 -- FIXME: Prepared statement parameter n°3 has been translated to parameter $4
+CREATE SCHEMA pkg ;

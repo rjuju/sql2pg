@@ -101,4 +101,5 @@ begin
         end; val := get_select('*', 't'); open cur for val; fct(cur.id);
         execute immediate 'select 1, 1 from' || 'cur.tbl' into id, id;
 end;
+create  package pkg as procedure set_val(id number, val varchar2); end pkg;
 -- I don't belong to any query
