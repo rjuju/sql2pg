@@ -95,6 +95,7 @@ CreateStmt ::=
     | CreateViewAsStmt
     | CreateIndexStmt
     | CreatePkgStmt
+    | CreatePkgBodyStmt
     | CreateProcStmt
     | CreateTblspcStmt
     | CreateSequenceStmt
@@ -1015,6 +1016,16 @@ pkg_header ::=
     # procedure header, discard it
     PROCEDURE IDENT pl_arglist pl_return_clause action => discard
 
+CreatePkgBodyStmt ::=
+    CREATE PACKAGE BODY IDENT_S AS pkg_body_stmts END IDENT_S
+        action => make_createpkg_body
+
+pkg_body_stmts ::=
+    pkg_body_stmt* separator => SEMICOLON action => ::array
+
+pkg_body_stmt ::=
+    CreateProcStmt_pkg
+
 CreateTblspcStmt ::=
     # ignore BIG|SMALL and tablespace kind
     (CREATE tblspc_bigsmall tblspc_kind TABLESPACE) IDENT tblspc_options
@@ -1086,7 +1097,12 @@ seq_option ::=
     | (NOCYCLE) action => make_seq_nocycle
 
 CreateProcStmt ::=
-    (CREATE) or_replace_clause (pl_type) IDENT pl_arglist pl_return_clause
+    (CREATE) or_replace_clause (pl_type) IDENT_S pl_arglist pl_return_clause
+        (AS_IS) pl_block action => make_createpl_func
+
+CreateProcStmt_pkg ::=
+    # use EMPTY to avoid having two distinct make functions
+    EMPTY (pl_type) IDENT_S pl_arglist pl_return_clause
         (AS_IS) pl_block action => make_createpl_func
 
 pl_type ::=
@@ -1420,6 +1436,7 @@ BETWEEN             ~ 'BETWEEN':ic
 BIGFILE             ~ 'BIGFILE':ic
 BLOCK               ~ 'BLOCK':ic
 BLOCKSIZE           ~ 'BLOCKSIZE':ic
+BODY                ~ 'BODY':ic
 BOTH                ~ 'BOTH':ic
 BREADTH             ~ 'BREADTH':ic
 BUFFER_POOL         ~ 'BUFFER_POOL':ic
@@ -2141,6 +2158,27 @@ sub make_createpkg {
     $node->{ident} = $ident;
 
     return node_to_array($node);
+}
+
+sub make_createpkg_body {
+    my (undef, undef, undef, undef, $ident, undef, $stmts, undef, undef) = @_;
+
+    assert((not $ident->{table}), 'Package body should not be qualified', $ident);
+
+    foreach my $s (@{$stmts}) {
+        assert_one_el($s);
+        $s = pop(@{$s});
+
+        if (isA($s, 'pl_func')) {
+            assert((not $s->{ident}->{table}), 'Object should not be qualified', $s);
+            $s->{ident}->{table} = $ident->{attribute};
+        } else {
+            error("Node type " . $s->{type} . " not recognized\n"
+                . "Please fill an issue", $s);
+        }
+    }
+
+    return $stmts;
 }
 
 sub make_createsequence {

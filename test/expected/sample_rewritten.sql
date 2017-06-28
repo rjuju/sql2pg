@@ -256,3 +256,10 @@ $_$ language plpgsql ;
 -- FIXME: Prepared statement parameter n°2 has been translated to parameter $3
 -- FIXME: Prepared statement parameter n°3 has been translated to parameter $4
 CREATE SCHEMA pkg ;
+CREATE FUNCTION pkg.set_val(id numeric, val varchar)
+RETURNS void AS
+$_$
+BEGIN
+  UPDATE config SET value = val WHERE pk = id ;
+END ;
+$_$ language plpgsql ;

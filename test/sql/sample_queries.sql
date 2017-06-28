@@ -102,4 +102,5 @@ begin
         execute immediate 'select 1, 1 from' || 'cur.tbl' into id, id;
 end;
 create  package pkg as procedure set_val(id number, val varchar2); end pkg;
+create package BODY pkg as procedure set_val(id number, val varchar2) is begin update config set value = val where pk = id; end; end pkg;
 -- I don't belong to any query
