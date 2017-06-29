@@ -1014,7 +1014,9 @@ pkg_headers ::=
 
 pkg_header ::=
     # procedure header, discard it
-    PROCEDURE IDENT pl_arglist pl_return_clause action => discard
+    PROCEDURE IDENT_S pl_arglist pl_return_clause action => discard
+    # function header, discard it
+    | FUNCTION IDENT_S pl_arglist pl_return_clause action => discard
 
 CreatePkgBodyStmt ::=
     CREATE PACKAGE BODY IDENT_S AS pkg_body_stmts END IDENT_S

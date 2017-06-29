@@ -263,3 +263,14 @@ BEGIN
   UPDATE config SET value = val WHERE pk = id ;
 END ;
 $_$ language plpgsql ;
+CREATE FUNCTION pkg.get_val(id numeric)
+RETURNS void AS
+$_$
+DECLARE
+  val varchar ;
+BEGIN
+  SELECT value INTO val FROM config WHERE pk = id ;
+  
+  RETURN val ;
+END ;
+$_$ language plpgsql ;
