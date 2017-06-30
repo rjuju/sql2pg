@@ -1007,7 +1007,8 @@ CreateIndexStmt ::=
         tblspc_clause action => make_createindex
 
 CreatePkgStmt ::=
-    CREATE PACKAGE IDENT AS pkg_headers END IDENT action => make_createpkg
+    CREATE or_replace_clause PACKAGE IDENT AS pkg_headers END IDENT
+        action => make_createpkg
 
 pkg_headers ::=
     pkg_header* separator => SEMICOLON action => ::array
@@ -1019,8 +1020,8 @@ pkg_header ::=
     | FUNCTION IDENT_S pl_arglist pl_return_clause action => discard
 
 CreatePkgBodyStmt ::=
-    CREATE PACKAGE BODY IDENT_S AS pkg_body_stmts END IDENT_S
-        action => make_createpkg_body
+    (CREATE) or_replace_clause (PACKAGE BODY) IDENT_S AS pkg_body_stmts END
+        IDENT_S action => make_createpkg_body
 
 pkg_body_stmts ::=
     pkg_body_stmt* separator => SEMICOLON action => ::array
@@ -2152,10 +2153,11 @@ sub make_createpl_func {
 }
 
 sub make_createpkg {
-    my (undef, undef, undef, $ident, undef, $headers) = @_;
+    my (undef, undef, $replace, undef, $ident, undef, $headers) = @_;
     my $node = make_node('createobject');
 
-    # Drop all headers for now, and replace package by a schema
+    # Drop all headers and replace clause for now, and replace package by a
+    # schema
     $node->{kind} = 'SCHEMA';
     $node->{ident} = $ident;
 
@@ -2163,7 +2165,7 @@ sub make_createpkg {
 }
 
 sub make_createpkg_body {
-    my (undef, undef, undef, undef, $ident, undef, $stmts, undef, undef) = @_;
+    my (undef, $replace, $ident, undef, $stmts, undef, undef) = @_;
 
     assert((not $ident->{table}), 'Package body should not be qualified', $ident);
 
@@ -2174,6 +2176,9 @@ sub make_createpkg_body {
         if (isA($s, 'pl_func')) {
             assert((not $s->{ident}->{table}), 'Object should not be qualified', $s);
             $s->{ident}->{table} = $ident->{attribute};
+
+            # if package has a replace clause, transfer it to the create pl
+            $s->{replace} = $replace if ($replace);
         } else {
             error("Node type " . $s->{type} . " not recognized\n"
                 . "Please fill an issue", $s);
