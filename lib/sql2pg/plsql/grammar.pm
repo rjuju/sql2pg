@@ -1100,15 +1100,15 @@ seq_option ::=
     | (NOCYCLE) action => make_seq_nocycle
 
 CreateProcStmt ::=
-    (CREATE) or_replace_clause (pl_type) IDENT_S pl_arglist pl_return_clause
+    (CREATE) or_replace_clause (pl_proctype) IDENT_S pl_arglist pl_return_clause
         (AS_IS) pl_block action => make_createpl_func
 
 CreateProcStmt_pkg ::=
     # use EMPTY to avoid having two distinct make functions
-    EMPTY (pl_type) IDENT_S pl_arglist pl_return_clause
+    EMPTY (pl_proctype) IDENT_S pl_arglist pl_return_clause
         (AS_IS) pl_block action => make_createpl_func
 
-pl_type ::=
+pl_proctype ::=
     PROCEDURE
     | FUNCTION
 
