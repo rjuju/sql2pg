@@ -101,7 +101,7 @@ begin
         end; val := get_select('*', 't'); open cur for val; fct(cur.id);
         execute immediate 'select 1, 1 from' || 'cur.tbl' into id, id;
 end;
-create  package pkg as procedure set_val(id number, val varchar2); function get_val(id number) return varchar2;end pkg;
+create  package pkg as type myrecord is record(id number, val varvhar2(50));procedure set_val(id number, val varchar2); function get_val(id number) return varchar2;end pkg;
 create or replace package BODY pkg as procedure set_val(id number, val varchar2) is begin update config set value = val where pk = id; end;
 function get_val(id number) is val varchar;begin select value into val from config where pk = id; return val; end;end pkg;
 -- I don't belong to any query

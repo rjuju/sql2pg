@@ -301,7 +301,7 @@ sub format_createtrigger {
 sub format_datatype {
     my ($node) = @_;
     my $hook = $node->{hook};
-    my $out;
+    my $out = '';
 
     if ($hook) {
         no strict;
@@ -309,7 +309,9 @@ sub format_datatype {
         use strict;
     }
 
-    $out = format_node($node->{ident});
+    $out = format_node($node->{name}) . ' ' if ($node->{name});
+
+    $out .= format_node($node->{ident});
     $out .= "%$node->{typeref}" if ($node->{typeref});
 
     $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
@@ -600,6 +602,13 @@ sub format_literal {
     $out .= format_alias($literal->{alias});
 
     return $out;
+}
+
+sub format_datatype_record {
+    my ($node) = @_;
+    my $out;
+
+    return format_array($node->{datatypes}, ', ');
 }
 
 sub format_node {
@@ -984,6 +993,21 @@ sub format_pl_set {
     return format_node($node->{ident}) . ' := ' . format_node($node->{val});
 }
 
+sub format_pl_type {
+    my ($node) = @_;
+    my $out;
+
+    $out = 'CREATE TYPE ' . format_node($node->{ident}) . " AS (\n";
+
+    $depth++;
+    $out .= tab() . format_node($node->{datatype});
+    $depth--;
+
+    $out .= "\n)";
+
+    return $out;
+}
+
 sub format_pl_var {
     my ($node) = @_;
     my $out;
@@ -1251,6 +1275,7 @@ sub format_stmts {
             or isA($stmt, 'createobject')
             or isA($stmt, 'createtrigger')
             or isA($stmt, 'pl_func')
+            or isA($stmt, 'pl_type')
         ) {
             # Single statement rewritten in multiple statements
             # for instance AT ADD (...) in plpgsql, GENERATED AS transformed in

@@ -1017,7 +1017,7 @@ CreateIndexStmt ::=
         tblspc_clause action => make_createindex
 
 CreatePkgStmt ::=
-    CREATE or_replace_clause PACKAGE IDENT AS pkg_headers END IDENT
+    CREATE or_replace_clause PACKAGE IDENT_S AS pkg_headers END IDENT_S
         action => make_createpkg
 
 pkg_headers ::=
@@ -1028,6 +1028,7 @@ pkg_header ::=
     PROCEDURE IDENT_S pl_arglist pl_return_clause action => discard
     # function header, discard it
     | FUNCTION IDENT_S pl_arglist pl_return_clause action => discard
+    | pl_type
 
 CreatePkgBodyStmt ::=
     (CREATE) or_replace_clause (PACKAGE BODY) IDENT_S AS pkg_body_stmts END
@@ -2167,13 +2168,25 @@ sub make_createpl_func {
 sub make_createpkg {
     my (undef, undef, $replace, undef, $ident, undef, $headers) = @_;
     my $node = make_node('createobject');
+    my $ret = [];
 
-    # Drop all headers and replace clause for now, and replace package by a
-    # schema
     $node->{kind} = 'SCHEMA';
     $node->{ident} = $ident;
 
-    return node_to_array($node);
+    push(@{$ret}, $node);
+
+    HEADERS: foreach my $h (@{$headers}) {
+        next HEADERS unless($h);
+
+        if (isA($h, 'pl_type')) {
+            $h->{ident}->{table} = $ident->{attribute};
+            push(@{$ret}, $h);
+        } else {
+            error("Unhandled package element", $h);
+        }
+    }
+
+    return $ret;
 }
 
 sub make_createpkg_body {
@@ -3099,8 +3112,6 @@ sub make_pl_type {
     my (undef, undef, $ident, undef, $datatype) = @_;
     my $node = make_node('pl_type');
 
-    assert_one_el($ident);
-    $ident = pop(@{$ident});
     assert_one_el($datatype);
     $datatype = pop(@{$datatype});
 
