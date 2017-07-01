@@ -945,6 +945,16 @@ pl_typeref ::=
     | ('%') ROWTYPE action => upper
     | EMPTY
 
+datatype_record ::=
+    RECORD '(' named_datatypes ')' action => make_datatype_record
+
+named_datatypes ::=
+    named_datatypes ',' named_datatype action => append_el_1_3
+    | named_datatype
+
+named_datatype ::=
+    IDENT_S datatype action => make_named_datatype
+
 col_pk ::=
     PRIMARY KEY
     | EMPTY
@@ -1219,7 +1229,8 @@ pl_set ::=
     IDENT ':=' target_el action => make_pl_set
 
 pl_type ::=
-    TYPE IDENT IS datatype action => make_pl_type
+    TYPE IDENT_S IS datatype action => make_pl_type
+    | TYPE IDENT_S IS datatype_record action => make_pl_type
 
 pl_for ::=
     FOR IDENT IN pl_for_cond pl_loop action => make_pl_for
@@ -1618,6 +1629,7 @@ PROCEDURE           ~ 'PROCEDURE':ic
 PURGE               ~ 'PURGE':ic
 RAISE               ~ 'RAISE':ic
 RANGE               ~ 'RANGE':ic
+RECORD              ~ 'RECORD':ic
 REF                 ~ 'REF':ic
 REFERENCE           ~ 'REFERENCE':ic
 REFERENCES          ~ 'REFERENCES':ic
@@ -2321,6 +2333,14 @@ sub make_datatype {
     return node_to_array($node);
 }
 
+sub make_datatype_record {
+    my (undef, undef, undef, $datatypes, undef) = @_;
+    my $node = make_node('datatype_record');
+
+    $node->{datatypes} = $datatypes;
+    return node_to_array($node);
+}
+
 sub make_delete {
     my (undef, undef, $from, $where, $returning, $error_logging) = @_;
     my $stmt = make_node('delete');
@@ -2770,6 +2790,15 @@ sub make_modelclause {
     add_fixme('MODEL claused ignored');
 
     return undef;
+}
+
+sub make_named_datatype {
+    my (undef, $ident, $datatype) = @_;
+
+    assert_one_el($datatype);
+    @{$datatype}[0]->{name} = $ident;
+
+    return $datatype;
 }
 
 sub make_normaljoin {
