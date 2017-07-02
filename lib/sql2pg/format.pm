@@ -315,6 +315,7 @@ sub format_datatype {
     $out .= "%$node->{typeref}" if ($node->{typeref});
 
     $out .= '(' . format_array($node->{typmod}, ',') . ')' if ($node->{typmod});
+    $out .= '[]' if ($node->{is_array});
     $out .= format_node($node->{nullnotnull}) if ($node->{nullnotnull});
 
     return $out;

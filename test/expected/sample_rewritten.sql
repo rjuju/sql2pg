@@ -259,6 +259,9 @@ CREATE SCHEMA pkg ;
 CREATE TYPE pkg.myrecord AS (
   id numeric, val varvhar2(50)
 ) ;
+CREATE TYPE pkg.mytable AS (
+  mytable myrecord[]
+) ;
 CREATE OR REPLACE FUNCTION pkg.set_val(id numeric, val varchar)
 RETURNS void AS
 $_$

@@ -955,6 +955,9 @@ named_datatypes ::=
 named_datatype ::=
     IDENT_S datatype action => make_named_datatype
 
+datatype_table_of ::=
+    TABLE OF datatype action => make_datatype_table_of
+
 col_pk ::=
     PRIMARY KEY
     | EMPTY
@@ -1232,6 +1235,7 @@ pl_set ::=
 pl_type ::=
     TYPE IDENT_S IS datatype action => make_pl_type
     | TYPE IDENT_S IS datatype_record action => make_pl_type
+    | TYPE IDENT_S IS datatype_table_of action => make_pl_type
 
 pl_for ::=
     FOR IDENT IN pl_for_cond pl_loop action => make_pl_for
@@ -2354,6 +2358,17 @@ sub make_datatype_record {
     return node_to_array($node);
 }
 
+sub make_datatype_table_of {
+    my (undef, undef, undef, $datatype) = @_;
+
+    assert_one_el($datatype);
+
+    @{$datatype}[0]->{is_array} = 1;
+    @{$datatype}[0]->{name_needed} = 1;
+
+    return $datatype;
+}
+
 sub make_delete {
     my (undef, undef, $from, $where, $returning, $error_logging) = @_;
     my $stmt = make_node('delete');
@@ -3117,6 +3132,12 @@ sub make_pl_type {
 
     $node->{ident} = $ident;
     $node->{datatype} = $datatype;
+
+    # in some cases the datatype won't have a name for its element, so add it
+    # now.
+    if ($datatype->{name_needed} and not $datatype->{name}) {
+        $datatype->{name} = make_ident(undef, undef, $ident->{attribute});
+    }
 
     return $node;
 }
