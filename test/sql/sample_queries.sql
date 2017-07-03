@@ -58,7 +58,7 @@ select * from a join b a2 using (id) unpivot (value for value_type in (a,b) ) OR
 create table tbl_virtual(id number primary key, data blob not null, id1 as (to_date(id)), id2 number generated always as (id/10),);
 create global temporary table test_glob_tmp (id number(9) constraint tmp_fk references tbl_virtual(id1));
 truncate table tst_tbl preserve materialized view log;
-create or replace procedure "Test_Proc" (id in out numeric) is
+create or replace procedure "Test_Proc" (id in out numeric, id2 inout number) is
 new text := 'set';
 invalid_input exception;
 begin

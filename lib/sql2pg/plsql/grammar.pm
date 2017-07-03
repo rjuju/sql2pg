@@ -1144,6 +1144,7 @@ argmode ::=
     IN action => upper
     | OUT action => upper
     | IN OUT action => concat
+    | INOUT action => upper
     | EMPTY
 
 pl_declareblock ::=
@@ -1550,6 +1551,7 @@ INITIAL             ~ 'INITIAL':ic
 INITIALLY           ~ 'INITIALLY':ic
 INITRANS            ~ 'INITRANS':ic
 INNER               ~ 'INNER':ic
+INOUT               ~ 'INOUT':ic
 INTERVAL            ~ 'INTERVAL':ic
 INSERT              ~ 'INSERT':ic
 :lexeme             ~ INSERT pause => after event => keyword

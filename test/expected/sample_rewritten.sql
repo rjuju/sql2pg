@@ -126,7 +126,7 @@ CREATE TEMPORARY TABLE test_glob_tmp (
 -- 1 FIXME for this statement
 -- FIXME: GLOBAL clause of TEMPORARY TABLE ignored
 TRUNCATE TABLE tst_tbl ;
-CREATE OR REPLACE FUNCTION "Test_Proc"(id INOUT numeric)
+CREATE OR REPLACE FUNCTION "Test_Proc"(id INOUT numeric, id2 INOUT numeric)
 RETURNS void AS
 $_$
 DECLARE
