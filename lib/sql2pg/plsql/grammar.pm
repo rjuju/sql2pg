@@ -1234,9 +1234,13 @@ pl_set ::=
     IDENT ':=' target_el action => make_pl_set
 
 pl_type ::=
-    TYPE IDENT_S IS datatype action => make_pl_type
-    | TYPE IDENT_S IS datatype_record action => make_pl_type
-    | TYPE IDENT_S IS datatype_table_of action => make_pl_type
+    TYPE IDENT_S IS datatype index_by_clause action => make_pl_type
+    | TYPE IDENT_S IS datatype_record index_by_clause action => make_pl_type
+    | TYPE IDENT_S IS datatype_table_of index_by_clause action => make_pl_type
+
+index_by_clause ::=
+    INDEX BY IDENT_S action => discard
+    | EMPTY
 
 pl_for ::=
     FOR IDENT IN pl_for_cond pl_loop action => make_pl_for
@@ -3126,8 +3130,10 @@ sub make_pl_set {
 }
 
 sub make_pl_type {
-    my (undef, undef, $ident, undef, $datatype) = @_;
+    my (undef, undef, $ident, undef, $datatype, $indexby) = @_;
     my $node = make_node('pl_type');
+
+    # drop indexby clause if any
 
     assert_one_el($datatype);
     $datatype = pop(@{$datatype});

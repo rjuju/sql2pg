@@ -103,7 +103,7 @@ begin
 end;
 create  package pkg as type myrecord is record(id number, val varvhar2(50));procedure set_val(id number, val varchar2); function get_val(id number) return varchar2;
 -- TODO/FIXME below is broken, should reference pkg.myrecord
-type mytable is table of myrecord;end pkg;
+type mytable is table of myrecord index by i;end pkg;
 create or replace package BODY pkg as procedure set_val(id number, val varchar2) is begin update config set value = val where pk = id; end;
 function get_val(id number) is val varchar;begin select value into val from config where pk = id; return val; end;end pkg;
 -- I don't belong to any query
