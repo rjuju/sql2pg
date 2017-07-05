@@ -1020,7 +1020,7 @@ CreateIndexStmt ::=
         tblspc_clause action => make_createindex
 
 CreatePkgStmt ::=
-    CREATE or_replace_clause PACKAGE IDENT_S AS pkg_headers END IDENT_S
+    CREATE or_replace_clause PACKAGE IDENT_S AS_IS pkg_headers END IDENT_S
         action => make_createpkg
 
 pkg_headers ::=
@@ -1034,7 +1034,7 @@ pkg_header ::=
     | pl_type
 
 CreatePkgBodyStmt ::=
-    (CREATE) or_replace_clause (PACKAGE BODY) IDENT_S AS pkg_body_stmts END
+    (CREATE) or_replace_clause (PACKAGE BODY) IDENT_S AS_IS pkg_body_stmts END
         IDENT_S action => make_createpkg_body
 
 pkg_body_stmts ::=
