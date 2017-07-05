@@ -236,7 +236,6 @@ sub format_createobject {
                 no strict;
                 $s = &$hook($s);
                 use strict;
-            } else {
             }
 
             $tmp .= ', ' if ($tmp);
