@@ -2191,6 +2191,8 @@ sub make_createpkg {
         if (isA($h, 'pl_type')) {
             $h->{ident}->{table} = $ident->{attribute};
             push(@{$ret}, $h);
+        } elsif (ref $h eq 'ARRAY') {
+            error("Unexpected package array ", $h);
         } else {
             error("Unhandled package element", $h);
         }
