@@ -1032,6 +1032,7 @@ pkg_header ::=
     # function header, discard it
     | FUNCTION IDENT_S pl_arglist pl_return_clause action => discard
     | pl_type
+    | pl_const
 
 CreatePkgBodyStmt ::=
     (CREATE) or_replace_clause (PACKAGE BODY) IDENT_S AS_IS pkg_body_stmts END
@@ -1237,6 +1238,9 @@ pl_type ::=
     TYPE IDENT_S IS datatype index_by_clause action => make_pl_type
     | TYPE IDENT_S IS datatype_record index_by_clause action => make_pl_type
     | TYPE IDENT_S IS datatype_table_of index_by_clause action => make_pl_type
+
+pl_const ::=
+    IDENT_S CONSTANT datatype (':=') target_el action => make_pl_const
 
 index_by_clause ::=
     INDEX BY IDENT_S action => discard
@@ -1481,7 +1485,8 @@ COMPRESS            ~ 'COMPRESS':ic
 CONNECT             ~ 'CONNECT':ic
 CONNECT_BY_ROOT     ~ 'CONNECT_BY_ROOT':ic
 CONNECT_BY_ISLEAF   ~ 'CONNECT_BY_ISLEAF':ic
-CONSTRAINT          ~'CONSTRAINT':ic
+CONSTANT            ~ 'CONSTANT':ic
+CONSTRAINT          ~ 'CONSTRAINT':ic
 CREATE              ~ 'CREATE':ic
 :lexeme             ~ CREATE pause => after event => keyword
 CROSS               ~ 'CROSS':ic
@@ -2191,6 +2196,9 @@ sub make_createpkg {
         if (isA($h, 'pl_type')) {
             $h->{ident}->{table} = $ident->{attribute};
             push(@{$ret}, $h);
+        } elsif (isA($h, 'pl_const')) {
+            $h->{ident}->{table} = $ident->{attribute};
+            # TODO handle it
         } elsif (ref $h eq 'ARRAY') {
             error("Unexpected package array ", $h);
         } else {
@@ -2978,6 +2986,18 @@ sub make_pl_close {
     $node->{ident} = $ident;
 
     return node_to_array($node);
+}
+
+sub make_pl_const {
+    my (undef, $ident, $undef, $datatype, $el) = @_;
+    my $node = make_node('pl_const');
+
+    $node->{ident} = $ident;
+    $node->{datatype} = $datatype;
+    $node->{value} = $el;
+
+    return $node;
+
 }
 
 sub make_pl_declarelist {
