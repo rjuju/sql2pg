@@ -964,7 +964,14 @@ sub format_pl_open_cursor {
 sub format_pl_raise {
     my ($node) = @_;
     my $out;
-    my $name = format_node($node->{val});
+    my $name;
+
+    # simple RAISE, in exception handler to rethrow exception
+    if (not $node->{level}) {
+        return "RAISE";
+    }
+
+    $name = format_node($node->{val});
 
     $out = "RAISE $node->{level} $name";
 

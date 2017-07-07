@@ -159,6 +159,7 @@ BEGIN
 EXCEPTION
   WHEN SQLSTATE '50001' THEN
     RAISE NOTICE 'exception catched' ;
+    RAISE ;
 END ;
 $_$ language plpgsql ;
 CREATE OR REPLACE FUNCTION test_trg()

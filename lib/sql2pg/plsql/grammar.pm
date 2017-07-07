@@ -1226,6 +1226,9 @@ pl_exit ::=
 
 pl_raise_exc ::=
     RAISE IDENT action => make_pl_raise
+    # should only exists in exception handler block, assume original code is
+    # correct
+    | RAISE action => make_pl_raise
 
 pl_return ::=
     RETURN action => make_pl_ret
@@ -3125,9 +3128,13 @@ sub make_pl_raise {
     my (undef, undef, $ident) = @_;
     my $node = make_node('pl_raise');
 
-    $node->{level} = 'EXCEPTION';
-    $node->{val} = make_node('literal');
-    $node->{val}->{value} = format_node($ident);
+    # do not specify a level for simple raise
+    $node->{level} = 'EXCEPTION' if ($ident);
+
+    if ($ident) {
+        $node->{val} = make_node('literal');
+        $node->{val}->{value} = format_node($ident);
+    }
 
     return node_to_array($node);
 }
