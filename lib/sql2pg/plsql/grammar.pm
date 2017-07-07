@@ -1482,7 +1482,7 @@ CLOSE               ~ 'CLOSE':ic
 COLUMN              ~ 'COLUMN':ic
 COMMENT             ~ 'COMMENT':ic
 :lexeme             ~ COMMENT pause => after event => keyword
-COMMIT              ~ 'COMMIT';
+COMMIT              ~ 'COMMIT':ic
 :lexeme             ~ COMMIT pause => after event => keyword
 COMPRESS            ~ 'COMPRESS':ic
 CONNECT             ~ 'CONNECT':ic
