@@ -1164,7 +1164,7 @@ pl_var ::=
     | pl_type
 
 pl_stmts ::=
-    pl_stmt* separator => SEMICOLON action => make_simple_array
+    pl_stmt* separator => SEMICOLON action => make_pl_stmts
 
 pl_stmt ::=
     raw_stmt
@@ -3158,6 +3158,26 @@ sub make_pl_set {
     return node_to_array($node);
 }
 
+sub make_pl_stmts {
+    my (undef, @nodes) = @_;
+    my $array = [];
+
+    foreach my $n (@nodes) {
+        if (ref $n eq 'ARRAY') {
+            $n = pop(@{$n});
+        }
+
+        # Detect special nodes such a COMMIT kw, and add fixme if such cases
+        if (isA($n, 'keyword') and ($n->{val} eq 'COMMIT')) {
+            add_fixme('COMMIT found in function body');
+        }
+
+        push(@{$array}, $n);
+    }
+
+    return $array;
+}
+
 sub make_pl_type {
     my (undef, undef, $ident, undef, $datatype, $indexby) = @_;
     my $node = make_node('pl_type');
@@ -3306,21 +3326,6 @@ sub make_rollupcube {
     $rollbupcube->{tlist} = $tlist;
 
     return node_to_array($rollbupcube);
-}
-
-sub make_simple_array {
-    my (undef, @nodes) = @_;
-    my $array = [];
-
-    foreach my $n (@nodes) {
-        if (ref $n eq 'ARRAY') {
-            $n = pop(@{$n});
-        }
-
-        push(@{$array}, $n);
-    }
-
-    return $array;
 }
 
 sub make_sample_clause {

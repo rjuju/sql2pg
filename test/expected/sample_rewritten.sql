@@ -236,6 +236,7 @@ BEGIN
   LOOP
     RAISE NOTICE 'id is %', id ;
     id := id - 1 ;
+    COMMIT ;
   END LOOP ;
   
   <<nested>>
@@ -251,7 +252,8 @@ BEGIN
     INTO id, id ;
 END ;
 $_$ language plpgsql ;
--- 4 FIXME for this statement
+-- 5 FIXME for this statement
+-- FIXME: COMMIT found in function body
 -- FIXME: Prepared statement parameter n°1 has been translated to parameter $1
 -- FIXME: Bindvar :d has been translated to parameter $2
 -- FIXME: Prepared statement parameter n°2 has been translated to parameter $3

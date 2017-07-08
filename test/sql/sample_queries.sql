@@ -94,7 +94,7 @@ begin
     select ? from t2;
     open cur for select * from tbl order by id;
     loop fetch cur into id, val; exit when cur%notfound or id is null or id < 0;end loop; close cur;
-        exit; id := 3; while id > 0 loop dbms_output.put_line('id is ' || id); id := id-1;end loop;
+        exit; id := 3; while id > 0 loop dbms_output.put_line('id is ' || id); id := id-1;commit;end loop;
         <<nested>>
         declare cur2 mytype; -- should it be handled?
         begin
