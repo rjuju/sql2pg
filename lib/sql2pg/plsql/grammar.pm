@@ -48,7 +48,7 @@ explain_set ::=
     | EMPTY
 
 explain_into ::=
-    INTO IDENT action => make_explain_into
+    INTO IDENT_S action => make_explain_into
     | EMPTY
 
 CombinedSelectStmt ::=
@@ -134,14 +134,14 @@ field_list ::=
     | IDENT
 
 search_clause ::=
-    SEARCH DEPTH FIRST BY simple_order_list SET IDENT
+    SEARCH DEPTH FIRST BY simple_order_list SET IDENT_S
         action => make_searchclause
-    | SEARCH BREADTH FIRST BY simple_order_list SET IDENT
+    | SEARCH BREADTH FIRST BY simple_order_list SET IDENT_S
         action => make_searchclause
     | EMPTY
 
 cycle_clause ::=
-    CYCLE IDENTS SET IDENT TO cycle_value DEFAULT cycle_value
+    CYCLE IDENTS SET IDENT_S TO cycle_value DEFAULT cycle_value
         action => make_cycleclause
     | EMPTY
 
@@ -287,7 +287,7 @@ number_list ::=
     | NUMBER
 
 function ::=
-    IDENT '(' function_args ')' respect_ignore_nulls
+    IDENT_S '(' function_args ')' respect_ignore_nulls
         keep_clause window_clause action => make_function
 
 function_args ::=
@@ -464,10 +464,10 @@ pivot_list ::=
     | pivot_elem action => discard
 
 pivot_elem ::=
-    IDENT '(' target_el ')' ALIAS_CLAUSE action => discard
+    IDENT_S '(' target_el ')' ALIAS_CLAUSE action => discard
 
 pivot_for ::=
-    FOR IDENT action => discard
+    FOR IDENTS action => discard
     | FOR parens_column_list action => discard
 
 pivot_in ::=
@@ -475,7 +475,7 @@ pivot_in ::=
     | IN '(' SelectStmt ')' action => discard
 
 unpivot_clause ::=
-    UNPIVOT inc_exc_nul '(' IDENT pivot_for unpivot_in ')'
+    UNPIVOT inc_exc_nul '(' IDENT_S pivot_for unpivot_in ')'
         action => make_unpivotclause
     | UNPIVOT inc_exc_nul '(' parens_column_list pivot_for unpivot_in ')'
         action => make_unpivotclause
@@ -493,7 +493,7 @@ unpivot_in_list ::=
     | unpivot_in_elem
 
 unpivot_in_elem ::=
-    IDENT unpivot_in_alias action => discard
+    IDENT_S unpivot_in_alias action => discard
     | parens_column_list unpivot_in_alias action => discard
 
 unpivot_in_alias ::=
@@ -647,7 +647,7 @@ reference_models ::=
     | EMPTY
 
 reference_model ::=
-    REFERENCE IDENT ON '(' SelectStmt ')' model_column_clauses
+    REFERENCE IDENT_S ON '(' SelectStmt ')' model_column_clauses
         cell_reference_options model_rules_clause
         action => discard
 
@@ -661,7 +661,7 @@ main_model ::=
         model_rules_clause action => discard
 
 main_model_name ::=
-    MAIN IDENT action => discard
+    MAIN IDENT_S action => discard
     | EMPTY
 
 model_rules_clause ::=
@@ -700,7 +700,7 @@ model_rules_clause_elem ::=
         action => discard
 
 cell_assignment ::=
-    IDENT '[' cell_assignment_elems ']' action => discard
+    IDENT_S '[' cell_assignment_elems ']' action => discard
 
 cell_assignment_elems ::=
     cell_assignment_elems ',' cell_assignment_elem action => discard
@@ -713,7 +713,7 @@ cell_assignment_elem ::=
     | multi_column_for_loop
 
 single_column_for_loop ::=
-    FOR IDENT single_column_for_loop_elem action => discard
+    FOR IDENT_S single_column_for_loop_elem action => discard
 
 single_column_for_loop_elem ::=
     IN '(' LITERALS ')' action => discard
@@ -795,9 +795,9 @@ update_set_list ::=
     | update_set_elem
 
 update_set_elem ::=
-    IDENT '=' target_el action => make_opexpr
+    IDENT_S '=' target_el action => make_opexpr
     | '(' update_set_elems ')' '=' '(' SelectStmt ')' action => make_update_set_set
-    | IDENT '=' '(' SelectStmt ')' action => make_update_ident_set
+    | IDENT_S '=' '(' SelectStmt ')' action => make_update_ident_set
 
 update_set_elems ::=
     update_set_elems ',' IDENT action => append_el_1_3
@@ -864,7 +864,7 @@ err_log_list ::=
 
 
 CreateTableStmt ::=
-    (CREATE) temp_clause (TABLE) IDENT ('(') tbl_cols (_COMMA) (')')
+    (CREATE) temp_clause (TABLE) IDENT_S ('(') tbl_cols (_COMMA) (')')
         tbl_att_clauses temp_commit_clause tblspc_clause
         action => make_createtable
 
@@ -882,13 +882,14 @@ tbl_cols ::=
     | tbl_coldef
 
 tbl_coldef ::=
-    IDENT datatype col_pk col_default (_ENCRYPT) check_clause generated_clause
+    IDENT_S datatype col_pk col_default (_ENCRYPT) check_clause generated_clause
         NOT_NULL tbl_col_references enable_clause action => make_tbl_coldef
-    | IDENT AS ('(') target_el (')') action => make_tbl_coldef_as
+    | IDENT_S AS ('(') target_el (')') action => make_tbl_coldef_as
 
 tbl_col_references ::=
-    CONSTRAINT IDENT REFERENCES IDENT ('(') IDENT (')') fk_on_del fk_on_upd
-        deferrable_clause action => make_tbl_col_references
+    CONSTRAINT IDENT_S REFERENCES IDENT_S ('(') IDENT_S (')')
+        fk_on_del fk_on_upd deferrable_clause
+        action => make_tbl_col_references
     | EMPTY
 
 generated_clause ::=
@@ -981,7 +982,7 @@ deferrable_clause ::=
     | EMPTY
 
 CreateTableAsStmt ::=
-    CREATE TABLE IDENT CT_options AS SelectStmt action => make_createtableas
+    CREATE TABLE IDENT_S CT_options AS SelectStmt action => make_createtableas
 
 CT_options ::=
     CT_option* action => discard
@@ -991,7 +992,7 @@ CT_option ::=
     | COMPRESS
 
 CreateViewAsStmt ::=
-    CREATE or_replace_clause (_FORCE) VIEW IDENT view_cols AS SelectStmt
+    CREATE or_replace_clause (_FORCE) VIEW IDENT_S view_cols AS SelectStmt
         view_opts action => make_createviewas
 
 view_cols ::=
@@ -1016,7 +1017,7 @@ or_replace_clause ::=
     | EMPTY
 
 CreateIndexStmt ::=
-    CREATE _UNIQUE INDEX IDENT ON IDENT ('(') simple_order_list (')')
+    CREATE _UNIQUE INDEX IDENT_S ON IDENT_S ('(') simple_order_list (')')
         tblspc_clause action => make_createindex
 
 CreatePkgStmt ::=
@@ -1046,7 +1047,7 @@ pkg_body_stmt ::=
 
 CreateTblspcStmt ::=
     # ignore BIG|SMALL and tablespace kind
-    (CREATE tblspc_bigsmall tblspc_kind TABLESPACE) IDENT tblspc_options
+    (CREATE tblspc_bigsmall tblspc_kind TABLESPACE) IDENT_S tblspc_options
         action => make_tblspc
 
 tblspc_bigsmall ::=
@@ -1098,7 +1099,7 @@ flashback__mode_clause ::=
     | FLASHBACK OFF action => discard
 
 CreateSequenceStmt ::=
-    CREATE SEQUENCE IDENT seq_options action => make_createsequence
+    CREATE SEQUENCE IDENT_S seq_options action => make_createsequence
 
 seq_options ::=
     seq_option* action => ::array
@@ -1139,7 +1140,7 @@ pl_args ::=
     pl_arg* separator => COMMA action => ::array
 
 pl_arg ::=
-    IDENT argmode datatype col_default action => make_pl_arg
+    IDENT_S argmode datatype col_default action => make_pl_arg
 
 argmode ::=
     IN action => upper
@@ -1159,8 +1160,8 @@ pl_declarelist ::=
     pl_var* separator => SEMICOLON action => make_pl_declarelist
 
 pl_var ::=
-    IDENT datatype col_default action => make_pl_var
-    | IDENT datatype col_default (':=') target_el action => make_pl_var
+    IDENT_S datatype col_default action => make_pl_var
+    | IDENT_S datatype col_default (':=') target_el action => make_pl_var
     | pl_type
 
 pl_stmts ::=
@@ -1192,7 +1193,7 @@ pl_exception_list ::=
     pl_exception_when+ separator => SEMICOLON action => ::array
 
 pl_exception_when ::=
-    WHEN IDENT THEN pl_stmts action => make_pl_exception_when
+    WHEN IDENT_S THEN pl_stmts action => make_pl_exception_when
 
 pl_block ::=
     pl_block_ident pl_declareblock (BEGIN) pl_stmts pl_exception (END) _IDENT
@@ -1203,7 +1204,7 @@ pl_block_ident ::=
     | EMPTY
 
 pl_close ::=
-    CLOSE IDENT action => make_pl_close
+    CLOSE IDENT_S action => make_pl_close
 
 IfThenElse ::=
     (IF) target_el (THEN) pl_stmts pl_elsifs (END IF)
@@ -1225,7 +1226,7 @@ pl_exit ::=
     | EXIT WHEN qual_list action => make_pl_exit
 
 pl_raise_exc ::=
-    RAISE IDENT action => make_pl_raise
+    RAISE IDENT_S action => make_pl_raise
     # should only exists in exception handler block, assume original code is
     # correct
     | RAISE action => make_pl_raise
@@ -1235,7 +1236,7 @@ pl_return ::=
     | RETURN target_el action => make_pl_ret
 
 pl_set ::=
-    IDENT ':=' target_el action => make_pl_set
+    IDENT_S ':=' target_el action => make_pl_set
 
 pl_type ::=
     TYPE IDENT_S IS datatype index_by_clause action => make_pl_type
@@ -1250,7 +1251,7 @@ index_by_clause ::=
     | EMPTY
 
 pl_for ::=
-    FOR IDENT IN pl_for_cond pl_loop action => make_pl_for
+    FOR IDENT_S IN pl_for_cond pl_loop action => make_pl_for
 
 pl_for_cond ::=
     SelectStmt
@@ -1261,17 +1262,17 @@ pl_loop ::=
     LOOP pl_stmts END LOOP action => make_pl_loop
 
 pl_open_cursor_for ::=
-    OPEN IDENT FOR SelectStmt action => make_pl_open_cursor
-    | OPEN IDENT FOR IDENT_S action => make_pl_open_cursor
+    OPEN IDENT_S FOR SelectStmt action => make_pl_open_cursor
+    | OPEN IDENT_S FOR IDENT_S action => make_pl_open_cursor
 
 pl_fetch_into ::=
-    FETCH IDENT INTO IDENTS action => make_pl_fetch_into
+    FETCH IDENT_S INTO IDENTS action => make_pl_fetch_into
 
 pl_while ::=
     WHILE qual_list pl_loop action => make_pl_while
 
 CreateTriggerStmt ::=
-    (CREATE) or_replace_clause (TRIGGER) IDENT trigger_when (ON) IDENT
+    (CREATE) or_replace_clause (TRIGGER) IDENT_S trigger_when (ON) IDENT_S
         trigger_for pl_block action => make_createtrigger
 
 trigger_when ::=
@@ -1289,14 +1290,14 @@ trigger_for ::=
     | FOR EACH STATEMENT action => concat
 
 AlterTableStmt ::=
-    ALTER TABLE IDENT AT_action action => make_altertable
+    ALTER TABLE IDENT_S AT_action action => make_altertable
 
 AT_action ::=
     ADD AT_constraint_def action => make_AT_add_constraints
     | ADD ('(') AT_constraints (')') action => make_AT_add_constraints
 
 AT_constraint_def ::=
-    CONSTRAINT IDENT AT_constraint tblspc_clause action => make_AT_constraint_def
+    CONSTRAINT IDENT_S AT_constraint tblspc_clause action => make_AT_constraint_def
 
 _USING_INDEX ::=
     USING INDEX action => discard
@@ -1334,7 +1335,7 @@ pk_clause ::=
     PRIMARY KEY ('(') IDENTS (')') action => make_pk_clause
 
 fk_clause ::=
-    (FOREIGN KEY) ('(') IDENTS (')') (REFERENCES) IDENT ('(') IDENTS (')')
+    (FOREIGN KEY) ('(') IDENTS (')') (REFERENCES) IDENT_S ('(') IDENTS (')')
         fk_on_del fk_on_upd deferrable_clause action => make_fk_clause
 
 fk_on_del ::=
@@ -1353,7 +1354,7 @@ fk_action ::=
     | SET DEFAULT action => concat
 
 TruncateStmt ::=
-    TRUNCATE TABLE IDENT truncate_opts action => make_truncatestmt
+    TRUNCATE TABLE IDENT_S truncate_opts action => make_truncatestmt
 
 truncate_opts ::=
     truncate_opt* action => discard
@@ -1363,7 +1364,7 @@ truncate_opt ::=
     | PURGE MATERIALIZED VIEW LOG action => discard
 
 CommentStmt ::=
-    COMMENT ON comment_obj IDENT IS LITERAL action => make_comment
+    COMMENT ON comment_obj IDENT_S IS LITERAL action => make_comment
 
 comment_obj ::=
     TABLE action => upper
@@ -2027,11 +2028,10 @@ sub make_at_time_zone {
 sub make_AT_constraint_add_clauses {
     my (undef, $constraint, $using, $enable, $validate) = @_;
 
-    assert_one_el($constraint);
-    @{$constraint}[0]->{using} = $using;
+    $constraint->{using} = $using;
     # drop enable clause if any
     if ($validate and $validate eq 'NOVALIDATE') {
-        @{$constraint}[0]->{not_valid} = 1;
+        $constraint->{not_valid} = 1;
     }
 
     return $constraint;
@@ -2254,14 +2254,12 @@ sub make_createtable {
     my $stmts;
     my $ret = [];
 
-    assert_one_el($ident);
-
     if ($temp) {
         $node->{kind} = 'TEMPORARY TABLE';
     } else {
         $node->{kind} = 'TABLE';
     }
-    $node->{ident} = pop(@{$ident});
+    $node->{ident} = $ident;
     $node->{cols} = $cols;
     $node->{storage} = $storage;
     $node->{on_commit} = $on_commit;
@@ -2604,8 +2602,7 @@ sub make_function {
     my (undef, $ident, undef, $args, undef, undef, undef, $windowclause) = @_;
     my $func = make_node('function');
 
-    assert_one_el($ident);
-    $func->{ident} = pop(@{$ident});
+    $func->{ident} = $ident;
     $func->{args} = $args;
     $func->{window} = $windowclause;
     $func->{hook} = 'sql2pg::plsql::utils::handle_function';
@@ -3532,8 +3529,7 @@ sub make_tbl_coldef {
 
     assert_one_el($datatype);
     $datatype = pop(@{$datatype});
-    assert_one_el($ident);
-    $ident = pop(@{$ident});
+
     if ($expr) {
         assert_one_el($expr);
         $expr = pop(@{$expr});
@@ -3581,8 +3577,6 @@ sub make_tbl_coldef_as {
     my (undef, $ident, undef, $expr) = @_;
     my $node = make_node('tbl_coldef');
 
-    assert_one_el($ident);
-    $ident = pop(@{$ident});
     assert_one_el($expr);
     $expr = pop(@{$expr});
 
@@ -3593,13 +3587,13 @@ sub make_tbl_coldef_as {
 }
 
 sub make_tbl_col_references {
-    my (undef, undef, $fkname, undef, $ident, $dsts, $on_del, $on_upd,
+    my (undef, undef, $fkname, undef, $ident, $dst, $on_del, $on_upd,
         $deferrable) = @_;
     my $node = make_node('fk_clause');
 
     $node->{fkname} = $fkname;
     $node->{ident} = $ident;
-    $node->{dsts} = $dsts;
+    $node->{dsts} = node_to_array($dst);
     $node->{on_del} = $on_del;
     $node->{on_upd} = $on_upd;
     $node->{deferrable} = $deferrable;
