@@ -762,7 +762,7 @@ sub format_pl_block {
     $depth++;
     foreach my $s (@{$node->{stmts}}) {
         if (isA($s, 'function')) {
-            $out .= tab() . 'PERFORM ' . format_node($s) . "\n";
+            $out .= tab() . 'PERFORM ' . format_node($s) . " ;\n";
         } else {
             $out .= tab() . format_node($s) . " ;\n";
         }

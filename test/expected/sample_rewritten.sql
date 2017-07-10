@@ -247,7 +247,7 @@ BEGIN
   val := get_select('*', 't') ;
   
   OPEN cur FOR EXECUTE val ;
-  PERFORM fct(cur.id)
+  PERFORM fct(cur.id) ;
   EXECUTE 'select 1, 1 from' || 'cur.tbl'
     INTO id, id ;
 END ;
