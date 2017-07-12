@@ -1991,9 +1991,6 @@ sub make_AT_constraint_def {
     my (undef, undef, $ident, $constraint, $tblspc) = @_;
     my $node = make_node('AT_action');
 
-    assert_one_el($constraint);
-    $constraint = pop(@{$constraint});
-
     # Remove deferrable clauses when PG don't support them
     if (
         isA($constraint, 'check_clause') or
@@ -2099,7 +2096,7 @@ sub make_check_clause {
     $node->{el} = $el;
     $node->{deferrable} = $deferrable;
 
-    return node_to_array($node);
+    return $node;
 }
 
 sub make_coldefault {
@@ -2500,7 +2497,7 @@ sub make_fk_clause {
     $node->{on_upd} = $on_upd;
     $node->{deferrable} = $deferrable;
 
-    return node_to_array($node);
+    return $node;
 }
 
 sub make_flashback_clause {
@@ -2946,7 +2943,7 @@ sub make_pk_clause {
 
     $node->{idents} = $idents;
 
-    return node_to_array($node);
+    return $node;
 }
 
 sub make_pl_arg {
@@ -3650,7 +3647,7 @@ sub make_unique_clause {
 
     $node->{idents} = $idents;
 
-    return node_to_array($node);
+    return $node;
 }
 
 sub make_unpivotclause {
