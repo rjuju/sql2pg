@@ -3534,9 +3534,6 @@ sub make_tbl_coldef {
 
     # PG doesn't handle DEFERRABLE in such case, drop it if any
     if ($check) {
-        assert_one_el($check);
-        $check = pop(@{$check});
-
         if (exists $check->{deferrable}) {
             delete $check->{deferrable};
         }
