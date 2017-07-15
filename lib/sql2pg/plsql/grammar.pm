@@ -611,6 +611,7 @@ group_elem ::=
     | ROLLUP '(' target_list ')' action => make_rollupcube
     | CUBE '(' target_list ')' action => make_rollupcube
     | GROUPING SETS '(' group_list ')' action => make_groupingsetsclause
+    | '(' group_elem ')' action => second
     # only legal in GROUPING SETS list elem
     | '()' action => make_keyword # simple way to have empty parens as-is, not pruned
 
