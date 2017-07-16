@@ -35,6 +35,7 @@ raw_stmt ::=
     | UpdateStmt
     | DeleteStmt
     | InsertStmt
+    | MergeStmt
     | ExplainStmt
     | DDLStmt
     | TransacStmt
@@ -82,6 +83,29 @@ InsertStmt ::=
     # parens_column_list should only allow single col name, not FQN ident
     INSERT INTO from_elem parens_column_list insert_data error_logging_clause
         action => make_insert
+
+MergeStmt ::=
+    (MERGE INTO) ALIASED_IDENT (USING) merge_using (ON) ('(') qual_list (')')
+        merge_update_clause merge_insert_clause error_logging_clause
+        action => make_merge
+
+merge_using ::=
+    ALIASED_IDENT
+    | '(' SelectStmt ')' ALIAS_CLAUSE action => second
+
+merge_update_clause ::=
+    (WHEN MATCHED THEN UPDATE) update_set_clause where_clause
+        merge_update_delete action => make_merge_update_clause
+    | EMPTY
+
+merge_update_delete ::=
+    DELETE where_clause action => make_merge_update_delete
+    | EMPTY
+
+merge_insert_clause ::=
+    (WHEN NOT MATCHED THEN INSERT) parens_column_list (VALUES) ('(')
+        target_list (')') where_clause action => make_merge_insert_clause
+    | EMPTY
 
 DDLStmt ::=
     CreateStmt
@@ -1592,6 +1616,7 @@ LOOP                ~ 'LOOP':ic
 MAIN                ~ 'MAIN':ic
 MANAGEMENT          ~ 'MANAGEMENT':ic
 MANUAL              ~ 'MANUAL':ic
+MATCHED             ~ 'MATCHED':ic
 MATERIALIZED        ~ 'MATERIALIZED':ic
 MAXEXTENTS          ~ 'MAXEXTENTS':ic
 MAXSIZE             ~ 'MAXSIZE':ic
@@ -1599,6 +1624,8 @@ MAXTRANS            ~ 'MAXTRANS':ic
 MAXVALUE            ~ 'MAXVALUE':ic
 :lexeme             ~ MAXVALUE priority => 1
 MEASURES            ~ 'MEASURES':ic
+MERGE               ~ 'MERGE':ic
+:lexeme             ~ MERGE pause => after event => keyword
 MINEXTENTS          ~ 'MINEXTENTS':ic
 MINIMUM             ~ 'MINIMUM':ic
 MINUS               ~ 'MINUS':ic
@@ -2826,6 +2853,139 @@ sub make_literal {
     $literal->{alias} = $alias;
 
     return node_to_array($literal);
+}
+
+sub make_merge {
+    my (undef, $ident, $using, $on, $update, $insert, undef) = @_;
+    my $conflict_cols = [];
+    my $reftbl;
+    my $node = make_node('insert');
+
+    assert_one_el($ident);
+    $ident = pop(@{$ident});
+
+    $node->{from} = $ident;
+
+    if ($ident->{alias}) {
+        $reftbl = $ident->{alias};
+    } else {
+        $reftbl = $ident->{attribute};
+    }
+
+    if ($insert) {
+        $node->{cols} = $insert->{cols};
+
+        if ($insert->{where}) {
+            add_fixme('WHERE clause of the merge_insert_clause has been ignored: '
+                . format_node($insert->{where}));
+        }
+    }
+
+    assert_one_el($using);
+    $using = pop(@{$using});
+
+    # if the USING clause was a simple relation name, build a simple select
+    # sttmt
+    if (isA($using, 'ident')) {
+        my $select = make_node('select');
+        my $tlist = [];
+        my $from = [];
+
+        push(@{$tlist}, make_ident('*'));
+        $select->{SELECT} = make_clause('SELECT', $tlist);
+
+        push(@{$from}, $using);
+        $select->{FROM} = make_clause('FROM', $from);
+
+        $node->{data} = $select;
+    } else {
+        $node->{data} = $using;
+    }
+
+    # Generate the column list of the ON CONFLICT clause from the MERGE ... ON
+    # original clause.
+    foreach my $n (@{$on}) {
+        if (isA($n, 'qual')) {
+            if ($n->{op} ne '=') {
+                error("Operator $n->{op} is not supported.\n"
+                    . 'Only = operator is allowed in ON CONFLICT');
+            }
+            if (isA($n->{left}, 'ident') and ($n->{left}->{table} eq $reftbl)) {
+                push(@{$conflict_cols}, make_ident($n->{left}->{attribute}));
+            } elsif (isA($n->{right}, 'ident') and ($n->{right}->{table} eq $reftbl)) {
+                push(@{$conflict_cols}, make_ident($n->{right}->{attribute}));
+            }
+        } else {
+            error('Node not handled, please report an issue.', $n);
+        }
+    }
+    $node->{conflict_cols} = $conflict_cols;
+
+    if ($update) {
+        my $sets = [];
+
+        # If the MERGE original command had a merge_update_clause, generate a
+        # list of opexpr suitable for pg.  The LHS mustn't be qualified, and
+        # force an "excluded" qualifier on the RHS of the opexpr
+        foreach my $n (@{$update->{sets}->{content}}) {
+            if (isA($n, 'opexpr')) {
+                # XXX for now the RHS can still be an array, handle it
+                if (ref $n->{right} eq 'ARRAY') {
+                    assert_one_el($n->{right});
+                    $n->{right} = pop(@{$n->{right}});
+                }
+
+                if (isA($n->{left}, 'ident')
+                    and ($n->{left}->{table} eq $reftbl)
+                ) {
+                    $n->{left}->{table} = undef;
+
+                    # XXX if the RHS isn't an ident, just use it as-is
+                    if (isA($n->{right}, 'ident')) {
+                        $n->{right}->{table} = 'excluded';
+                        $n->{right}->{schema} = undef;
+                    }
+                    push(@{$sets}, $n);
+                }
+            } else {
+                error('Node not handled, please report an issue.', $n);
+            }
+        }
+        $node->{conflict_update} = $sets if (scalar @{$sets} > 0);
+        $node->{conflict_where} = $update->{where} if $update;
+    }
+
+    return node_to_array($node);
+}
+
+sub make_merge_insert_clause {
+    my (undef, $cols, $values, $where) = @_;
+    my $node = make_node('merge_insert_clause');
+
+    $node->{cols} = $cols;
+    $node->{values} = $values;
+    $node->{where} = $where;
+
+    return $node;
+}
+
+sub make_merge_update_clause {
+    my (undef, $sets, $where) = @_;
+    my $node = make_node('merge_update_clause');
+
+    $node->{sets} = $sets;
+    $node->{where} = $where;
+
+    return $node;
+}
+
+sub make_merge_update_delete {
+    my (undef, undef, $where) = @_;
+
+    add_fixme('DELETE clause of the merge_update_clause has been ignored: DELETE '
+        . format_node($where));
+
+    return undef;
 }
 
 sub make_modelclause {

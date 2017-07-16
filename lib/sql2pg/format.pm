@@ -536,6 +536,22 @@ sub format_insert {
     $out .= ' ' . format_node($stmt->{cols}) if defined($stmt->{cols});
     $out .= ' ' . format_node($stmt->{data});
 
+    if ($stmt->{conflict_cols}) {
+        $out .= ' ON CONFLICT ('
+            . format_array($stmt->{conflict_cols}, ', ')
+            . ') DO ';
+
+        if ($stmt->{conflict_update}) {
+            $out .= 'UPDATE SET ' . format_array($stmt->{conflict_update}, ', ');
+
+            if ($stmt->{conflict_where}) {
+                $out .= ' ' . format_node($stmt->{conflict_where});
+            }
+        } else {
+            $out .= 'NOTHING';
+        }
+    }
+
     return $out;
 }
 
