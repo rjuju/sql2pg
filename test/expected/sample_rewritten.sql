@@ -147,6 +147,8 @@ BEGIN
     <<block1>>
     DECLARE
       i integer ;
+      dt1 timestamp with time zone ;
+      dt2 timestamp with time zone ;
     BEGIN
       TRUNCATE TABLE tmp ;
       FOR i IN (SELECT i FROM tbl WHERE pk = id)

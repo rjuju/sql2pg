@@ -965,6 +965,8 @@ datatype ::=
 datatype_ident ::=
     IDENT_S
     | REF CURSOR action => concat
+    | TIMESTAMP WITH LOCAL TIME ZONE action => make_timestamptz
+    | TIMESTAMP WITH TIME ZONE action => make_timestamptz
 
 pl_typeref ::=
     ('%') TYPE action => upper
@@ -3770,6 +3772,10 @@ sub make_tblspc {
     }
 
     return node_to_array($node);
+}
+
+sub make_timestamptz {
+    return 'timestamp with time zone';
 }
 
 sub make_timezoneexpr {
