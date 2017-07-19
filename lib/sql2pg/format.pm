@@ -54,7 +54,10 @@ sub format_array {
     my ($arr, $delim) = @_;
     my $out = '';
 
+    return '' unless ($arr);
+
     assert(ref $arr eq 'ARRAY', $arr);
+
     foreach my $elem (@{$arr}) {
         $out .= $delim if ($out ne '');
         $out .= format_node($elem);
