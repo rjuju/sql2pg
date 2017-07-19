@@ -442,7 +442,7 @@ sub format_from_only {
 
 sub format_function {
     my ($func) = @_;
-    my $out = undef;
+    my $out = '';
     my $ident;
     my $hook = $func->{hook};
 
@@ -456,14 +456,10 @@ sub format_function {
         return format_node($func);
     }
 
-    foreach my $arg (@{$func->{args}}) {
-        $out .= ', ' if defined($out);
-        $out .= format_node($arg);
-    }
-    # arguments are optional
-    $out = '' unless defined($out);
-
-    $out = format_ident($func->{ident}) . '(' . $out . ')';
+    $out = format_ident($func->{ident})
+        . '('
+        . format_array($func->{args}, ', ')
+        . ')';
 
     $out .= format_node($func->{window}) if defined($func->{window});
     $out .= format_alias($func->{alias});
