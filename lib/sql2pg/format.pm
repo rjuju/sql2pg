@@ -524,6 +524,9 @@ sub format_ident {
         if (defined($ident->{collation}));
     $out .= format_alias($ident->{alias});
 
+    # prepend the sign if one was specified
+    $out = format_node($ident->{sign}) . $out if ($ident->{sign});
+
     return $out;
 }
 

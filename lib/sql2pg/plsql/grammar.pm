@@ -311,8 +311,8 @@ number_list ::=
     | NUMBER
 
 function ::=
-    IDENT_S '(' function_args ')' respect_ignore_nulls
-        keep_clause window_clause action => make_function
+    IDENT_S ('(') function_args (')') respect_ignore_nulls keep_clause
+        window_clause action => make_function
 
 function_args ::=
     function_args ',' function_arg action => append_el_1_3
@@ -554,17 +554,23 @@ qual_exists ::=
     EXISTS action => upper
     | NOT EXISTS action => concat
 
-# by default, array version
-IDENT ::=
-    ident '.' ident '.' ident action => make_ident_a
-    | ident '.' ident action => make_ident_a
-    | ident action => make_ident_a
-
-# scalar node
-IDENT_S ::=
+raw_ident ::=
     ident '.' ident '.' ident action => make_ident_s
     | ident '.' ident action => make_ident_s
     | ident action => make_ident_s
+
+# obviously assume original query is correct, there's no way to know if this
+# is legal without catalog access
+signed_ident_s ::=
+    sign raw_ident action => sign_ident_s
+
+# by default, array version
+IDENT ::=
+    signed_ident_s action => to_array_el1
+
+# scalar version
+IDENT_S ::=
+    signed_ident_s
 
 IDENTS ::=
     IDENTS ',' IDENT action => append_el_1_3
@@ -2626,8 +2632,10 @@ sub make_fromonly {
 }
 
 sub make_function {
-    my (undef, $ident, undef, $args, undef, undef, undef, $windowclause) = @_;
+    my (undef, $ident, $args, $rin, $kc, $windowclause) = @_;
     my $func = make_node('function');
+
+    # respect_ignore_nulls and keep_clause are ignored
 
     $func->{ident} = $ident;
     $func->{args} = $args;
@@ -3908,10 +3916,24 @@ sub second {
     return $node;
 }
 
+sub sign_ident_s {
+    my (undef, $sign, $ident) = @_;
+
+    $ident->{sign} = $sign;
+
+    return $ident;
+}
+
 sub third {
     my (undef, undef, undef, $node) = @_;
 
     return $node;
+}
+
+sub to_array_el1 {
+    my (undef, $node) = @_;
+
+    return node_to_array($node);
 }
 
 sub upper {

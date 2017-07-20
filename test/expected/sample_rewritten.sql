@@ -74,6 +74,7 @@ INSERT INTO t1 AS t (id, val, dt) SELECT id, val, sysdate FROM tmp AS t2 WHERE i
 -- FIXME: DELETE clause of the merge_update_clause has been ignored: DELETE WHERE src.id > 1000
 -- FIXME: WHERE clause of the merge_insert_clause has been ignored: WHERE id > 0
 INSERT INTO t1 AS t SELECT * FROM tmp.data ON CONFLICT (id) DO UPDATE SET val = excluded.val ;
+SELECT  - fact(2),  + fact, fact(2), fact(3) - fact, fact(3) +  - id,  - id FROM t ;
 -- now unsupported stuff
 SELECT 1 FROM t1 AS t WHERE id < 10 ;
 -- 1 FIXME for this statement
