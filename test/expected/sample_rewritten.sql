@@ -256,6 +256,11 @@ BEGIN
   
   OPEN cur FOR EXECUTE val ;
   PERFORM fct(cur.id) ;
+  CASE cur2.id 
+    WHEN NULL THEN RAISE NOTICE 'null' ; 
+    WHEN 0 THEN NULL ;
+    ELSE RAISE NOTICE 'cur2.id is %', cur2.id ;
+  END CASE ;
   EXECUTE 'select 1, 1 from' || 'cur.tbl'
     INTO id, id ;
 END ;

@@ -116,12 +116,27 @@ sub format_case_when {
     my $out = 'CASE';
 
     foreach my $n (@{$node->{whens}}) {
+        $depth++;
         $out .= ' ' . format_node($n);
+        $depth--;
     }
 
-    $out .= ' ' . format_node($node->{else}) if (defined($node->{else}));
-
-    $out .= ' END' . format_alias($node->{alias});
+    if ($node->{else}) {
+        # semicolon can only be present if it's a case/when inside pl func, use
+        # some newlines, tabs and append final semicolon
+        if ($node->{else}->{semcol}) {
+            assert(not $node->{alias});
+            $depth++;
+            $out .= "\n" . tab() . format_node($node->{else}) . " ;\n";
+            $depth--;
+            $out .= tab() . 'END CASE';
+        } else {
+            $out .= ' ' . format_node($node->{else});
+            $out .= ' END' . format_alias($node->{alias});
+        }
+    } else {
+        $out .= ' END';
+    }
 
     return $out;
 }
@@ -1385,6 +1400,13 @@ sub format_values {
 
 sub format_when {
     my ($node) = @_;
+
+    # semicolon can only be present if it's a case/when inside pl func, use
+    # some newlines, tabs and append final semicolon
+    if ($node->{semcol}) {
+        return "\n" . tab() . 'WHEN ' . format_node($node->{el1})
+            . ' THEN ' . format_node($node->{el2}) . ' ;';
+    }
 
     return 'WHEN ' . format_node($node->{el1})
         . ' THEN ' . format_node($node->{el2});

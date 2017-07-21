@@ -269,10 +269,14 @@ when_list ::=
     | when_elem
 
 when_elem ::=
-    WHEN function_arg THEN function_arg action => make_when
+    # semicolon only present in pl_func.  Per doc, only one statement is
+    # allowed in this case
+    WHEN function_arg THEN function_arg _SEMICOLON action => make_when
 
 else_expr ::=
-    ELSE target_el action => make_else
+    # semicolon only present in pl_func.  Per doc, only one statement is
+    # allowed in this case
+    ELSE target_el _SEMICOLON action => make_else
     | EMPTY
 
 # special grammar notation, handle it explicitely to avoid ambiguity
@@ -1202,6 +1206,7 @@ pl_stmts ::=
 
 pl_stmt ::=
     raw_stmt
+    | case_when
     | function
     | IfThenElse
     | pl_block
@@ -1458,6 +1463,10 @@ _ENCRYPT ::=
 
 _REVERSE ::=
     REVERSE
+    | EMPTY
+
+_SEMICOLON ::=
+    SEMICOLON
     | EMPTY
 
 _VIRTUAL ::=
@@ -2438,10 +2447,11 @@ sub make_distinct_selectclause {
 }
 
 sub make_else {
-  my (undef, undef, $el) = @_;
+  my (undef, undef, $el, $semcol) = @_;
   my $node = make_node('else');
 
   $node->{el} = $el;
+  $node->{semcol} = $semcol;
 
   # There can only be one else, so don't array it
   return $node;
@@ -3868,11 +3878,12 @@ sub make_values {
 }
 
 sub make_when {
-    my (undef, undef, $el1, undef, $el2) = @_;
+    my (undef, undef, $el1, undef, $el2, $semcol) = @_;
     my $node = make_node('when');
 
     $node->{el1} = $el1;
     $node->{el2} = $el2;
+    $node->{semcol} = $semcol;
 
     return node_to_array($node);
 }

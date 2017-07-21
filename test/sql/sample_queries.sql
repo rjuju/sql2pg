@@ -104,6 +104,7 @@ begin
         declare cur2 mytype; -- should it be handled?
         begin
         end; val := get_select('*', 't'); open cur for val; fct(cur.id);
+        case cur2.id when null then dbms_output.put_line('null'); when 0 then null; else DBMS_OUTPUT.put_line('cur2.id is ' || cur2.id); end;
         execute immediate 'select 1, 1 from' || 'cur.tbl' into id, id;
 end;
 create  package pkg is type myrecord is record(id number, val varvhar2(50));procedure set_val(id number, val varchar2); function get_val(id number) return varchar2;
