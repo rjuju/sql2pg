@@ -338,6 +338,7 @@ function_args ::=
 
 function_arg ::=
     target_el respect_ignore_nulls action => make_function_arg
+    | IDENT_S '=>' target_el action => make_function_arg_named
     | trim_arg action => make_function_arg
     | cast_arg action => make_function_arg
 
@@ -2674,6 +2675,18 @@ sub make_function_arg {
 
     assert_one_el($el);
 
+    $node->{arg} = $el;
+
+    return node_to_array($node);
+}
+
+sub make_function_arg_named {
+    my (undef, $arg_name, undef, $el) = @_;
+    my $node = make_node('function_arg');
+
+    assert_one_el($el);
+
+    $node->{arg_name} = $arg_name;
     $node->{arg} = $el;
 
     return node_to_array($node);

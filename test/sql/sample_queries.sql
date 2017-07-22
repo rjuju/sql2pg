@@ -28,7 +28,7 @@ select round(t.val /100, 2) from t;
 select id, case id when 0 then 'blah' else id % 3 > 1 end as val from t;
 select id, case when val = 0 then 'nothing' when val < 100 then 'little' when val >=100 then 'lot' end from t;
 select trim(leading ' ' from v), cast(t as number(2)) from t where id > (select count(*) from t2);
-select count(*) from t where val like '%the_val%' escape '\' and rownum <= 5 or val like (fct(val)) for update skip locked;
+select count(*) from t where val like '%the_val%' escape '\' and rownum <= 5 or val like (fct(value => val)) for update skip locked;
 with s (id, val) as (select 1, 'val' from dual) search breadth first by id nulls first, val asc set id cycle id2,id3 set id4 to '1' default '0' select * from s;
 select * from dual, (((((t t1 left join (select 1 from t2) tt using (((id)))))) right join t using (id)));
 select count(*) from t where val in ('a', 'b') or val not in (('test')) or not exists (select 1 from t2 where t2.id = t1.id) or exists (((((select 1 from t3 where t3.id=t1.id)))));
@@ -103,7 +103,7 @@ begin
         <<nested>>
         declare cur2 mytype; -- should it be handled?
         begin
-        end; val := get_select('*', 't'); open cur for val; fct(cur.id);
+        end; val := get_select(field => '*', cond => 't'); open cur for val; fct(cur.id);
         useless_cw case cur2.id when null then case when random() = 0 then dbms_ouput.put_line('bingo') ;else dbms_output.put_line('null'); end case; when 0 then id := 1; else DBMS_OUTPUT.put_line('cur2.id is ' || cur2.id); end case useless_cw;
         execute immediate 'select 1, 1 from' || 'cur.tbl' into id, id;
 end;

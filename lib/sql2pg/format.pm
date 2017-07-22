@@ -487,10 +487,13 @@ sub format_function_arg {
     my $hook = $node->{hook};
     my $out = '';
 
-    foreach my $a (@{$node->{arg}}) {
-        $out .= ' ' unless($out eq '');
-        $out .= format_node($a);
+    # Prepend the arg name if it was provided
+    if ($node->{arg_name}) {
+        $out = format_node($node->{arg_name}) . ' := ';
     }
+
+    # FIXME there should never be more than 1 elem here
+    $out .= format_array($node->{arg}, ',');
 
     return $out;
 }

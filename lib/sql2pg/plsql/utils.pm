@@ -552,6 +552,7 @@ sub putline_to_raise {
 
     # this should be the root call
     if (isA($node, 'function_arg')) {
+        # FIXME there should never be more than 1 elem here
         foreach my $a (@{$node->{arg}}) {
             putline_to_raise($a, $raise);
         }
