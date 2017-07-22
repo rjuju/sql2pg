@@ -258,7 +258,8 @@ a_expr ::=
     | ANY action => make_keyword
 
 case_when ::=
-    CASE when_expr else_expr END action => make_case_when
+    # optional leading IDENT is only legal in pl_func
+    (_IDENT) CASE when_expr else_expr (case_end) action => make_case_when
 
 when_expr ::=
     when_list
@@ -271,13 +272,25 @@ when_list ::=
 when_elem ::=
     # semicolon only present in pl_func.  Per doc, only one statement is
     # allowed in this case
-    WHEN function_arg THEN function_arg _SEMICOLON action => make_when
+    WHEN function_arg THEN case_when_instruction _SEMICOLON action => make_when
 
 else_expr ::=
     # semicolon only present in pl_func.  Per doc, only one statement is
     # allowed in this case
-    ELSE target_el _SEMICOLON action => make_else
+    ELSE case_when_instruction _SEMICOLON action => make_else
     | EMPTY
+
+case_when_instruction ::=
+    # legal in simple SQL statement
+    target_el
+    # legal in pl_func
+    | pl_stmt
+
+case_end ::=
+    # legal in SQL statements
+    END action => discard
+    # legal in pl_func
+    | END CASE _IDENT action => discard
 
 # special grammar notation, handle it explicitely to avoid ambiguity
 trim_arg ::=
@@ -2115,7 +2128,7 @@ sub make_bindvar {
 }
 
 sub make_case_when {
-    my (undef, undef, $whens, $else, undef) = @_;
+    my (undef, undef, $whens, $else) = @_;
     my $node = make_node('case_when');
 
     $node->{whens} = $whens;
