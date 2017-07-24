@@ -2674,6 +2674,7 @@ sub make_function_arg {
     my $node = make_node('function_arg');
 
     assert_one_el($el);
+    $el = pop(@{$el});
 
     $node->{arg} = $el;
 
@@ -2685,6 +2686,7 @@ sub make_function_arg_named {
     my $node = make_node('function_arg');
 
     assert_one_el($el);
+    $el = pop(@{$el});
 
     $node->{arg_name} = $arg_name;
     $node->{arg} = $el;

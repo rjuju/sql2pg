@@ -492,8 +492,7 @@ sub format_function_arg {
         $out = format_node($node->{arg_name}) . ' := ';
     }
 
-    # FIXME there should never be more than 1 elem here
-    $out .= format_array($node->{arg}, ',');
+    $out .= format_node($node->{arg});
 
     return $out;
 }
