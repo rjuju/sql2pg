@@ -489,7 +489,7 @@ sub format_function_arg {
 
     # Prepend the arg name if it was provided
     if ($node->{arg_name}) {
-        $out = format_node($node->{arg_name}) . ' := ';
+        $out = format_node($node->{arg_name}) . ' => ';
     }
 
     $out .= format_node($node->{arg});

@@ -35,7 +35,7 @@ SELECT round(t.val / 100, 2) FROM t ;
 SELECT id, CASE id WHEN 0 THEN 'blah' ELSE id % 3 > 1 END AS val FROM t ;
 SELECT id, CASE WHEN val = 0 THEN 'nothing' WHEN val < 100 THEN 'little' WHEN val >= 100 THEN 'lot' END FROM t ;
 SELECT trim(LEADING  ' '  FROM  v ), cast(t AS numeric(2)) FROM t WHERE id > (SELECT count(*) FROM t2) ;
-SELECT count(*) FROM t WHERE val LIKE '%the_val%' ESCAPE '\' OR val LIKE (fct(value := val)) FOR UPDATE SKIP LOCKED LIMIT 5 ;
+SELECT count(*) FROM t WHERE val LIKE '%the_val%' ESCAPE '\' OR val LIKE (fct(value => val)) FOR UPDATE SKIP LOCKED LIMIT 5 ;
 WITH s (id, val) AS (SELECT 1, 'val') SELECT * FROM s ;
 -- 2 FIXME for this statement
 -- FIXME: SEARCH clause ignored: SEARCH BREADTH FIRST BY id ASC NULLS FIRST, val ASC SET id
@@ -252,7 +252,7 @@ BEGIN
     cur2 mytype ;
   BEGIN
   END ;
-  val := get_select(field := '*', cond := 't') ;
+  val := get_select(field => '*', cond => 't') ;
   
   OPEN cur FOR EXECUTE val ;
   PERFORM fct(cur.id) ;
