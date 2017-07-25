@@ -29,6 +29,11 @@ stmtmulti ::=
 stmt ::=
     raw_stmt action => call_format_stmts
     | ExplainStmt action => call_format_stmts
+    # SHOW ERRORS doesn't need trailing semicolon, so detect it before any
+    # statement
+    | (SHOW ERRORS) stmt action => ::first
+    # and just in case detect it if it's the final (or only) statement
+    | (SHOW ERRORS) action => ::undef
 
 raw_stmt ::=
     CombinedSelectStmt
@@ -1744,6 +1749,7 @@ SELECT              ~ 'SELECT':ic
 :lexeme             ~ SELECT pause => after event => keyword
 SET                 ~ 'SET':ic
 SETS                ~ 'SETS':ic
+SHOW                ~ 'SHOW':ic
 SIBLINGS            ~ 'SIBLINGS':ic
 SINGLE              ~ 'SINGLE':ic
 SIZE                ~ 'SIZE':ic
