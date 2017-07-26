@@ -211,11 +211,13 @@ BEGIN
     id := 1 ;
     id := 0 ;
     
-    RETURN 'true' ;
+    RETURN (('true')) ;
   ELSE
     
     RETURN 'false' ;
   END IF ;
+  
+  RETURN  ;
 END ;
 $_$ language plpgsql ;
 CREATE FUNCTION toto()

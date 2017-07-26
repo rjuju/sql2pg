@@ -1290,6 +1290,7 @@ pl_raise_exc ::=
 
 pl_return ::=
     RETURN action => make_pl_ret
+    | RETURN ('()') action => make_pl_ret
     | RETURN target_el action => make_pl_ret
 
 pl_set ::=
