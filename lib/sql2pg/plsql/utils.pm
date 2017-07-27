@@ -222,6 +222,37 @@ sub handle_datatype {
     return $node;
 }
 
+sub handle_dbmsoutput_putline {
+    my ($func) = @_;
+
+    assert_isA($func, 'function');
+
+    my $funcname = $func->{ident}->{attribute};
+    my $func_schema = $func->{ident}->{table} || '';
+
+    if ($func_schema eq 'dbms_output'
+        and $funcname eq 'put_line'
+    ) {
+        my $raise = make_node('pl_raise');
+        my $args;
+
+        $raise->{args} = [];
+        $raise->{val} = make_node('literal');
+
+        $raise->{level} = 'NOTICE';
+
+        assert_one_el($func->{args});
+        $args = pop(@{$func->{args}});
+
+        # Convert "a || b" to PG "% %, a, b" syntax
+        putline_to_raise($args, $raise);
+
+        return $raise;
+    }
+
+    return $func;
+}
+
 # get all TYPE ... IS and replace accordingly all declared vars
 # TODO how does it behave in nested code blocks and possible overloading? for
 # now do not track them outside current block level
@@ -351,24 +382,6 @@ sub handle_function {
         $func->{ident}->{attribute} = 'date_trunc';
     } elsif ($funcname eq 'sys_guid') {
         $func->{ident}->{attribute} = 'uuid_generate_v4';
-    } elsif ($func_schema eq 'dbms_output'
-        and $funcname eq 'put_line'
-    ) {
-        my $raise = make_node('pl_raise');
-        my $args;
-
-        $raise->{args} = [];
-        $raise->{val} = make_node('literal');
-
-        $raise->{level} = 'NOTICE';
-
-        assert_one_el($func->{args});
-        $args = pop(@{$func->{args}});
-
-        # Convert "a || b" to PG "% %, a, b" syntax
-        putline_to_raise($args, $raise);
-
-        return $raise;
     }
 
     return $func;

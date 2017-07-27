@@ -2673,6 +2673,9 @@ sub make_function {
     $func->{window} = $windowclause;
     $func->{hook} = 'sql2pg::plsql::utils::handle_function';
 
+    # handle now dbmsoutput.put_line function, converted to another node
+    $func = sql2pg::plsql::utils::handle_dbmsoutput_putline($func);
+
     return node_to_array($func);
 }
 
