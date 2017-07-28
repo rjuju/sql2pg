@@ -277,19 +277,20 @@ when_list ::=
 when_elem ::=
     # semicolon only present in pl_func.  Per doc, only one statement is
     # allowed in this case
-    WHEN function_arg THEN case_when_instruction _SEMICOLON action => make_when
+    WHEN function_arg THEN case_when_instruction action => make_when
 
 else_expr ::=
     # semicolon only present in pl_func.  Per doc, only one statement is
     # allowed in this case
-    ELSE case_when_instruction _SEMICOLON action => make_else
+    ELSE case_when_instruction action => make_else
     | EMPTY
 
+# this rule returns a scalar in SQL context and an array in PL/SQL context
 case_when_instruction ::=
     # legal in simple SQL statement
-    target_el
+    target_el action => to_scalar
     # legal in pl_func
-    | pl_stmt
+    | pl_stmts
 
 case_end ::=
     # legal in SQL statements
@@ -1485,10 +1486,6 @@ _REVERSE ::=
     REVERSE
     | EMPTY
 
-_SEMICOLON ::=
-    SEMICOLON
-    | EMPTY
-
 _VIRTUAL ::=
     VIRTUAL
     | EMPTY
@@ -2472,7 +2469,6 @@ sub make_else {
   my $node = make_node('else');
 
   $node->{el} = $el;
-  $node->{semcol} = $semcol;
 
   # There can only be one else, so don't array it
   return $node;
@@ -3916,12 +3912,11 @@ sub make_values {
 }
 
 sub make_when {
-    my (undef, undef, $el1, undef, $el2, $semcol) = @_;
+    my (undef, undef, $when, undef, $then) = @_;
     my $node = make_node('when');
 
-    $node->{el1} = $el1;
-    $node->{el2} = $el2;
-    $node->{semcol} = $semcol;
+    $node->{when} = $when;
+    $node->{then} = $then;
 
     return node_to_array($node);
 }
@@ -3983,6 +3978,14 @@ sub to_array_el1 {
     my (undef, $node) = @_;
 
     return node_to_array($node);
+}
+
+sub to_scalar {
+    my (undef, $node) = @_;
+
+    assert_one_el($node);
+
+    return pop(@{$node});
 }
 
 sub upper {

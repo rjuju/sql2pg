@@ -105,7 +105,7 @@ begin
         declare cur2 mytype; -- should it be handled?
         begin
         end; val := get_select(field => '*', cond => 't'); open cur for val; fct(cur.id);
-        useless_cw case cur2.id when null then case when random() = 0 then dbms_ouput.put_line('bingo') ;else dbms_output.put_line('null'); end case; when 0 then id := 1; else DBMS_OUTPUT.put_line('cur2.id is ' || cur2.id); end case useless_cw;
+        useless_cw case cur2.id when null then case when random() = 0 then f1(-1);dbms_output.put_line('bingo') ;else dbms_output.put_line('null'); end case; when 0 then id := 1; else DBMS_OUTPUT.put_line('cur2.id is ' || cur2.id); end case useless_cw;
         execute immediate 'select 1, 1 from' || 'cur.tbl' into id, id;
 end;
 create  package pkg is type myrecord is record(id number, val varvhar2(50));procedure set_val(id number, val varchar2); function get_val(id number) return varchar2;

@@ -122,16 +122,22 @@ sub format_case_when {
     }
 
     if ($node->{else}) {
-        # semicolon can only be present if it's a case/when inside pl func, use
-        # some newlines, tabs and append final semicolon
-        if ($node->{else}->{semcol}) {
-            assert(not $node->{alias});
+        assert(isA($node->{else}, 'else'));
+
+        # detect a CASE/WHEN in pl_func.  In this case, use some newlines, tabs
+        # and append final semicolon
+        #
+        # It's a pl_func iif the node->{else} content is an array
+        if (ref $node->{else}->{el} eq 'ARRAY') {
+            assert((not $node->{alias}), "CASE/WHEN should not have an alias when used in PL/SQL", $node->{alias});
             $depth++;
-            $out .= "\n" . tab() . format_node($node->{else}) . " ;\n";
+            # the format_else() function will take care of prepending ELSE and
+            # formatting the statements suitable for pl_func
+            $out .= format_else($node->{else});
             $depth--;
             $out .= tab() . 'END CASE';
         } else {
-            $out .= ' ' . format_node($node->{else});
+            $out .= ' ' . format_else($node->{else});
             $out .= ' END' . format_alias($node->{alias});
         }
     } else {
@@ -358,7 +364,17 @@ sub format_deparse {
 sub format_else {
     my ($node) = @_;
 
-    return 'ELSE ' . format_node($node->{el});
+    if (ref $node->{el} eq 'ARRAY') {
+        my $out = tab() . "ELSE\n";
+
+        $depth++;
+        $out .= format_pl_STATEMENTS($node->{el});
+        $depth--;
+
+        return $out;
+    } else {
+        return tab() . 'ELSE ' . format_node($node->{el});
+    }
 }
 
 sub format_explain {
@@ -794,14 +810,9 @@ sub format_pl_block {
     }
 
     $out .= tab() . "BEGIN\n";
+
     $depth++;
-    foreach my $s (@{$node->{stmts}}) {
-        if (isA($s, 'function')) {
-            $out .= tab() . 'PERFORM ' . format_node($s) . " ;\n";
-        } else {
-            $out .= tab() . format_node($s) . " ;\n";
-        }
-    }
+    $out .= format_pl_STATEMENTS($node->{stmts});
     $depth--;
 
     if ($node->{exception}) {
@@ -1034,6 +1045,24 @@ sub format_pl_set {
     my ($node) = @_;
 
     return format_node($node->{ident}) . ' := ' . format_node($node->{val});
+}
+
+# this function doesn't correspond to an existing node, it's there to handle
+# special rules like adding a PERFORM before a function call when formatting
+# function inside the statements of pl_func node or its inner nodes
+sub format_pl_STATEMENTS {
+    my ($node) = @_;
+    my $out = '';
+
+    foreach my $s (@{$node}) {
+        if (isA($s, 'function')) {
+            $out .= tab() . 'PERFORM ' . format_node($s) . " ;\n";
+        } else {
+            $out .= tab() . format_node($s) . " ;\n";
+        }
+    }
+
+    return $out;
 }
 
 sub format_pl_type {
@@ -1403,15 +1432,23 @@ sub format_values {
 sub format_when {
     my ($node) = @_;
 
-    # semicolon can only be present if it's a case/when inside pl func, use
+    # detect a CASE/WHEN in pl_func.  In this case, use
     # some newlines, tabs and append final semicolon
-    if ($node->{semcol}) {
-        return "\n" . tab() . 'WHEN ' . format_node($node->{el1})
-            . ' THEN ' . format_node($node->{el2}) . ' ;';
+    #
+    # It's a pl_func iif node->{then} is an array
+    if (ref $node->{then} eq 'ARRAY') {
+        my $out = "\n" . tab() . 'WHEN ' . format_node($node->{when})
+            . " THEN\n";
+
+        $depth++;
+        $out .= format_pl_STATEMENTS($node->{then});
+        $depth--;
+
+        return $out;
     }
 
-    return 'WHEN ' . format_node($node->{el1})
-        . ' THEN ' . format_node($node->{el2});
+    return 'WHEN ' . format_node($node->{when})
+        . ' THEN ' . format_node($node->{then});
 }
 
 sub format_WHERE {
