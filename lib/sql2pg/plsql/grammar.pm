@@ -2957,9 +2957,16 @@ sub make_merge {
     }
 
     # Generate the column list of the ON CONFLICT clause from the MERGE ... ON
-    # original clause.
-    foreach my $n (@{$on}) {
-        if (isA($n, 'qual')) {
+    # original clause.  quals using = operator and "AND" are handled,
+    # everything else will error out, since I don't really know what to do
+    # about those cases
+    #
+    # FIXME I should probably try to support parens as long as only ANDed quals
+    # on = op are present
+    QUAL_EL: foreach my $n (@{$on}) {
+        if (not ref $n and $n eq 'AND') {
+            next QUAL_EL;
+        } elsif (isA($n, 'qual')) {
             if ($n->{op} ne '=') {
                 error("Operator $n->{op} is not supported.\n"
                     . 'Only = operator is allowed in ON CONFLICT');

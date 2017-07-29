@@ -45,7 +45,7 @@ CREAte table nsp.t as select 1 from dual;
 comment on table nsp.t is 'this table should have only one line';
 create or replace view v as select * from nsp.t;
 select '''it''s a ''''lot of quotes''', 'it''s fine' from dual;
-merge into t1 t using (select id, val, sysdate from tmp t2 where id = 1) as src on (t.id = src.id)
+merge into t1 t using (select id, val, sysdate from tmp t2 where id = 1) as src on (t.id = src.id and src.id2 = t.id2)
 when matched then update set t.val = src.val, t.dt = sysdate where t.id < 100 delete where src.id > 1000
 when not matched then insert (id, val, dt) values (1, 'new', sysdate) where id > 0;
 merge into t1 t using tmp.data on (t.id = data.id) when matched then update set t.val = data.val;

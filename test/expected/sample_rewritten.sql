@@ -69,7 +69,7 @@ CREATE TABLE nsp.t AS SELECT 1 ;
 COMMENT ON TABLE nsp.t IS 'this table should have only one line' ;
 CREATE OR REPLACE VIEW v AS SELECT * FROM nsp.t ;
 SELECT '''it''s a ''''lot of quotes''', 'it''s fine' ;
-INSERT INTO t1 AS t (id, val, dt) SELECT id, val, sysdate FROM tmp AS t2 WHERE id = 1 ON CONFLICT (id) DO UPDATE SET val = excluded.val, dt = excluded.sysdate WHERE t.id < 100 ;
+INSERT INTO t1 AS t (id, val, dt) SELECT id, val, sysdate FROM tmp AS t2 WHERE id = 1 ON CONFLICT (id, id2) DO UPDATE SET val = excluded.val, dt = excluded.sysdate WHERE t.id < 100 ;
 -- 2 FIXME for this statement
 -- FIXME: DELETE clause of the merge_update_clause has been ignored: DELETE WHERE src.id > 1000
 -- FIXME: WHERE clause of the merge_insert_clause has been ignored: WHERE id > 0
