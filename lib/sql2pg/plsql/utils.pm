@@ -10,7 +10,7 @@ require Exporter;
 
 BEGIN {
     @ISA = qw(Exporter);
-    @EXPORT = qw(quote_ident);
+    @EXPORT = qw(make_ident quote_ident);
 }
 
 
@@ -556,6 +556,28 @@ sub handle_tbl_attribute {
     }
 
     return $node;
+}
+
+# FIXME move this function to common.pm, and have the needed quote_ident()
+# call resolved according to grammar needs
+sub make_ident {
+    my ($schema, $table, $attribute) = @_;
+    my @atts = ('schema', 'table', 'attribute');
+    my $ident = make_node('ident');
+
+    if (defined($attribute)) {
+        $ident->{pop(@atts)} = quote_ident($attribute);
+    }
+
+    if (defined($table)) {
+        $ident->{pop(@atts)} = quote_ident($table);
+    }
+
+    if (defined($schema)) {
+        $ident->{pop(@atts)} = quote_ident($schema);
+    }
+
+    return $ident;
 }
 
 # This function walks through pl/sql dbms_output.put_line arguments and

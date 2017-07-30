@@ -2751,26 +2751,6 @@ sub make_hierarchicalclause {
     return make_clause('HIERARCHICAL', $node);
 }
 
-sub make_ident {
-    my ($schema, $table, $attribute) = @_;
-    my @atts = ('schema', 'table', 'attribute');
-    my $ident = make_node('ident');
-
-    if (defined($attribute)) {
-        $ident->{pop(@atts)} = quote_ident($attribute);
-    }
-
-    if (defined($table)) {
-        $ident->{pop(@atts)} = quote_ident($table);
-    }
-
-    if (defined($schema)) {
-        $ident->{pop(@atts)} = quote_ident($schema);
-    }
-
-    return $ident;
-}
-
 sub make_ident_a {
     my (undef, $schema, undef, $table, undef, $attribute) = @_;
 
