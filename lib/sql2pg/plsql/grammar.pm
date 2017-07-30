@@ -2752,7 +2752,7 @@ sub make_hierarchicalclause {
 }
 
 sub make_ident {
-    my ($table, $schema, $attribute) = @_;
+    my ($schema, $table, $attribute) = @_;
     my @atts = ('schema', 'table', 'attribute');
     my $ident = make_node('ident');
 
@@ -2760,27 +2760,27 @@ sub make_ident {
         $ident->{pop(@atts)} = quote_ident($attribute);
     }
 
-    if (defined($schema)) {
-        $ident->{pop(@atts)} = quote_ident($schema);
-    }
-
     if (defined($table)) {
         $ident->{pop(@atts)} = quote_ident($table);
+    }
+
+    if (defined($schema)) {
+        $ident->{pop(@atts)} = quote_ident($schema);
     }
 
     return $ident;
 }
 
 sub make_ident_a {
-    my (undef, $table, undef, $schema, undef, $attribute) = @_;
+    my (undef, $schema, undef, $table, undef, $attribute) = @_;
 
-    return node_to_array(make_ident($table, $schema, $attribute));
+    return node_to_array(make_ident($schema, $table, $attribute));
 }
 
 sub make_ident_s {
-    my (undef, $table, undef, $schema, undef, $attribute) = @_;
+    my (undef, $schema, undef, $table, undef, $attribute) = @_;
 
-    return make_ident($table, $schema, $attribute);
+    return make_ident($schema, $table, $attribute);
 }
 
 sub make_insert {
