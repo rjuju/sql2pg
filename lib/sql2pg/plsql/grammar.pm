@@ -151,8 +151,8 @@ with_list ::=
     | with_elem
 
 with_elem ::=
-    ident parens_field_list AS '(' SelectStmt ')' search_clause cycle_clause
-        action => make_with
+    UNSIGNED_IDENT_S parens_field_list AS '(' SelectStmt ')' search_clause
+        cycle_clause action => make_with
 
 parens_field_list ::=
     '(' field_list ')' action => second
@@ -595,6 +595,9 @@ IDENT ::=
 # scalar version
 IDENT_S ::=
     signed_ident_s
+
+UNSIGNED_IDENT_S ::=
+    raw_ident
 
 IDENTS ::=
     IDENTS ',' IDENT action => append_el_1_3

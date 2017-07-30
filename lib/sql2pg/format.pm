@@ -1463,7 +1463,7 @@ sub format_with {
     my ($with) = @_;
     my $out;
 
-    $out = $with->{alias};
+    $out = format_node($with->{alias});
     $out .= ' (' . format_array($with->{fields}, ', ') . ')'
         if (defined($with->{fields}));
 

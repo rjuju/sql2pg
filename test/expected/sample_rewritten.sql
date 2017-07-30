@@ -10,7 +10,7 @@ SELECT round(sum(count(*)), 2), 1 FROM a LEFT JOIN b AS t1 ON a.id = t1.id ;
 SELECT t2.* FROM t1 LEFT JOIN t2 ON t1.id <= t2.id ;
 SELECT id, log(2, id), log(10, id), count(*) FROM a GROUP BY id HAVING count(*) < 10 ;
 SELECT val, rank() OVER (PARTITION BY id) AS rank, lead(val) OVER (ORDER BY val ASC ROWS CURRENT ROW), lag(val) OVER (PARTITION BY id, val ORDER BY val ASC RANGE BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING) AS lag FROM t ;
-WITH s1 AS (WITH s3 AS (SELECT 1) SELECT * FROM s3), s AS (SELECT * FROM s1 LIMIT 1) SELECT * FROM s, (WITH t AS (SELECT 3 FROM t) SELECT * FROM t) AS subquery1 CROSS JOIN (WITH u AS (SELECT count(*) AS nb) SELECT nb FROM u UNION ALL (SELECT 0)) AS subquery2 LIMIT 1 ;
+WITH "S1" AS (WITH s3 AS (SELECT 1) SELECT * FROM s3), s AS (SELECT * FROM s1 LIMIT 1) SELECT * FROM s, (WITH t AS (SELECT 3 FROM t) SELECT * FROM t) AS subquery1 CROSS JOIN (WITH u AS (SELECT count(*) AS nb) SELECT nb FROM u UNION ALL (SELECT 0)) AS subquery2 LIMIT 1 ;
 WITH RECURSIVE s AS (SELECT 1), recur AS (SELECT employee_id, last_name, manager_id FROM employees WHERE employee_id = 1 UNION ALL (SELECT employee_id, last_name, manager_id FROM employees WHERE isvalid = 1 AND recur.employee_id = manager_id)) SELECT * FROM recur WHERE salary > 0 ;
 -- 4 FIXME for this statement
 -- FIXME: NOCYCLE clause ignored for clause: isvalid = 1 AND employee_id = manager_id

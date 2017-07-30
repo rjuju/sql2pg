@@ -150,7 +150,7 @@ sub handle_connectby {
     }
 
     # start constructing the WITH clause from scratch
-    $with->{alias} = 'recur';
+    $with->{alias} = make_ident('recur');
     $with->{recursive} = 1;
 
     # if a START WITH clause was present, transfer it to the WHERE clause of
