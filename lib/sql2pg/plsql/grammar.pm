@@ -1947,17 +1947,6 @@ sub append_el_1_3 {
     return $nodes;
 }
 
-sub append_function_arg {
-    my (undef, $nodes, $el) = @_;
-
-    assert_one_el($nodes);
-    assert_isA(@{$nodes}[0], 'function_arg');
-
-    push(@{@{$nodes}[0]->{arg}}, @{$el});
-
-    return $nodes;
-}
-
 sub append_joinlist {
     my (undef, $from, $joins, $pivot) = @_;
 
