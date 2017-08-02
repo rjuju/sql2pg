@@ -3671,11 +3671,10 @@ sub make_subjoin {
 }
 
 sub make_subquery {
-    my (undef, undef, $stmts, undef, $alias) = @_;
+    my (undef, undef, $stmts, undef) = @_;
     my $clause;
     my $node = make_node('subquery');
 
-    $node->{alias} = $alias;
     $node->{stmts} = $stmts;
     $clause = make_clause('SUBQUERY', $node);
 
