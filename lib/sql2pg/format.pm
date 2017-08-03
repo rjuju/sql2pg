@@ -479,7 +479,7 @@ sub format_function {
 
     # first transform function to pg compatible if needed
     no strict;
-    $func = &$hook($func);
+    $func = &$hook($func) if ($hook);
     use strict;
 
     # hook can transform a function call to something else
