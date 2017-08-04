@@ -577,6 +577,17 @@ sub make_ident {
         $ident->{pop(@atts)} = quote_ident($schema);
     }
 
+    # special handling of SYSDATE, rewritten to a simple call to
+    # clock_timestamp() at grammar time
+    if ($ident->{attribute} eq 'sysdate' and not $ident->{table}) {
+        my $node = make_node('function');
+
+        # generate basic function node, no hook or args needed
+        $node->{ident} = make_ident('clock_timestamp');
+
+        return $node;
+    }
+
     return $ident;
 }
 
