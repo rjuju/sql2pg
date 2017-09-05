@@ -98,6 +98,7 @@ cur2 sys_refcursor;
 begin
     select ?,:d,? from t;
     select ? from t2;
+    if SQL%ROWCOUNT = 1 then dbms_output.put_line('1 line'); else dbms_output.put_line('1 line'); end if;
     open cur for select * from tbl order by id;
     loop fetch cur into id, val; exit when cur%notfound or id is null or id < 0;end loop; close cur;
         exit; id := 3; while id > 0 loop dbms_output.put_line('id is ' || id); id := id-1;commit;end loop;
@@ -106,7 +107,7 @@ begin
         begin
         end; val := get_select(field => '*', cond => 't'); open cur for val; fct(cur.id);
         useless_cw case cur2.id when null then case when random() = 0 then f1(-1);dbms_output.put_line('bingo') ;else dbms_output.put_line('null'); end case; when 0 then id := 1; else DBMS_OUTPUT.put_line('cur2.id is ' || cur2.id); end case useless_cw;
-        execute immediate 'select 1, 1 from' || 'cur.tbl' into id, id;
+        execute immediate 'select 1, 1 from' || 'cur.tbl' into id, id; id := sql%rowcount;
 end;
 create  package pkg is type myrecord is record(id number, val varvhar2(50));procedure set_val(id number, val varchar2); function get_val(id number) return varchar2;
 -- TODO/FIXME below is broken, should reference pkg.myrecord

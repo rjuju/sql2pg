@@ -2215,8 +2215,7 @@ sub make_createindex {
 }
 
 sub make_createpl_func {
-    my (undef, $replace, $ident, $args, $returns, $block)
-        = @_;
+    my ($gstate, $replace, $ident, $args, $returns, $block) = @_;
     my $node = make_node('pl_func');
 
     $node->{ident} = $ident;
@@ -2231,6 +2230,9 @@ sub make_createpl_func {
 
     assert_one_el($block);
     $node->{block} = pop(@{$block});
+
+    # Add a variable for the SQL%ROWCOUNT rewrite if needed
+    sql2pg::plsql::utils::handle_declare_rowcount($gstate, $node->{block}->{declare});
 
     return node_to_array($node);
 }
@@ -3065,8 +3067,31 @@ sub make_number {
 }
 
 sub make_opexpr {
-    my (undef, $left, $op, $right) = @_;
+    my ($gstate, $left, $op, $right) = @_;
+    my ($l2, $r2);
 
+    if (ref $left eq 'ARRAY') {
+        assert_one_el($left);
+        $l2 = @{$left}[0];
+    }
+
+    if (ref $right eq 'ARRAY') {
+        assert_one_el($right);
+        $r2 = @{$right}[0];
+    }
+
+    #special kludge for SQL%ROWCOUNT
+    if (
+        ($op eq '%')
+        and (isA($l2, 'ident')) and ($l2->{attribute} eq 'sql')
+        and (isA($r2, 'ident')) and ($r2->{attribute} eq 'rowcount')
+    ) {
+        my $node = make_ident('sql2pg_rowcount');
+
+        $gstate->{generate_rowcount} = 1;
+
+        return node_to_array($node);
+    }
     return make_node_opexpr($left, $op, $right);
 }
 
@@ -3282,15 +3307,21 @@ sub make_pl_for {
 }
 
 sub make_pl_ifthenelse {
-    my (undef, $if, $then, $elsifs, $else, undef) = @_;
+    my ($gstate, $if, $then, $elsifs, $else, undef) = @_;
     my $node = make_node('pl_ifthenelse');
+    my $result;
+
+    # if the underlying node need to get the rowcount, add a node to the result
+    $result = sql2pg::plsql::utils::handle_generate_rowcount($gstate);
 
     $node->{if} = $if;
     $node->{then} = $then;
     $node->{elsifs} = $elsifs;
     $node->{else} = $else;
 
-    return node_to_array($node);
+    push(@{$result}, $node);
+
+    return $result;
 }
 
 sub make_pl_loop {
@@ -3337,13 +3368,19 @@ sub make_pl_ret {
 }
 
 sub make_pl_set {
-    my (undef, $ident, undef, $el) = @_;
+    my ($gstate, $ident, undef, $el) = @_;
     my $node = make_node('pl_set');
+    my $result;
+
+    # if the underlying node need to get the rowcount, add a node to the result
+    $result = sql2pg::plsql::utils::handle_generate_rowcount($gstate);
 
     $node->{ident} = $ident;
     $node->{val} = $el;
 
-    return node_to_array($node);
+    push(@{$result}, $node);
+
+    return $result;
 }
 
 sub make_pl_stmts {
@@ -3351,16 +3388,23 @@ sub make_pl_stmts {
     my $array = [];
 
     foreach my $n (@nodes) {
+        my $cur;
+
+        START:
         if (ref $n eq 'ARRAY') {
-            $n = pop(@{$n});
+            $cur = shift(@{$n});
+        } else {
+            $cur = $n;
         }
 
         # Detect special nodes such a COMMIT kw, and add fixme if such cases
-        if (isA($n, 'keyword') and ($n->{val} eq 'COMMIT')) {
+        if (isA($cur, 'keyword') and ($cur->{val} eq 'COMMIT')) {
             add_fixme('COMMIT found in function body');
         }
 
-        push(@{$array}, $n);
+        push(@{$array}, $cur);
+
+        goto START if ((ref $n eq 'ARRAY') and (scalar @{$n} > 0));
     }
 
     return $array;

@@ -269,6 +269,34 @@ sub handle_declarelist {
     }
 }
 
+# Other part of SQL%ROWCOUNT rewrite, see handle_generate_rowcount for more
+# details
+sub handle_declare_rowcount {
+    my ($gstate, $declare) = @_;
+    my $node;
+
+    return unless ($gstate);
+    return unless ($gstate->{declare_rowcount});
+
+    # generate the var declaration
+    $node = make_node('pl_var');
+    $node->{ident} = make_ident('sql2pg_rowcount');
+    $node->{datatype} = make_node('datatype');
+    $node->{datatype}->{ident} = make_ident('int');
+
+    if ($declare) {
+        assert_isA($declare, 'pl_declarelist');
+        push(@{$declare->{vars}}, $node);
+    } else {
+        $declare = make_node('pl_declarelist');
+
+        $declare->{vars} = node_to_array($node);
+    }
+
+    # and remove the flag for the state
+    delete $gstate->{declare_rowcount};
+}
+
 # Oracle wants column name, pg wants table name, try to figure it out.  It's
 # done here just in case original query only provided column name without
 # reference to column and there was only one table ref.
@@ -385,6 +413,31 @@ sub handle_function {
     }
 
     return $func;
+}
+
+# This function will handle a state var, and if it's needed generate a GET
+# DIAGNOSTICS ...  ROW_COUNT, remove the according state and push instead
+# another state to tell the declare bloc to declare the needed var
+sub handle_generate_rowcount {
+    my ($gstate) = @_;
+    my $node;
+
+    # Return empty arrayref if there's nothing to do
+    return [] unless ($gstate);
+    return [] unless ($gstate->{generate_rowcount});
+
+    # generate the needed variable initialization
+    $node = make_node('pl_set');
+    $node->{ident} = make_node('deparse');
+
+    $node->{ident}->{deparse} = 'GET DIAGNOSTICS sql2pg_rowcount';
+    $node->{val} = make_ident('ROW_COUNT');
+
+    # and update the state
+    delete $gstate->{generate_rowcount};
+    $gstate->{declare_rowcount} = 1;
+
+    return node_to_array($node);
 }
 
 # This function will remove any "joinop" qual (ident op ident(+)), and will add

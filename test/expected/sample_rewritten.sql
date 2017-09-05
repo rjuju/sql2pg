@@ -228,9 +228,17 @@ DECLARE
   id numeric ;
   val varchar(255) ;
   cur2 refcursor ;
+  sql2pg_rowcount int ;
 BEGIN
   SELECT $1, $2, $3 FROM t ;
   SELECT $4 FROM t2 ;
+  GET DIAGNOSTICS sql2pg_rowcount := row_count ;
+  
+  IF sql2pg_rowcount = 1 THEN
+    RAISE NOTICE '1 line' ;
+  ELSE
+    RAISE NOTICE '1 line' ;
+  END IF ;
   
   OPEN cur FOR
     SELECT * FROM tbl ORDER BY id ASC ;
@@ -275,6 +283,8 @@ BEGIN
   END CASE ;
   EXECUTE 'select 1, 1 from' || 'cur.tbl'
     INTO id, id ;
+  GET DIAGNOSTICS sql2pg_rowcount := row_count ;
+  id := sql2pg_rowcount ;
 END ;
 $_$ language plpgsql ;
 -- 5 FIXME for this statement
