@@ -75,6 +75,10 @@ SingleSelectStmt ::=
     with_clause SELECT select_clause into_clause from_clause where_clause
         hierarchical_clause group_clause having_clause
         model_clause order_clause forupdate_clause action => make_select
+    # Oracle allows to have the having clause before the group by clause
+    | with_clause SELECT select_clause into_clause from_clause where_clause
+        hierarchical_clause having_clause group_clause
+        model_clause order_clause forupdate_clause action => make_select
 
 UpdateStmt ::=
     UPDATE update_from_clause update_set_clause where_clause
