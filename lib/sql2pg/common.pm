@@ -3,7 +3,7 @@ package sql2pg::common;
 # Project  : Multidatabase to PostgreSQL SQL converter
 # Name     : sql2pg
 # Author   : Julien Rouhaud, julien.rouhaud (AT) free (DOT) fr
-# Copyright: Copyright (c) 2016-2017 : Julien Rouhaud - All rights reserved
+# Copyright: Copyright (c) 2016-2022 : Julien Rouhaud - All rights reserved
 #------------------------------------------------------------------------------
 
 require Exporter;
